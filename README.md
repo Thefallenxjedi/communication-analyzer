@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Communication Analyzer (EliteSpeak-style)
 
-## Getting Started
+Free communication analysis report via a lead-gen funnel: landing → name/email (demo only) → analyze → colorful EliteSpeak report across **20 markers** scored **1–10**.
 
-First, run the development server:
+## Funnel
+
+1. **Landing** — dark colorful CTA page
+2. **Lead form** — name + email (stored in `sessionStorage` only; noop API — nothing is collected to a database)
+3. **Analyzer** — record audio/video, YouTube, upload, or paste text (server Gemini key only — no API key UI)
+4. **Loading** — progressive “checking your voice…” steps
+5. **Report** — dark matching ranking dashboard + sentence timeline
+
+## What you get
+
+- Session overview + key observations
+- All 20 markers with expandable coach detail
+- Top 3 priority drills + 24-hour action plan
+- Sentence timeline with word tags
+
+## Limits
+
+- Upload up to **5 minutes**; we **process the first 4 minutes**
+- Soft daily rate limit per IP (default **20**/day) — override with `ANALYZE_DAILY_LIMIT`
+
+## Stack
+
+- Next.js App Router + TypeScript + Tailwind
+- Google AI SDK (`@ai-sdk/google` + `ai`) + Gemini Flash
+- FFmpeg.wasm (client) for video → audio + frame sampling
+- Zod EliteSpeak report schema
+
+## Setup
+
+```bash
+npm install
+```
+
+```bash
+# .env.local
+GOOGLE_GENERATIVE_AI_API_KEY=your_key_here
+ANALYZE_DAILY_LIMIT=20
+```
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Deploy (Vercel)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Set `GOOGLE_GENERATIVE_AI_API_KEY` (and optionally `ANALYZE_DAILY_LIMIT`) in the project env, then:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npx vercel --prod
+```
 
-## Learn More
+## Cost note
 
-To learn more about Next.js, take a look at the following resources:
+A few hundred short analyses/month on Gemini Flash is typically low tens of USD if you leave free tier. Track usage in Google AI Studio / Cloud billing.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Inputs
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Record audio / video in-browser
+- YouTube public URL
+- Upload audio/video
+- Paste transcript text
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Always refer to the person as **Speaker** in coaching copy. Not a medical or clinical assessment.
