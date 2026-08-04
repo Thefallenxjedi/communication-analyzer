@@ -53,6 +53,14 @@ body {
   transition: filter 0.15s ease, transform 0.15s ease;
 }
 
+.btn-primary-lg {
+  min-height: 3.75rem;
+  font-size: 1.0625rem;
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  box-shadow: 0 12px 32px rgba(124, 58, 237, 0.35);
+}
+
 .btn-primary:hover {
   filter: brightness(1.05);
 }

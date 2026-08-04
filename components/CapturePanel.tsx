@@ -247,7 +247,10 @@ export function CapturePanel({
       <div className="card-surface mt-8 overflow-hidden">
         <div className="grid md:grid-cols-2 md:divide-x md:divide-border">
           {/* Record — left / primary CTA */}
-          <div className="flex flex-col items-center px-6 py-10 text-center sm:px-8">
+          <div className="relative flex flex-col items-center px-6 py-10 text-center sm:px-8">
+            <span className="absolute right-4 top-4 rounded-full bg-accent px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white sm:right-6 sm:top-6 sm:text-xs">
+              Recommended
+            </span>
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
                 <path

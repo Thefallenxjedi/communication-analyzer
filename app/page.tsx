@@ -56,13 +56,6 @@ export default function Home() {
     else setPhase("name");
   };
 
-  const reset = () => {
-    setPhase("capture");
-    setStatus("");
-    setError("");
-    setReport(null);
-  };
-
   const analyzeAudio = useCallback(async (audio: File) => {
     setPhase("analyzing");
     setError("");
@@ -117,9 +110,7 @@ export default function Home() {
 
       {phase === "analyzing" && <AnalyzingState status={status} />}
 
-      {phase === "done" && report && (
-        <DiagnosisPage report={report} onReset={reset} />
-      )}
+      {phase === "done" && report && <DiagnosisPage report={report} />}
 
       {phase === "capture" && (
         <div>

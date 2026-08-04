@@ -7,28 +7,26 @@ type LandingPageProps = {
 export function LandingPage({ onCta }: LandingPageProps) {
   return (
     <div className="w-full">
-      <header className="mx-auto flex max-w-3xl flex-col items-center px-4 pb-16 pt-14 text-center sm:pt-20">
+      <header className="mx-auto flex max-w-3xl flex-col items-center px-4 pb-12 pt-12 text-center sm:pb-16 sm:pt-20">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">
           EliteSpeak
         </p>
         <h1 className="mt-4 text-[1.75rem] font-extrabold leading-tight tracking-tight text-foreground sm:text-4xl md:text-5xl">
           Know how you actually sound before your next important conversation.
         </h1>
-        <p className="mt-5 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
-          Whether it&apos;s an interview, sales call, presentation, podcast, or
-          team meeting — your communication leaves an impression long before
-          your ideas do.
+        <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted sm:mt-5 sm:text-lg">
+          Whether it&apos;s an interview, sales call, presentation, or meeting —
+          your delivery leaves an impression before your ideas do.
         </p>
-        <p className="mt-4 max-w-lg text-sm leading-relaxed text-muted sm:text-base">
-          Upload a recording up to <strong className="text-foreground">4 minutes</strong>,
-          and get a personalized AI diagnosis that shows exactly how you come
-          across and what to fix.
-        </p>
-        <button type="button" onClick={onCta} className="btn-primary mt-8 max-w-md">
+        <button
+          type="button"
+          onClick={onCta}
+          className="btn-primary btn-primary-lg mt-8 w-full max-w-md"
+        >
           Get My Free Communication Report
         </button>
-        <p className="mt-3 text-xs text-muted sm:text-sm">
-          Free report • 4-minute audio • Results in under 2 minutes
+        <p className="mt-3 text-sm font-medium text-muted">
+          Free tool to analyze
         </p>
       </header>
 
@@ -111,37 +109,25 @@ export function LandingPage({ onCta }: LandingPageProps) {
         </div>
       </section>
 
-      <section className="border-y border-border bg-card px-4 py-14">
+      <section className="border-y border-border bg-card px-4 py-8 sm:py-12">
         <div className="mx-auto max-w-3xl">
-          <h2 className="text-center text-2xl font-extrabold sm:text-3xl">
+          <h2 className="text-center text-lg font-extrabold sm:text-2xl">
             How It Works
           </h2>
-          <ol className="mt-10 space-y-8">
+          <ol className="mt-5 flex flex-col gap-3 sm:mt-8 sm:gap-4">
             {[
-              {
-                n: "1",
-                t: "Upload Your Audio",
-                d: "Upload any recording up to four minutes — interviews, meetings, sales calls, practice sessions, presentations.",
-              },
-              {
-                n: "2",
-                t: "AI Analyzes Your Communication",
-                d: "We evaluate your speech across confidence, clarity, pacing, structure, and delivery.",
-              },
-              {
-                n: "3",
-                t: "Receive Your Diagnosis",
-                d: "Get a blunt breakdown of your main challenge, where you rank, and what to do next.",
-              },
+              { n: "1", t: "Record or upload audio (up to 4 min)" },
+              { n: "2", t: "AI scores how you communicate" },
+              { n: "3", t: "Get your diagnosis + next steps" },
             ].map((step) => (
-              <li key={step.n} className="flex gap-4">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent text-sm font-bold text-white">
+              <li
+                key={step.n}
+                className="flex items-center gap-3 rounded-xl border border-border bg-background px-3 py-2.5 sm:gap-4 sm:px-4 sm:py-3"
+              >
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent text-xs font-bold text-white sm:h-8 sm:w-8 sm:text-sm">
                   {step.n}
                 </span>
-                <div>
-                  <h3 className="text-lg font-bold">{step.t}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-muted">{step.d}</p>
-                </div>
+                <span className="text-sm font-semibold sm:text-base">{step.t}</span>
               </li>
             ))}
           </ol>
@@ -213,11 +199,15 @@ export function LandingPage({ onCta }: LandingPageProps) {
           <p className="mt-3 text-sm text-muted">
             Know how you sound before it matters.
           </p>
-          <button type="button" onClick={onCta} className="btn-primary mt-8">
+          <button
+            type="button"
+            onClick={onCta}
+            className="btn-primary btn-primary-lg mt-8"
+          >
             Get My Free Communication Report
           </button>
-          <p className="mt-3 text-xs text-muted">
-            Free • 4-minute audio • Instant AI analysis
+          <p className="mt-3 text-sm font-medium text-muted">
+            Free tool to analyze
           </p>
         </div>
       </section>
