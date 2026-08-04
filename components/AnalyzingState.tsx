@@ -2,114 +2,81 @@
 
 import { useEffect, useState } from "react";
 
-const PREP_STEPS = [
-  "Checking your voice…",
-  "Preparing your audio…",
-] as const;
-
-const ANALYZE_STEPS = [
-  "Transcribing what you said…",
-  "Scoring EliteSpeak markers…",
-  "Building your sentence timeline…",
-  "Preparing your free report…",
+const MESSAGES = [
+  "Understanding your speaking style…",
+  "Measuring confidence…",
+  "Finding filler words…",
+  "Evaluating clarity…",
+  "Checking speaking pace…",
+  "Identifying your strongest moments…",
+  "Building your personalized diagnosis…",
 ] as const;
 
 type AnalyzingStateProps = {
   status?: string;
-  /** Client media prep vs server analysis */
-  mode?: "preparing" | "analyzing";
 };
 
-export function AnalyzingState({
-  status,
-  mode = "analyzing",
-}: AnalyzingStateProps) {
-  const steps = mode === "preparing" ? PREP_STEPS : ANALYZE_STEPS;
-  const [stepIndex, setStepIndex] = useState(0);
-  const [elapsedSec, setElapsedSec] = useState(0);
-
-  useEffect(() => {
-    setStepIndex(0);
-    setElapsedSec(0);
-  }, [mode]);
-
-  useEffect(() => {
-    const last = steps.length - 1;
-    // Advance through steps but hold on the last one until the real request finishes
-    const id = window.setInterval(() => {
-      setStepIndex((i) => (i < last ? i + 1 : i));
-    }, 4500);
-    return () => window.clearInterval(id);
-  }, [steps.length]);
+export function AnalyzingState({ status }: AnalyzingStateProps) {
+  const [index, setIndex] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      setElapsedSec((s) => s + 1);
-    }, 1000);
+      setIndex((i) => (i < MESSAGES.length - 1 ? i + 1 : i));
+    }, 4000);
     return () => window.clearInterval(id);
-  }, [mode]);
+  }, []);
 
-  const onLast = stepIndex >= steps.length - 1;
-  // Cap visual progress under 100% while still working
-  const progress = onLast
-    ? 92
-    : Math.min(88, ((stepIndex + 1) / steps.length) * 85);
+  useEffect(() => {
+    const id = window.setInterval(() => setElapsed((s) => s + 1), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const onLast = index >= MESSAGES.length - 1;
+  const progress = onLast ? 90 : Math.min(85, ((index + 1) / MESSAGES.length) * 80);
 
   return (
-    <section className="mx-auto flex min-h-[70vh] w-full max-w-lg flex-col items-center justify-center px-6 py-24 animate-fade-up">
-      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-neon">
-        {mode === "preparing" ? "Preparing" : "Analyzing"}
+    <section className="mx-auto flex min-h-[75dvh] w-full max-w-md flex-col justify-center px-4 py-16 animate-fade-up">
+      <p className="text-center text-xs font-semibold uppercase tracking-[0.18em] text-accent">
+        Analyzing
       </p>
-      <h2 className="mt-4 text-center text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-        Listening carefully
-      </h2>
-      <p className="mt-3 text-center text-sm text-zinc-400">
-        {status || steps[stepIndex]}
+      <h1 className="mt-3 text-center text-2xl font-extrabold tracking-tight sm:text-3xl">
+        Analyzing Your Communication
+      </h1>
+      <p className="mt-3 text-center text-sm text-muted">
+        {status || MESSAGES[index]}
+        {onLast ? " (still working…)" : ""}
       </p>
-      {elapsedSec >= 20 && (
-        <p className="mt-2 text-center text-xs text-zinc-500">
-          Still working — full reports often take 30–90 seconds.
+      {elapsed >= 20 && (
+        <p className="mt-2 text-center text-xs text-muted">
+          Full diagnoses often take 30–90 seconds.
         </p>
       )}
 
-      <div className="mt-10 w-full overflow-hidden rounded-full bg-white/10">
+      <div className="mt-8 overflow-hidden rounded-full bg-track">
         <div
-          className="relative h-2 rounded-full bg-neon transition-all duration-700 ease-out"
+          className="h-2 rounded-full bg-accent transition-all duration-700"
           style={{ width: `${progress}%` }}
-        >
-          <div className="absolute inset-0 animate-progress-shine bg-gradient-to-r from-transparent via-white/40 to-transparent" />
-        </div>
+        />
       </div>
 
-      <ul className="mt-10 w-full space-y-3">
-        {steps.map((label, i) => {
-          const done = i < stepIndex;
-          const active = i === stepIndex;
+      <ul className="mt-8 space-y-2.5">
+        {MESSAGES.map((msg, i) => {
+          const done = i < index;
+          const active = i === index;
           return (
             <li
-              key={label}
-              className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm transition ${
+              key={msg}
+              className={`rounded-xl border px-4 py-3 text-sm ${
                 done
-                  ? "border-neon/30 bg-neon/10 text-neon"
+                  ? "border-accent/30 bg-accent-soft text-accent-dark"
                   : active
-                    ? "border-white/20 bg-white/5 text-white"
-                    : "border-transparent text-zinc-500"
+                    ? "border-border bg-card font-semibold text-foreground"
+                    : "border-transparent text-muted"
               }`}
             >
-              <span
-                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                  done
-                    ? "bg-neon text-accent-dark"
-                    : active
-                      ? "border border-neon text-neon animate-pulse-soft"
-                      : "border border-white/20 text-zinc-500"
-                }`}
-              >
-                {done ? "✓" : i + 1}
-              </span>
-              <span className={active ? "font-semibold" : ""}>
-                {active && onLast ? `${label} (still working…)` : label}
-              </span>
+              {done ? "✓ " : ""}
+              {msg}
             </li>
           );
         })}

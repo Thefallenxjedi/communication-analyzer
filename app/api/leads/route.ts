@@ -1,18 +1,28 @@
 import { NextResponse } from "next/server";
+import { validateEmail } from "@/lib/email";
 
 /**
  * Demo / noop lead endpoint — does not persist.
- * Validates payload shape and returns ok for the funnel UX.
+ * Validates name + real email (blocks disposable / garbage).
  */
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as { name?: string; email?: string };
     const name = typeof body.name === "string" ? body.name.trim() : "";
-    const email = typeof body.email === "string" ? body.email.trim() : "";
+    const emailCheck = validateEmail(
+      typeof body.email === "string" ? body.email : "",
+    );
 
-    if (!name || !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!name || !emailCheck.ok) {
       return NextResponse.json(
-        { ok: false, error: "Invalid name or email." },
+        {
+          ok: false,
+          error: !name
+            ? "Invalid name or email."
+            : emailCheck.ok
+              ? "Invalid name or email."
+              : emailCheck.error,
+        },
         { status: 400 },
       );
     }

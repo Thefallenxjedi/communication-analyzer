@@ -1,33 +1,28 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { EliteSpeakReport } from "@/lib/schema";
-import type { PreparedMedia } from "@/components/UploadZone";
+import type { DiagnosisReport } from "@/lib/schema";
 import { LandingPage } from "@/components/LandingPage";
-import { LeadForm, readLead, type LeadPayload } from "@/components/LeadForm";
-import { InputPanel } from "@/components/InputPanel";
+import { NameGate, readLead, type LeadPayload } from "@/components/NameGate";
+import { CapturePanel } from "@/components/CapturePanel";
 import { AnalyzingState } from "@/components/AnalyzingState";
-import { ReportDashboard } from "@/components/ReportDashboard";
+import { DiagnosisPage } from "@/components/DiagnosisPage";
 
-type FunnelPhase =
-  | "landing"
-  | "lead"
-  | "analyze"
-  | "preparing"
-  | "analyzing"
-  | "done";
+type Phase = "landing" | "name" | "capture" | "analyzing" | "done";
 
 export default function Home() {
-  const [phase, setPhase] = useState<FunnelPhase>("landing");
-  const [status, setStatus] = useState("Waiting for input…");
+  const [phase, setPhase] = useState<Phase>("landing");
+  const [status, setStatus] = useState("");
   const [error, setError] = useState("");
-  const [report, setReport] = useState<EliteSpeakReport | null>(null);
+  const [report, setReport] = useState<DiagnosisReport | null>(null);
+  const [lead, setLead] = useState<LeadPayload | null>(null);
   const [serverHasDefault, setServerHasDefault] = useState(false);
   const [configLoaded, setConfigLoaded] = useState(false);
 
+  // Restore lead if present, but always stay on landing until CTA
   useEffect(() => {
     const existing = readLead();
-    if (existing) setPhase("analyze");
+    if (existing) setLead(existing);
   }, []);
 
   useEffect(() => {
@@ -48,167 +43,118 @@ export default function Home() {
     };
   }, []);
 
-  const onLeadComplete = (_lead: LeadPayload) => {
-    setPhase("analyze");
-    setError("");
-  };
-
-  const reset = () => {
-    setPhase("analyze");
-    setStatus("Waiting for input…");
+  const goHome = () => {
+    setPhase("landing");
+    setStatus("");
     setError("");
     setReport(null);
   };
 
-  const analyzeMedia = useCallback(async (media: PreparedMedia) => {
+  const startFunnel = () => {
+    // Skip name step if we already have a valid lead this session
+    if (lead) setPhase("capture");
+    else setPhase("name");
+  };
+
+  const reset = () => {
+    setPhase("capture");
+    setStatus("");
+    setError("");
+    setReport(null);
+  };
+
+  const analyzeAudio = useCallback(async (audio: File) => {
     setPhase("analyzing");
     setError("");
-    setStatus(
-      media.fromVideo
-        ? "Running EliteSpeak multimodal analysis…"
-        : "Transcribing and scoring 20 EliteSpeak markers…",
-    );
+    setStatus("Understanding your speaking style…");
 
     try {
       const formData = new FormData();
-      formData.append("audio", media.audio);
-      media.frames?.forEach((frame, i) => {
-        formData.append(`frame${i}`, frame);
-      });
+      formData.append("audio", audio);
 
-      setStatus("Scoring 20 communication markers…");
+      setStatus("Building your personalized diagnosis…");
       const res = await fetch("/api/analyze", {
         method: "POST",
         body: formData,
       });
-
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Analysis failed.");
 
-      setReport(data as EliteSpeakReport);
+      setReport(data as DiagnosisReport);
       setPhase("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
-      setPhase("analyze");
-      setStatus("Ready to try again");
-    }
-  }, []);
-
-  const analyzeText = useCallback(async (transcript: string) => {
-    setPhase("analyzing");
-    setError("");
-    setStatus("Scoring EliteSpeak markers from text…");
-
-    try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcript }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Analysis failed.");
-      setReport(data as EliteSpeakReport);
-      setPhase("done");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-      setPhase("analyze");
-      setStatus("Ready to try again");
-    }
-  }, []);
-
-  const analyzeYouTube = useCallback(async (youtubeUrl: string) => {
-    setPhase("analyzing");
-    setError("");
-    setStatus("Fetching & analyzing YouTube video (first ~4 minutes)…");
-
-    try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ youtubeUrl }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Analysis failed.");
-      setReport(data as EliteSpeakReport);
-      setPhase("done");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-      setPhase("analyze");
-      setStatus("Ready to try again");
+      setPhase("capture");
+      setStatus("");
     }
   }, []);
 
   return (
-    <div className="app-atmosphere min-h-screen">
-      {phase === "landing" && (
-        <LandingPage onCta={() => setPhase("lead")} />
+    <div className="app-shell">
+      {phase !== "landing" && (
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 pt-4">
+          <button
+            type="button"
+            onClick={goHome}
+            className="text-sm font-semibold text-accent hover:underline"
+          >
+            ← EliteSpeak Home
+          </button>
+        </div>
       )}
 
-      {phase === "lead" && (
-        <LeadForm
-          onComplete={onLeadComplete}
-          onBack={() => setPhase("landing")}
+      {phase === "landing" && <LandingPage onCta={startFunnel} />}
+
+      {phase === "name" && (
+        <NameGate
+          onComplete={(l) => {
+            setLead(l);
+            setPhase("capture");
+          }}
+          onBack={goHome}
         />
       )}
 
-      {(phase === "analyzing" || phase === "preparing") && (
-        <AnalyzingState
-          status={status}
-          mode={phase === "preparing" ? "preparing" : "analyzing"}
-        />
-      )}
+      {phase === "analyzing" && <AnalyzingState status={status} />}
 
       {phase === "done" && report && (
-        <ReportDashboard report={report} onReset={reset} />
+        <DiagnosisPage report={report} onReset={reset} />
       )}
 
-      {phase === "analyze" && (
+      {phase === "capture" && (
         <div>
           {error && (
-            <div className="mx-auto max-w-5xl px-6 pb-4 pt-8">
-              <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <div className="mx-auto max-w-3xl px-4 pt-4">
+              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 {error}
               </p>
             </div>
           )}
           {configLoaded && !serverHasDefault && (
-            <div className="mx-auto max-w-5xl px-6 pb-4 pt-8">
-              <p className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            <div className="mx-auto max-w-3xl px-4 pt-4">
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 Server API key is not configured. Set{" "}
-                <code className="text-neon">GOOGLE_GENERATIVE_AI_API_KEY</code>{" "}
-                on the server to run analysis.
+                <code className="font-semibold">GOOGLE_GENERATIVE_AI_API_KEY</code>{" "}
+                to run analysis.
               </p>
             </div>
           )}
-          <div className="pt-10">
-            <InputPanel
-              onMediaReady={(media) => void analyzeMedia(media)}
-              onTextReady={(text) => void analyzeText(text)}
-              onYouTubeReady={(url) => void analyzeYouTube(url)}
-              onStatus={(s) => {
-                setStatus(s);
-                if (
-                  /FFmpeg|Extracting|Preparing|Writing|Loading|Checking|Capturing|analyzing the first/i.test(
-                    s,
-                  )
-                ) {
-                  setPhase("preparing");
-                }
-              }}
-              onError={(message) => {
-                setError(message);
-                if (message) setPhase("analyze");
-              }}
-              disabled={!serverHasDefault}
-            />
-          </div>
+          {lead?.name && (
+            <p className="mx-auto max-w-3xl px-4 pt-4 text-center text-sm text-muted">
+              Hi {lead.name.split(" ")[0]} — let&apos;s diagnose your communication.
+            </p>
+          )}
+          <CapturePanel
+            onAudioReady={(file) => void analyzeAudio(file)}
+            onError={setError}
+            disabled={!serverHasDefault}
+          />
         </div>
       )}
 
       {phase !== "landing" && (
-        <footer className="border-t border-border py-8 text-center text-xs text-zinc-500">
-          Free communication analysis report · EliteSpeak-style 20 markers · Max
-          4 minutes processed
+        <footer className="border-t border-border py-8 text-center text-xs text-muted">
+          EliteSpeak · Free communication diagnosis · Max 4 minutes
         </footer>
       )}
     </div>
