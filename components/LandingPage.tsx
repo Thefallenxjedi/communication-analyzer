@@ -15,8 +15,7 @@ export function LandingPage({ onCta }: LandingPageProps) {
           Know how you actually sound before your next important conversation.
         </h1>
         <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted sm:mt-5 sm:text-lg">
-          Record at least 30 seconds (up to 2 minutes) so we have enough signal
-          for a viable communication diagnosis.
+          Suggested min 30s
         </p>
         <button
           type="button"
@@ -116,7 +115,7 @@ export function LandingPage({ onCta }: LandingPageProps) {
           </h2>
           <ol className="mt-5 flex flex-col gap-3 sm:mt-8 sm:gap-4">
             {[
-              { n: "1", t: "Record or upload audio (30s–2 min)" },
+              { n: "1", t: "Record or upload audio (up to 2 min)" },
               { n: "2", t: "AI scores how you communicate" },
               { n: "3", t: "Get your diagnosis + next steps" },
             ].map((step) => (

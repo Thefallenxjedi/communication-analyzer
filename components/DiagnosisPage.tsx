@@ -1,6 +1,6 @@
 "use client";
 
-import type { DiagnosisReport, DiagnosisStat, StatId } from "@/lib/schema";
+import type { DiagnosisReport, StatId } from "@/lib/schema";
 import { STAT_HINTS } from "@/lib/schema";
 import { buildStatSections } from "@/lib/scoring";
 import { ChallengeVisual } from "@/components/ChallengeVisual";
@@ -15,155 +15,76 @@ type DiagnosisPageProps = {
   report: DiagnosisReport;
 };
 
-function scoreTone(score: number): {
-  fill: string;
-  text: string;
-  star: string;
-  border: string;
-  bg: string;
-} {
-  if (score >= 7) {
-    return {
-      fill: "bg-accent",
-      text: "text-accent",
-      star: "text-accent",
-      border: "border-accent/25",
-      bg: "bg-accent-soft/60",
-    };
-  }
-  if (score >= 5) {
-    return {
-      fill: "bg-amber-500",
-      text: "text-amber-700",
-      star: "text-amber-500",
-      border: "border-amber-200",
-      bg: "bg-amber-50",
-    };
-  }
-  return {
-    fill: "bg-rose-500",
-    text: "text-rose-700",
-    star: "text-rose-400",
-    border: "border-rose-200",
-    bg: "bg-rose-50",
-  };
+function barFill(score10: number): string {
+  if (score10 >= 7) return "bg-accent";
+  if (score10 >= 5) return "bg-amber-500";
+  return "bg-rose-500";
 }
 
-function sectionTone(score100: number) {
-  return scoreTone(Math.round(score100 / 10));
-}
-
-function StarRow({ score }: { score: number }) {
-  const tone = scoreTone(score);
-  const filled = score / 2;
-  return (
-    <div className="flex items-center gap-0.5" aria-label={`${score} out of 10`}>
-      {Array.from({ length: 5 }, (_, i) => {
-        const portion = Math.min(1, Math.max(0, filled - i));
-        return (
-          <span key={i} className="relative inline-block h-4 w-4">
-            <svg
-              viewBox="0 0 24 24"
-              className="absolute inset-0 h-4 w-4 text-track"
-              aria-hidden
-            >
-              <path
-                fill="currentColor"
-                d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-              />
-            </svg>
-            <span
-              className={`absolute inset-0 overflow-hidden ${tone.star}`}
-              style={{ width: `${portion * 100}%` }}
-            >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden>
-                <path
-                  fill="currentColor"
-                  d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"
-                />
-              </svg>
-            </span>
-          </span>
-        );
-      })}
-    </div>
-  );
-}
-
-function StatCard({ stat }: { stat: DiagnosisStat }) {
-  const tone = scoreTone(stat.score);
-  const hint =
-    STAT_HINTS[stat.id as StatId] ||
-    "How this part of your communication shows up.";
-
-  return (
-    <li
-      className={`w-[9.5rem] shrink-0 snap-start rounded-2xl border ${tone.border} ${tone.bg} p-3.5 sm:p-4`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-extrabold leading-snug">{stat.label}</p>
-        <span className={`text-sm font-extrabold tabular-nums ${tone.text}`}>
-          {stat.score}
-        </span>
-      </div>
-      <div className="mt-2">
-        <StarRow score={stat.score} />
-      </div>
-      <p className="mt-3 text-xs leading-relaxed text-muted">{hint}</p>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/70">
-        <div
-          className={`h-full rounded-full ${tone.fill}`}
-          style={{ width: `${stat.score * 10}%` }}
-        />
-      </div>
-    </li>
-  );
-}
-
-function RankSections({ stats }: { stats: DiagnosisStat[] }) {
+function RankSections({
+  stats,
+}: {
+  stats: DiagnosisReport["stats"];
+}) {
   const sections = buildStatSections(stats);
 
   return (
     <div>
       <h2 className="text-lg font-extrabold sm:text-xl">Where you rank</h2>
       <p className="mt-1 text-sm text-muted">
-        Four skill areas with section scores. Swipe each row for every marker.
+        Strongest area first. Each section score, then its markers.
       </p>
 
       <div className="mt-6 space-y-8">
-        {sections.map((section) => {
-          const tone = sectionTone(section.score);
-          return (
-            <div key={section.id}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-base font-extrabold">{section.title}</h3>
-                  <p className="mt-0.5 text-xs text-muted">{section.blurb}</p>
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className={`text-xl font-extrabold tabular-nums ${tone.text}`}>
-                    {section.score}
-                    <span className="text-sm font-semibold text-muted">/100</span>
-                  </p>
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
-                    Section
-                  </p>
-                </div>
+        {sections.map((section) => (
+          <div key={section.id}>
+            {/* Main section */}
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-base font-extrabold sm:text-lg">
+                  {section.title}
+                </h3>
+                <p className="mt-0.5 text-xs text-muted">{section.blurb}</p>
               </div>
-              <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-track">
-                <div
-                  className={`h-full rounded-full ${tone.fill}`}
-                  style={{ width: `${section.score}%` }}
-                />
-              </div>
-              <ul className="mt-3 -mx-1 flex gap-3 overflow-x-auto px-1 pb-2 snap-x snap-mandatory [scrollbar-width:thin]">
-                {section.stats.map((stat) => (
-                  <StatCard key={stat.id} stat={stat} />
-                ))}
-              </ul>
+              <p className="shrink-0 text-lg font-extrabold tabular-nums text-accent">
+                {section.score}
+                <span className="text-sm font-semibold text-muted">/100</span>
+              </p>
             </div>
-          );
-        })}
+            <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-track">
+              <div
+                className={`h-full rounded-full ${barFill(section.score / 10)}`}
+                style={{ width: `${section.score}%` }}
+              />
+            </div>
+
+            {/* Types under this main */}
+            <ul className="mt-4 space-y-3 border-l-2 border-border pl-4">
+              {section.stats.map((stat) => (
+                <li key={stat.id}>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold">{stat.label}</span>
+                    <span className="text-sm font-extrabold tabular-nums text-accent">
+                      {stat.score}
+                      <span className="font-semibold text-muted">/10</span>
+                    </span>
+                  </div>
+                  {STAT_HINTS[stat.id as StatId] ? (
+                    <p className="mt-0.5 text-xs text-muted">
+                      {STAT_HINTS[stat.id as StatId]}
+                    </p>
+                  ) : null}
+                  <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-track">
+                    <div
+                      className={`h-full rounded-full ${barFill(stat.score)}`}
+                      style={{ width: `${stat.score * 10}%` }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -244,9 +165,6 @@ function SolveCtas() {
 }
 
 export function DiagnosisPage({ report }: DiagnosisPageProps) {
-  const strengths = report.mainChallenge.strengths;
-  const improvements = report.mainChallenge.improvements;
-
   return (
     <section className="mx-auto w-full max-w-2xl px-4 pb-24 pt-10 animate-fade-up">
       <div className="mb-8">
@@ -280,13 +198,13 @@ export function DiagnosisPage({ report }: DiagnosisPageProps) {
           <ChallengeVisual imageKey={report.mainChallenge.imageKey} />
         </div>
         <BalancedBlock
-          strengths={strengths}
-          improvements={improvements}
+          strengths={report.mainChallenge.strengths}
+          improvements={report.mainChallenge.improvements}
           fallback={report.mainChallenge.summary}
         />
       </div>
 
-      <div className="card-surface mt-5 overflow-hidden p-5 sm:p-7">
+      <div className="card-surface mt-5 p-5 sm:p-7">
         <RankSections stats={report.stats} />
       </div>
 

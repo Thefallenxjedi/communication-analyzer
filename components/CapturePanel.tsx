@@ -9,6 +9,7 @@ import {
   MAX_DURATION_SECONDS,
   MAX_FILE_SIZE_BYTES,
   MIN_DURATION_SECONDS,
+  SUGGESTED_DURATION_SECONDS,
 } from "@/lib/validate-media";
 
 type CapturePanelProps = {
@@ -94,7 +95,7 @@ export function CapturePanel({
         const duration = await getMediaDuration(file);
         if (duration < MIN_DURATION_SECONDS) {
           throw new Error(
-            `Audio must be at least ${MIN_DURATION_SECONDS} seconds for viable results.`,
+            `Please record at least ${MIN_DURATION_SECONDS} seconds, then try again.`,
           );
         }
         if (duration > MAX_DURATION_SECONDS + 2) {
@@ -103,7 +104,7 @@ export function CapturePanel({
       } catch (err) {
         if (
           err instanceof Error &&
-          /(2 minutes|30 seconds|at least)/i.test(err.message)
+          /(2 minutes|at least \d+ seconds)/i.test(err.message)
         ) {
           throw err;
         }
@@ -156,11 +157,12 @@ export function CapturePanel({
 
         if (seconds < MIN_DURATION_SECONDS) {
           onErrorRef.current(
-            `Record at least ${MIN_DURATION_SECONDS} seconds for viable results. You recorded ${Math.floor(seconds)}s.`,
+            `Please record at least ${MIN_DURATION_SECONDS} seconds, then try again.`,
           );
           return;
         }
 
+        onErrorRef.current("");
         onAudioReadyRef.current(file);
       };
 
@@ -195,16 +197,18 @@ export function CapturePanel({
         </button>
         <h1 className="text-2xl font-extrabold tracking-tight">Record audio</h1>
         <p className="mt-2 text-sm text-muted">
-          Record at least {MIN_DURATION_SECONDS} seconds (max 2 minutes) for a
-          viable diagnosis. Analysis starts automatically when you stop.
+          Suggested min {SUGGESTED_DURATION_SECONDS}s. Analysis starts
+          automatically when you stop.
         </p>
         <p className="mt-6 text-3xl font-extrabold tabular-nums text-accent">
           {formatDuration(Math.min(elapsed, MAX_DURATION_SECONDS))}
         </p>
         <p className="mt-1 text-xs text-muted">
           {elapsed < MIN_DURATION_SECONDS
-            ? `${Math.max(0, Math.ceil(MIN_DURATION_SECONDS - elapsed))}s until minimum`
-            : "Minimum reached — you can stop anytime"}
+            ? `Need ${MIN_DURATION_SECONDS}+ seconds to analyze`
+            : elapsed < SUGGESTED_DURATION_SECONDS
+              ? `Suggested min ${SUGGESTED_DURATION_SECONDS}s — you can stop anytime`
+              : "Suggested length reached — stop anytime"}
         </p>
 
         {(recording || liveStream) && (
@@ -237,11 +241,11 @@ export function CapturePanel({
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-10 animate-fade-up">
       <h1 className="text-center text-2xl font-extrabold tracking-tight sm:text-3xl">
-        Share 30 seconds to 2 minutes of speaking.
+        Share up to 2 minutes of speaking.
       </h1>
       <p className="mx-auto mt-3 max-w-md text-center text-sm text-muted">
-        At least 30 seconds is required for viable results. Upload a clip or
-        record now — analysis starts when recording stops.
+        Suggested min {SUGGESTED_DURATION_SECONDS}s. Analysis starts when
+        recording stops.
       </p>
 
       <div className="card-surface mt-8 overflow-hidden">
@@ -274,7 +278,7 @@ export function CapturePanel({
               Record Audio
             </button>
             <p className="mt-3 text-xs text-muted">
-              Min 30s · Max 2 min · Mic permission required
+              Suggested min 30s · Max 2 min
             </p>
           </div>
 
@@ -315,7 +319,7 @@ export function CapturePanel({
               {busy ? "Working…" : "Upload Audio"}
             </button>
             <p className="mt-3 text-xs text-muted">
-              MP3, WAV, or M4A · 30s–2 min
+              MP3, WAV, or M4A · Max 2 min
             </p>
           </div>
         </div>

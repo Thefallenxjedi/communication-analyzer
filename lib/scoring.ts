@@ -40,13 +40,14 @@ export function buildStatSections(stats: DiagnosisStat[]) {
     const ids = section.ids as readonly StatId[];
     const sectionStats = ids
       .map((id) => stats.find((s) => s.id === id))
-      .filter((s): s is DiagnosisStat => Boolean(s));
+      .filter((s): s is DiagnosisStat => Boolean(s))
+      .sort((a, b) => b.score - a.score);
     return {
       ...section,
       stats: sectionStats,
       score: sectionScore(stats, ids),
     };
-  });
+  }).sort((a, b) => b.score - a.score);
 }
 
 function coerceImageKey(raw: string): ChallengeImageKey {
