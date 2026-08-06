@@ -2,40 +2,19 @@
 
 import Image from "next/image";
 import { useState, type FormEvent } from "react";
-import { isValidLeadEmail, validateEmail } from "@/lib/email";
+import { validateEmail } from "@/lib/email";
+import {
+  saveLead,
+  type LeadPayload,
+} from "@/lib/lead";
 
-export const LEAD_STORAGE_KEY = "ca_lead";
-
-export type LeadPayload = {
-  name: string;
-  email: string;
-};
-
-export function saveLead(lead: LeadPayload): void {
-  try {
-    sessionStorage.setItem(LEAD_STORAGE_KEY, JSON.stringify(lead));
-  } catch {
-    // ignore
-  }
-}
-
-export function readLead(): LeadPayload | null {
-  try {
-    const raw = sessionStorage.getItem(LEAD_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as LeadPayload;
-    if (
-      parsed?.name &&
-      typeof parsed.email === "string" &&
-      isValidLeadEmail(parsed.email)
-    ) {
-      return parsed;
-    }
-  } catch {
-    // ignore
-  }
-  return null;
-}
+export {
+  LEAD_STORAGE_KEY,
+  readLead,
+  saveLead,
+  saveKartraLead,
+  type LeadPayload,
+} from "@/lib/lead";
 
 const PREVIEW_CARDS = [
   { src: "/challenges/rambling.png", label: "Rambling", rotate: -6 },
@@ -48,6 +27,7 @@ type NameGateProps = {
   onBack?: () => void;
 };
 
+/** Legacy name/email gate — funnel now uses KartraGate. Kept for reference. */
 export function NameGate({ onComplete, onBack }: NameGateProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -67,7 +47,12 @@ export function NameGate({ onComplete, onBack }: NameGateProps) {
       return;
     }
     const name = [first, lastName.trim()].filter(Boolean).join(" ");
-    const lead: LeadPayload = { name, email: emailCheck.email };
+    const lead: LeadPayload = {
+      name,
+      email: emailCheck.email,
+      source: "namegate",
+      at: Date.now(),
+    };
     saveLead(lead);
     void fetch("/api/leads", {
       method: "POST",

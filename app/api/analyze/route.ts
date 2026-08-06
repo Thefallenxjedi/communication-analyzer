@@ -126,7 +126,7 @@ async function runDiagnosis(
           content: [
             {
               type: "text",
-              text: `${DIAGNOSIS_PROMPT}\n\n---\nTRANSCRIPT:\n${transcript}`,
+              text: `${DIAGNOSIS_PROMPT}\n\n---\nTRANSCRIPT:\n${transcript}\n\n---\nListen to the attached AUDIO for tone, pace, energy, confidence, pauses, and pitch variety. Score delivery from the audio; score wording from the transcript.`,
             },
             ...mediaParts.map((p) => ({
               type: "file" as const,

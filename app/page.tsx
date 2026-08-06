@@ -2,13 +2,27 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { DiagnosisReport } from "@/lib/schema";
+import { readLead, saveKartraLead, type LeadPayload } from "@/lib/lead";
 import { LandingPage } from "@/components/LandingPage";
-import { NameGate, readLead, type LeadPayload } from "@/components/NameGate";
+import { KartraGate } from "@/components/KartraGate";
 import { CapturePanel } from "@/components/CapturePanel";
 import { AnalyzingState } from "@/components/AnalyzingState";
 import { DiagnosisPage } from "@/components/DiagnosisPage";
 
 type Phase = "landing" | "name" | "capture" | "analyzing" | "done";
+
+function clearCaptureQueryParam() {
+  try {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("step") && !url.searchParams.has("phase")) return;
+    url.searchParams.delete("step");
+    url.searchParams.delete("phase");
+    const next = `${url.pathname}${url.search}${url.hash}`;
+    window.history.replaceState({}, "", next);
+  } catch {
+    // ignore
+  }
+}
 
 export default function Home() {
   const [phase, setPhase] = useState<Phase>("landing");
@@ -19,10 +33,18 @@ export default function Home() {
   const [serverHasDefault, setServerHasDefault] = useState(false);
   const [configLoaded, setConfigLoaded] = useState(false);
 
-  // Restore lead if present, but always stay on landing until CTA
+  // Restore lead; honor Kartra thank-you redirect (?step=capture | ?phase=capture)
   useEffect(() => {
-    const existing = readLead();
-    if (existing) setLead(existing);
+    const params = new URLSearchParams(window.location.search);
+    const step = params.get("step") ?? params.get("phase");
+    const existing = step === "capture" ? saveKartraLead() : readLead();
+    if (step === "capture") clearCaptureQueryParam();
+
+    // Defer so we don't sync-set state in the effect body (eslint react-hooks)
+    queueMicrotask(() => {
+      if (existing) setLead(existing);
+      if (step === "capture") setPhase("capture");
+    });
   }, []);
 
   useEffect(() => {
@@ -51,7 +73,7 @@ export default function Home() {
   };
 
   const startFunnel = () => {
-    // Skip name step if we already have a valid lead this session
+    // Skip name step if we already have a lead this session (e.g. prior Kartra submit)
     if (lead) setPhase("capture");
     else setPhase("name");
   };
@@ -98,15 +120,7 @@ export default function Home() {
 
       {phase === "landing" && <LandingPage onCta={startFunnel} />}
 
-      {phase === "name" && (
-        <NameGate
-          onComplete={(l) => {
-            setLead(l);
-            setPhase("capture");
-          }}
-          onBack={goHome}
-        />
-      )}
+      {phase === "name" && <KartraGate onBack={goHome} />}
 
       {phase === "analyzing" && <AnalyzingState status={status} />}
 
