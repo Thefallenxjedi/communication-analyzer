@@ -46,14 +46,14 @@ Anyone who communicates for work (interviews, sales, presentations, meetings).
 **Fallbacks:** `gemini-2.5-flash-lite` → `gemini-2.5-flash` → `gemini-flash-latest`  
 **API:** `POST /api/analyze` (multipart audio), `maxDuration` ~120s  
 **Inputs:** MP3 / WAV / M4A + in-browser record  
-**Leads:** collected via **Kartra** opt-in embed; app stores `ca_lead` in `sessionStorage` (`{ source: "kartra", at }`) after redirect back. Client must set Kartra thank-you redirect to `/?step=capture` (or absolute production URL with `?step=capture`).  
+**Leads:** collected via **Kartra** simplified opt-in (`kartra_optin_containerc20ad4d…` + `https://app.kartra.com/optin/fMPOVao42jZa`); app stores `ca_lead` in `sessionStorage` (`{ source: "kartra", at }`) after redirect back. Client must set Kartra thank-you redirect to `/?step=capture` (or absolute production URL with `?step=capture`).  
 
 ---
 
 ## 4. Funnel phases
 
 1. **Landing** — marketing + CTA  
-2. **Name gate** — Kartra embed (first name + email); posts to Kartra, then redirects back with `?step=capture`  
+2. **Name gate** — Kartra simplified opt-in embed; Kartra injects the form, then redirects back with `?step=capture`  
 3. **Capture** — Record (Recommended) or Upload  
 4. **Analyzing** — progressive loading messages  
 5. **Diagnosis** — main/minor challenges, stats, solve CTAs, solutions  
