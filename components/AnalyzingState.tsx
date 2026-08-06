@@ -67,16 +67,35 @@ export function AnalyzingState({ status }: AnalyzingStateProps) {
           return (
             <li
               key={msg}
-              className={`rounded-xl border px-4 py-3 text-sm ${
+              className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm ${
                 done
-                  ? "border-accent/30 bg-accent-soft text-accent-dark"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-900"
                   : active
                     ? "border-border bg-card font-semibold text-foreground"
                     : "border-transparent text-muted"
               }`}
             >
-              {done ? "✓ " : ""}
-              {msg}
+              <span className="min-w-0 flex-1">{msg}</span>
+              {done ? (
+                <span
+                  className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-white"
+                  aria-label="Done"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path
+                      d="M5 13l4 4L19 7"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              ) : active ? (
+                <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-accent" />
+              ) : (
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-track" />
+              )}
             </li>
           );
         })}

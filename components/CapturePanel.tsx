@@ -8,6 +8,7 @@ import {
   isAudioMime,
   MAX_DURATION_SECONDS,
   MAX_FILE_SIZE_BYTES,
+  MIN_DURATION_SECONDS,
 } from "@/lib/validate-media";
 
 type CapturePanelProps = {
@@ -45,13 +46,18 @@ export function CapturePanel({
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef(0);
+  const onAudioReadyRef = useRef(onAudioReady);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onAudioReadyRef.current = onAudioReady;
+    onErrorRef.current = onError;
+  }, [onAudioReady, onError]);
 
   const [mode, setMode] = useState<"choose" | "record">("choose");
   const [busy, setBusy] = useState(false);
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const [previewFile, setPreviewFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
 
   const cleanupStream = useCallback(() => {
@@ -70,9 +76,8 @@ export function CapturePanel({
     return () => {
       clearTimer();
       cleanupStream();
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
     };
-  }, [clearTimer, cleanupStream, previewUrl]);
+  }, [clearTimer, cleanupStream]);
 
   const processUpload = async (file: File) => {
     setBusy(true);
@@ -87,11 +92,21 @@ export function CapturePanel({
       }
       try {
         const duration = await getMediaDuration(file);
+        if (duration < MIN_DURATION_SECONDS) {
+          throw new Error(
+            `Audio must be at least ${MIN_DURATION_SECONDS} seconds for viable results.`,
+          );
+        }
         if (duration > MAX_DURATION_SECONDS + 2) {
-          throw new Error("Recording must be 4 minutes or less.");
+          throw new Error("Audio must be 2 minutes or less.");
         }
       } catch (err) {
-        if (err instanceof Error && /4 minutes/i.test(err.message)) throw err;
+        if (
+          err instanceof Error &&
+          /(2 minutes|30 seconds|at least)/i.test(err.message)
+        ) {
+          throw err;
+        }
         // Some browsers can't read duration for all formats — continue
       }
       onAudioReady(file);
@@ -111,12 +126,7 @@ export function CapturePanel({
   }, [clearTimer]);
 
   const startRecording = useCallback(async () => {
-    onError("");
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
-    }
-    setPreviewFile(null);
+    onErrorRef.current("");
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -137,14 +147,21 @@ export function CapturePanel({
       recorder.onstop = () => {
         setLiveStream(null);
         cleanupStream();
+        const seconds = (Date.now() - startedAtRef.current) / 1000;
         const blob = new Blob(chunksRef.current, {
           type: recorder.mimeType || "audio/webm",
         });
         const ext = blob.type.includes("mp4") ? "m4a" : "webm";
         const file = new File([blob], `recording.${ext}`, { type: blob.type });
-        const url = URL.createObjectURL(blob);
-        setPreviewFile(file);
-        setPreviewUrl(url);
+
+        if (seconds < MIN_DURATION_SECONDS) {
+          onErrorRef.current(
+            `Record at least ${MIN_DURATION_SECONDS} seconds for viable results. You recorded ${Math.floor(seconds)}s.`,
+          );
+          return;
+        }
+
+        onAudioReadyRef.current(file);
       };
 
       recorder.start(250);
@@ -159,9 +176,9 @@ export function CapturePanel({
     } catch {
       setLiveStream(null);
       cleanupStream();
-      onError("Could not access your microphone. Check permissions.");
+      onErrorRef.current("Could not access your microphone. Check permissions.");
     }
-  }, [cleanupStream, onError, previewUrl, stopRecording]);
+  }, [cleanupStream, stopRecording]);
 
   if (mode === "record") {
     return (
@@ -178,10 +195,16 @@ export function CapturePanel({
         </button>
         <h1 className="text-2xl font-extrabold tracking-tight">Record audio</h1>
         <p className="mt-2 text-sm text-muted">
-          Speak for up to 4 minutes. Mic permission will be requested.
+          Record at least {MIN_DURATION_SECONDS} seconds (max 2 minutes) for a
+          viable diagnosis. Analysis starts automatically when you stop.
         </p>
         <p className="mt-6 text-3xl font-extrabold tabular-nums text-accent">
           {formatDuration(Math.min(elapsed, MAX_DURATION_SECONDS))}
+        </p>
+        <p className="mt-1 text-xs text-muted">
+          {elapsed < MIN_DURATION_SECONDS
+            ? `${Math.max(0, Math.ceil(MIN_DURATION_SECONDS - elapsed))}s until minimum`
+            : "Minimum reached — you can stop anytime"}
         </p>
 
         {(recording || liveStream) && (
@@ -191,7 +214,7 @@ export function CapturePanel({
         )}
 
         <div className="mt-8 flex flex-col gap-3">
-          {!recording && !previewFile && (
+          {!recording && (
             <button
               type="button"
               disabled={disabled}
@@ -203,31 +226,8 @@ export function CapturePanel({
           )}
           {recording && (
             <button type="button" onClick={stopRecording} className="btn-secondary">
-              Stop
+              Stop &amp; analyze
             </button>
-          )}
-          {previewFile && !recording && (
-            <>
-              {previewUrl && (
-                <audio className="w-full" controls src={previewUrl} preload="metadata" />
-              )}
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => onAudioReady(previewFile)}
-                className="btn-primary"
-              >
-                Analyze recording
-              </button>
-              <button
-                type="button"
-                disabled={disabled}
-                onClick={() => void startRecording()}
-                className="btn-secondary"
-              >
-                Record again
-              </button>
-            </>
           )}
         </div>
       </section>
@@ -237,16 +237,15 @@ export function CapturePanel({
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-10 animate-fade-up">
       <h1 className="text-center text-2xl font-extrabold tracking-tight sm:text-3xl">
-        Share up to 4 minutes of speaking.
+        Share 30 seconds to 2 minutes of speaking.
       </h1>
       <p className="mx-auto mt-3 max-w-md text-center text-sm text-muted">
-        Upload an existing clip or record a quick answer now. Choose whichever
-        is easiest.
+        At least 30 seconds is required for viable results. Upload a clip or
+        record now — analysis starts when recording stops.
       </p>
 
       <div className="card-surface mt-8 overflow-hidden">
         <div className="grid md:grid-cols-2 md:divide-x md:divide-border">
-          {/* Record — left / primary CTA */}
           <div className="relative flex flex-col items-center px-6 py-10 text-center sm:px-8">
             <span className="absolute right-4 top-4 rounded-full bg-accent px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white sm:right-6 sm:top-6 sm:text-xs">
               Recommended
@@ -264,7 +263,7 @@ export function CapturePanel({
             </div>
             <h2 className="mt-5 text-lg font-extrabold">Record audio</h2>
             <p className="mt-2 text-sm text-muted">
-              Use your microphone to record a short response.
+              Use your microphone — stop when done and we analyze automatically.
             </p>
             <button
               type="button"
@@ -275,11 +274,10 @@ export function CapturePanel({
               Record Audio
             </button>
             <p className="mt-3 text-xs text-muted">
-              Mic permission will be requested.
+              Min 30s · Max 2 min · Mic permission required
             </p>
           </div>
 
-          {/* Upload — right / secondary */}
           <div className="flex flex-col items-center border-t border-border px-6 py-10 text-center sm:px-8 md:border-t-0">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -316,7 +314,9 @@ export function CapturePanel({
             >
               {busy ? "Working…" : "Upload Audio"}
             </button>
-            <p className="mt-3 text-xs text-muted">MP3, WAV, or M4A · Max 4 minutes</p>
+            <p className="mt-3 text-xs text-muted">
+              MP3, WAV, or M4A · 30s–2 min
+            </p>
           </div>
         </div>
       </div>

@@ -210,7 +210,7 @@ export async function POST(request: Request) {
       return Response.json(
         {
           error:
-            "Could not transcribe speech. Use clear spoken audio up to 4 minutes.",
+            "Could not transcribe speech. Use clear spoken audio (30 seconds to 2 minutes).",
         },
         { status: 422 },
       );

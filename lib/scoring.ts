@@ -1,18 +1,52 @@
 import type { ChallengeImageKey, DiagnosisReport, DiagnosisStat, StatId } from "./schema";
-import { CHALLENGE_IMAGE_KEYS, STAT_IDS, STAT_LABELS } from "./schema";
+import {
+  CHALLENGE_IMAGE_KEYS,
+  STAT_IDS,
+  STAT_LABELS,
+  STAT_SECTIONS,
+} from "./schema";
 
 export function scoreLabel(overall: number): string {
-  if (overall >= 85) return "Elite Communicator";
-  if (overall >= 70) return "Strong Communicator";
-  if (overall >= 55) return "Functional Communicator";
-  if (overall >= 40) return "Inconsistent Communicator";
-  return "Blocking Patterns";
+  if (overall >= 90) return "Elite Communicator";
+  if (overall >= 78) return "Strong Communicator";
+  if (overall >= 65) return "Effective Communicator";
+  if (overall >= 52) return "Developing Communicator";
+  if (overall >= 38) return "Inconsistent Communicator";
+  return "Needs Significant Improvement";
 }
 
 export function deriveOverallFromStats(stats: DiagnosisStat[]): number {
   if (!stats.length) return 0;
   const avg = stats.reduce((s, x) => s + x.score, 0) / stats.length;
   return Math.round(avg * 10);
+}
+
+/** Section score 0–100 from average of that section's marker scores × 10 */
+export function sectionScore(
+  stats: DiagnosisStat[],
+  ids: readonly StatId[],
+): number {
+  const byId = new Map(stats.map((s) => [s.id, s.score]));
+  const scores = ids
+    .map((id) => byId.get(id))
+    .filter((n): n is number => typeof n === "number");
+  if (!scores.length) return 0;
+  const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+  return Math.round(avg * 10);
+}
+
+export function buildStatSections(stats: DiagnosisStat[]) {
+  return STAT_SECTIONS.map((section) => {
+    const ids = section.ids as readonly StatId[];
+    const sectionStats = ids
+      .map((id) => stats.find((s) => s.id === id))
+      .filter((s): s is DiagnosisStat => Boolean(s));
+    return {
+      ...section,
+      stats: sectionStats,
+      score: sectionScore(stats, ids),
+    };
+  });
 }
 
 function coerceImageKey(raw: string): ChallengeImageKey {
@@ -53,18 +87,23 @@ export function normalizeDiagnosis(
     level: report.level?.trim() || scoreLabel(overall),
     transcript: report.transcript?.trim() || transcriptFallback,
     mainChallenge: {
-      title: report.mainChallenge.title?.trim() || "Unclear delivery",
-      summary:
+      title: report.mainChallenge.title?.trim() || "Clarity opportunity",
+      summary: report.mainChallenge.summary?.trim() || "",
+      strengths:
+        report.mainChallenge.strengths?.trim() ||
+        "You showed up and shared a real sample — that gives us something concrete to work with.",
+      improvements:
+        report.mainChallenge.improvements?.trim() ||
         report.mainChallenge.summary?.trim() ||
-        "Your main issue is that listeners struggle to follow and trust your delivery.",
+        "Tighten one main habit so listeners grasp your point faster and with less effort.",
       imageKey: coerceImageKey(report.mainChallenge.imageKey || "generic"),
     },
     minorChallenges:
       report.minorChallenges?.trim() ||
-      "Secondary gaps showed up in pacing and structure.",
+      "What worked: a few moments were easier to follow. What to improve: secondary gaps in pacing and structure still steal clarity — tighten those next.",
     solutionsCopy:
       report.solutionsCopy?.trim() ||
-      "You're probably about 2–3 months of work away from solving these. You need a consistent practice routine, better frameworks for your thinking, and pressure-testing your speech until it holds in real conversations.",
+      "Keep the habits that already land. Then run 2–3 months of deliberate drills on your three weakest markers: one-take recordings, shorter answers, and pause practice under light pressure.",
   };
 }
 

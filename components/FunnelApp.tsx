@@ -216,7 +216,7 @@ export function FunnelApp() {
 
       {phase !== "landing" && (
         <footer className="border-t border-border py-8 text-center text-xs text-muted">
-          EliteSpeak · Free communication diagnosis · Max 4 minutes
+          EliteSpeak · Free communication diagnosis · 30s–2 min
         </footer>
       )}
     </div>

@@ -1,5 +1,6 @@
-export const MAX_DURATION_SECONDS = 240; // process / record max: 4 minutes
-export const MAX_UPLOAD_DURATION_SECONDS = 300; // allow up to 5 min upload; trim to 4
+export const MAX_DURATION_SECONDS = 120; // record / analyze max: 2 minutes
+export const MIN_DURATION_SECONDS = 30; // need ≥30s for viable results
+export const MAX_UPLOAD_DURATION_SECONDS = 150; // slight buffer on upload
 export const MAX_FILE_SIZE_BYTES = 80 * 1024 * 1024; // 80 MB phone videos
 
 export const ACCEPTED_AUDIO_TYPES = [

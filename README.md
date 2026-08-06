@@ -6,7 +6,7 @@ Free audio → AI **diagnosis** funnel (mobile-first).
 
 1. Landing → **Get My Free Communication Report**
 2. Name gate (demo / `sessionStorage`)
-3. Upload audio **or** record audio (max 4 minutes)
+3. Upload audio **or** record audio (30 seconds to 2 minutes)
 4. Analyzing
 5. Diagnosis: main challenge, minor challenges, where you rank, Thoughts2Words / Coach CTAs, solutions copy
 

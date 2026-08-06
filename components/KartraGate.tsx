@@ -47,7 +47,7 @@ export function KartraGate({ onBack }: KartraGateProps) {
         Get your free personalized communication diagnosis
       </h1>
       <p className="mt-3 text-center text-sm text-muted">
-        Takes under a minute to start. Audio only — up to 4 minutes.
+        Takes under a minute to start. Audio only — 30 seconds to 2 minutes.
       </p>
 
       <div className="mt-8 flex justify-center gap-2 overflow-hidden px-2">
