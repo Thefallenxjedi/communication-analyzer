@@ -1,51 +1,94 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { DiagnosisReport } from "@/lib/schema";
 import { readLead, saveKartraLead, type LeadPayload } from "@/lib/lead";
+import { pathToPhase, phaseToPath, type Phase } from "@/lib/funnel-routes";
 import { LandingPage } from "@/components/LandingPage";
 import { KartraGate } from "@/components/KartraGate";
 import { CapturePanel } from "@/components/CapturePanel";
 import { AnalyzingState } from "@/components/AnalyzingState";
 import { DiagnosisPage } from "@/components/DiagnosisPage";
 
-type Phase = "landing" | "name" | "capture" | "analyzing" | "done";
+const REPORT_STORAGE_KEY = "ca_report";
 
-function clearCaptureQueryParam() {
+function readStoredReport(): DiagnosisReport | null {
   try {
-    const url = new URL(window.location.href);
-    if (!url.searchParams.has("step") && !url.searchParams.has("phase")) return;
-    url.searchParams.delete("step");
-    url.searchParams.delete("phase");
-    const next = `${url.pathname}${url.search}${url.hash}`;
-    window.history.replaceState({}, "", next);
+    const raw = sessionStorage.getItem(REPORT_STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as DiagnosisReport;
+  } catch {
+    return null;
+  }
+}
+
+function storeReport(report: DiagnosisReport | null) {
+  try {
+    if (!report) sessionStorage.removeItem(REPORT_STORAGE_KEY);
+    else sessionStorage.setItem(REPORT_STORAGE_KEY, JSON.stringify(report));
   } catch {
     // ignore
   }
 }
 
-export default function Home() {
-  const [phase, setPhase] = useState<Phase>("landing");
+export function FunnelApp() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const phase = pathToPhase(pathname);
+  const bootstrapped = useRef(false);
+  const analyzingRef = useRef(false);
+
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [report, setReport] = useState<DiagnosisReport | null>(null);
   const [lead, setLead] = useState<LeadPayload | null>(null);
   const [serverHasDefault, setServerHasDefault] = useState(false);
   const [configLoaded, setConfigLoaded] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
-  // Restore lead; honor Kartra thank-you redirect (?step=capture | ?phase=capture)
+  const goTo = useCallback(
+    (next: Phase, mode: "push" | "replace" = "push") => {
+      const path = phaseToPath(next);
+      if (path === pathname) return;
+      if (mode === "replace") router.replace(path);
+      else router.push(path);
+    },
+    [pathname, router],
+  );
+
+  // One-time hydrate + deep-link / Kartra redirect handling
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const step = params.get("step") ?? params.get("phase");
-    const existing = step === "capture" ? saveKartraLead() : readLead();
-    if (step === "capture") clearCaptureQueryParam();
+    if (bootstrapped.current) return;
+    bootstrapped.current = true;
 
-    // Defer so we don't sync-set state in the effect body (eslint react-hooks)
+    const step = searchParams.get("step") ?? searchParams.get("phase");
+    const existing = step === "capture" ? saveKartraLead() : readLead();
+    const storedReport = readStoredReport();
+    const path = pathname.replace(/\/$/, "") || "/";
+
     queueMicrotask(() => {
       if (existing) setLead(existing);
-      if (step === "capture") setPhase("capture");
+      if (storedReport) setReport(storedReport);
+      setHydrated(true);
+
+      if (step === "capture") {
+        router.replace("/capture");
+        return;
+      }
+
+      if (path === "/report" && !storedReport) {
+        router.replace(existing ? "/capture" : "/start");
+        return;
+      }
+
+      // Refresh mid-analysis → back to capture (can't resume the request)
+      if (path === "/analyzing" && !analyzingRef.current) {
+        router.replace(existing ? "/capture" : "/start");
+      }
     });
-  }, []);
+  }, [pathname, router, searchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -66,43 +109,56 @@ export default function Home() {
   }, []);
 
   const goHome = () => {
-    setPhase("landing");
+    analyzingRef.current = false;
     setStatus("");
     setError("");
     setReport(null);
+    storeReport(null);
+    goTo("landing");
   };
 
   const startFunnel = () => {
-    // Skip name step if we already have a lead this session (e.g. prior Kartra submit)
-    if (lead) setPhase("capture");
-    else setPhase("name");
+    if (lead || readLead()) goTo("capture");
+    else goTo("name");
   };
 
-  const analyzeAudio = useCallback(async (audio: File) => {
-    setPhase("analyzing");
-    setError("");
-    setStatus("Understanding your speaking style…");
+  const analyzeAudio = useCallback(
+    async (audio: File) => {
+      analyzingRef.current = true;
+      goTo("analyzing");
+      setError("");
+      setStatus("Understanding your speaking style…");
 
-    try {
-      const formData = new FormData();
-      formData.append("audio", audio);
+      try {
+        const formData = new FormData();
+        formData.append("audio", audio);
 
-      setStatus("Building your personalized diagnosis…");
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Analysis failed.");
+        setStatus("Building your personalized diagnosis…");
+        const res = await fetch("/api/analyze", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Analysis failed.");
 
-      setReport(data as DiagnosisReport);
-      setPhase("done");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
-      setPhase("capture");
-      setStatus("");
-    }
-  }, []);
+        const nextReport = data as DiagnosisReport;
+        setReport(nextReport);
+        storeReport(nextReport);
+        analyzingRef.current = false;
+        goTo("done");
+      } catch (err) {
+        analyzingRef.current = false;
+        setError(err instanceof Error ? err.message : "Something went wrong.");
+        setStatus("");
+        goTo("capture");
+      }
+    },
+    [goTo],
+  );
+
+  if (!hydrated) {
+    return <div className="app-shell" aria-busy="true" />;
+  }
 
   return (
     <div className="app-shell">
@@ -146,7 +202,8 @@ export default function Home() {
           )}
           {lead?.name && (
             <p className="mx-auto max-w-3xl px-4 pt-4 text-center text-sm text-muted">
-              Hi {lead.name.split(" ")[0]} — let&apos;s diagnose your communication.
+              Hi {lead.name.split(" ")[0]} — let&apos;s diagnose your
+              communication.
             </p>
           )}
           <CapturePanel

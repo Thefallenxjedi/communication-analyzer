@@ -46,17 +46,21 @@ Anyone who communicates for work (interviews, sales, presentations, meetings).
 **Fallbacks:** `gemini-2.5-flash-lite` → `gemini-2.5-flash` → `gemini-flash-latest`  
 **API:** `POST /api/analyze` (multipart audio), `maxDuration` ~120s  
 **Inputs:** MP3 / WAV / M4A + in-browser record  
-**Leads:** collected via **Kartra** simplified opt-in (`kartra_optin_containerc20ad4d…` + `https://app.kartra.com/optin/fMPOVao42jZa`); app stores `ca_lead` in `sessionStorage` (`{ source: "kartra", at }`) after redirect back. Client must set Kartra thank-you redirect to `/?step=capture` (or absolute production URL with `?step=capture`).  
+**Leads:** collected via **Kartra** simplified opt-in (`kartra_optin_containerc20ad4d…` + `https://app.kartra.com/optin/fMPOVao42jZa`); app stores `ca_lead` in `sessionStorage` (`{ source: "kartra", at }`) after redirect back. Client must set Kartra thank-you redirect to **`/capture?step=capture`** (or `https://communication-analyzer-gamma.vercel.app/capture?step=capture`). Legacy `/?step=capture` still works.
 
 ---
 
-## 4. Funnel phases
+## 4. Funnel phases & URLs
 
-1. **Landing** — marketing + CTA  
-2. **Name gate** — Kartra simplified opt-in embed; Kartra injects the form, then redirects back with `?step=capture`  
-3. **Capture** — Record (Recommended) or Upload  
-4. **Analyzing** — progressive loading messages  
-5. **Diagnosis** — main/minor challenges, stats, solve CTAs, solutions  
+| Step | Path | Screen |
+|------|------|--------|
+| 1 | `/` | Landing — marketing + CTA |
+| 2 | `/start` | Kartra opt-in embed |
+| 3 | `/capture` | Record (Recommended) or Upload |
+| 4 | `/analyzing` | Progressive loading |
+| 5 | `/report` | Diagnosis (report kept in `sessionStorage`) |
+
+URL updates as the user moves through the funnel (browser back/forward supported).  
 
 ---
 
