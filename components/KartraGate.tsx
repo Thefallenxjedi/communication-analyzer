@@ -22,7 +22,7 @@ const KARTRA_FORM_HTML = `
     <input type="text" class="js_kartra_santitation" data-santitation-type="front_name" placeholder="First name..." name="first_name" value="">
     <input type="text" class="js_kartra_santitation" data-santitation-type="email" placeholder="Email..." name="email" value="">
     <div class="js_captcha_wrapper"></div>
-    <button class="submit_button_${FORM_ID}" type="submit">Submit</button>
+    <button class="submit_button_${FORM_ID}" onclick="var element = this; element.form.submit(); element.setAttribute('disabled', true); setTimeout(function(){element.removeAttribute('disabled');}, 1000);" type="submit">Submit</button>
   </form>
 </div>
 `.trim();
