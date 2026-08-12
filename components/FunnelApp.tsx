@@ -1,12 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { DiagnosisReport } from "@/lib/schema";
-import { readLead, saveKartraLead, type LeadPayload } from "@/lib/lead";
+import { readLead, type LeadPayload } from "@/lib/lead";
+import { getOrCreateAnonymousId } from "@/lib/anonymous-id";
 import { pathToPhase, phaseToPath, type Phase } from "@/lib/funnel-routes";
 import { LandingPage } from "@/components/LandingPage";
-import { KartraGate } from "@/components/KartraGate";
 import { CapturePanel } from "@/components/CapturePanel";
 import { AnalyzingState } from "@/components/AnalyzingState";
 import { DiagnosisPage } from "@/components/DiagnosisPage";
@@ -35,7 +35,6 @@ function storeReport(report: DiagnosisReport | null) {
 export function FunnelApp() {
   const pathname = usePathname();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const phase = pathToPhase(pathname);
   const bootstrapped = useRef(false);
   const analyzingRef = useRef(false);
@@ -58,13 +57,13 @@ export function FunnelApp() {
     [pathname, router],
   );
 
-  // One-time hydrate + deep-link / Kartra redirect handling
+  // One-time hydrate. Refresh mid-funnel → home (audio/session can't resume).
+  // Only /report stays if we still have a stored result.
   useEffect(() => {
     if (bootstrapped.current) return;
     bootstrapped.current = true;
 
-    const step = searchParams.get("step") ?? searchParams.get("phase");
-    const existing = step === "capture" ? saveKartraLead() : readLead();
+    const existing = readLead();
     const storedReport = readStoredReport();
     const path = pathname.replace(/\/$/, "") || "/";
 
@@ -73,22 +72,22 @@ export function FunnelApp() {
       if (storedReport) setReport(storedReport);
       setHydrated(true);
 
-      if (step === "capture") {
-        router.replace("/capture");
+      // Results page: keep only when report is still in session
+      if (path === "/report") {
+        if (!storedReport) router.replace("/");
         return;
       }
 
-      if (path === "/report" && !storedReport) {
-        router.replace(existing ? "/capture" : "/start");
-        return;
-      }
-
-      // Refresh mid-analysis → back to capture (can't resume the request)
-      if (path === "/analyzing" && !analyzingRef.current) {
-        router.replace(existing ? "/capture" : "/start");
+      // Capture / analyzing / old start — refresh loses the in-progress flow
+      if (
+        path === "/capture" ||
+        path === "/analyzing" ||
+        path === "/start"
+      ) {
+        router.replace("/");
       }
     });
-  }, [pathname, router, searchParams]);
+  }, [pathname, router]);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +107,20 @@ export function FunnelApp() {
     };
   }, []);
 
+  // Deep-link #get-report → scroll to home form
+  useEffect(() => {
+    if (!hydrated) return;
+    if (typeof window === "undefined") return;
+    if (window.location.hash !== "#get-report") return;
+    const t = window.setTimeout(() => {
+      document.getElementById("get-report")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [hydrated, pathname]);
+
   const goHome = () => {
     analyzingRef.current = false;
     setStatus("");
@@ -118,28 +131,76 @@ export function FunnelApp() {
   };
 
   const startFunnel = () => {
-    if (lead || readLead()) goTo("capture");
-    else goTo("name");
+    if (lead || readLead()) {
+      goTo("capture");
+      return;
+    }
+    if (pathname.replace(/\/$/, "") === "" || pathname === "/") {
+      document.getElementById("get-report")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      return;
+    }
+    router.replace("/#get-report");
   };
 
   const analyzeAudio = useCallback(
-    async (audio: File) => {
+    async (audio: File, durationSec: number | null) => {
       analyzingRef.current = true;
       goTo("analyzing");
       setError("");
       setStatus("Understanding your speaking style…");
 
+      const controller = new AbortController();
+      // Hard stop so the UI never spins forever if the API hangs
+      const timeoutMs = 100_000;
+      const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
       try {
         const formData = new FormData();
         formData.append("audio", audio);
+        formData.append("anonymousId", getOrCreateAnonymousId());
+        if (durationSec != null && Number.isFinite(durationSec)) {
+          formData.append("durationSec", String(Math.round(durationSec)));
+        }
+        const leadNow = lead || readLead();
+        if (leadNow?.source) {
+          formData.append("source", leadNow.source);
+        }
+        if (leadNow?.email) {
+          formData.append("email", leadNow.email);
+        }
+        if (leadNow?.name) {
+          formData.append(
+            "firstName",
+            leadNow.name.split(/\s+/)[0] || leadNow.name,
+          );
+        }
 
         setStatus("Building your personalized diagnosis…");
         const res = await fetch("/api/analyze", {
           method: "POST",
           body: formData,
+          signal: controller.signal,
         });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Analysis failed.");
+
+        let data: { error?: string } & Partial<DiagnosisReport> = {};
+        try {
+          data = (await res.json()) as typeof data;
+        } catch {
+          throw new Error(
+            "Analysis timed out or returned an invalid response. Please try again.",
+          );
+        }
+        if (!res.ok) {
+          throw new Error(
+            data.error ||
+              (res.status === 429
+                ? "Our analysis service is busy right now. Please wait a moment and try again."
+                : "Analysis failed."),
+          );
+        }
 
         const nextReport = data as DiagnosisReport;
         setReport(nextReport);
@@ -148,21 +209,33 @@ export function FunnelApp() {
         goTo("done");
       } catch (err) {
         analyzingRef.current = false;
-        setError(err instanceof Error ? err.message : "Something went wrong.");
+        const aborted =
+          err instanceof DOMException && err.name === "AbortError";
+        setError(
+          aborted
+            ? "Analysis is taking too long. Please try again in a minute."
+            : err instanceof Error
+              ? err.message
+              : "Something went wrong.",
+        );
         setStatus("");
         goTo("capture");
+      } finally {
+        window.clearTimeout(timeoutId);
       }
     },
-    [goTo],
+    [goTo, lead],
   );
 
   if (!hydrated) {
     return <div className="app-shell" aria-busy="true" />;
   }
 
+  const onLanding = phase === "landing" || phase === "name";
+
   return (
     <div className="app-shell">
-      {phase !== "landing" && (
+      {phase === "done" && (
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 pt-4">
           <button
             type="button"
@@ -174,9 +247,15 @@ export function FunnelApp() {
         </div>
       )}
 
-      {phase === "landing" && <LandingPage onCta={startFunnel} />}
-
-      {phase === "name" && <KartraGate onBack={goHome} />}
+      {onLanding && (
+        <LandingPage
+          onCta={startFunnel}
+          onLeadComplete={(next) => {
+            setLead(next);
+            goTo("capture");
+          }}
+        />
+      )}
 
       {phase === "analyzing" && <AnalyzingState status={status} />}
 
@@ -201,20 +280,25 @@ export function FunnelApp() {
             </div>
           )}
           {lead?.name && (
-            <p className="mx-auto max-w-3xl px-4 pt-4 text-center text-sm text-muted">
-              Hi {lead.name.split(" ")[0]} — let&apos;s diagnose your
-              communication.
+            <p className="mx-auto max-w-3xl px-4 pt-4 text-center text-sm font-medium text-foreground">
+              Hi {lead.name.split(" ")[0]} — let&apos;s diagnose your{" "}
+              <span className="bg-highlight px-1 font-extrabold">
+                communication
+              </span>
+              .
             </p>
           )}
           <CapturePanel
-            onAudioReady={(file) => void analyzeAudio(file)}
+            onAudioReady={(file, durationSec) =>
+              void analyzeAudio(file, durationSec)
+            }
             onError={setError}
             disabled={!serverHasDefault}
           />
         </div>
       )}
 
-      {phase !== "landing" && (
+      {phase !== "landing" && phase !== "name" && (
         <footer className="border-t border-border py-8 text-center text-xs text-muted">
           EliteSpeak · Free communication diagnosis
         </footer>

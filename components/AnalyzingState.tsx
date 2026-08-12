@@ -33,29 +33,47 @@ export function AnalyzingState({ status }: AnalyzingStateProps) {
   }, []);
 
   const onLast = index >= MESSAGES.length - 1;
-  const progress = onLast ? 90 : Math.min(85, ((index + 1) / MESSAGES.length) * 80);
+  // Keep the bar moving slowly on the last step so it doesn't look frozen
+  const progress = onLast
+    ? Math.min(96, 88 + Math.floor(elapsed / 15))
+    : Math.min(85, ((index + 1) / MESSAGES.length) * 80);
 
   return (
     <section className="mx-auto flex min-h-[75dvh] w-full max-w-md flex-col justify-center px-4 py-16 animate-fade-up">
-      <p className="text-center text-xs font-semibold uppercase tracking-[0.18em] text-accent">
-        Analyzing
-      </p>
-      <h1 className="mt-3 text-center text-2xl font-extrabold tracking-tight sm:text-3xl">
-        Analyzing Your Communication
-      </h1>
-      <p className="mt-3 text-center text-sm text-muted">
-        {status || MESSAGES[index]}
-        {onLast ? " (still working…)" : ""}
-      </p>
-      {elapsed >= 20 && (
-        <p className="mt-2 text-center text-xs text-muted">
-          Full diagnoses often take 30–90 seconds.
+      <div className="flex flex-col items-center text-center">
+        <p className="inline-flex items-center gap-2 rounded-full border border-border bg-highlight px-4 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-foreground sm:text-xs">
+          <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" aria-hidden />
+          Analyzing
         </p>
-      )}
+        <p className="mt-5 text-sm font-extrabold uppercase tracking-[0.22em] text-accent">
+          EliteSpeak
+        </p>
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+          Analyzing your{" "}
+          <span className="bg-highlight px-1.5 box-decoration-clone">
+            communication
+          </span>
+        </h1>
+        <p className="mt-3 text-sm text-muted">
+          {status || MESSAGES[index]}
+          {onLast ? " (still working…)" : ""}
+        </p>
+        {elapsed >= 30 && (
+          <p className="mt-2 text-xs text-muted">
+            This can take up to about 90 seconds when traffic is high — keep this
+            tab open.
+          </p>
+        )}
+        {elapsed >= 60 && (
+          <p className="mt-1 text-xs font-semibold text-foreground/80">
+            Almost there — finishing your report…
+          </p>
+        )}
+      </div>
 
       <div className="mt-8 overflow-hidden rounded-full bg-track">
         <div
-          className="h-2 rounded-full bg-accent transition-all duration-700"
+          className="h-2 rounded-full bg-highlight transition-all duration-700"
           style={{ width: `${progress}%` }}
         />
       </div>
@@ -71,7 +89,7 @@ export function AnalyzingState({ status }: AnalyzingStateProps) {
                 done
                   ? "border-emerald-200 bg-emerald-50 text-emerald-900"
                   : active
-                    ? "border-border bg-card font-semibold text-foreground"
+                    ? "border-highlight bg-highlight/40 font-semibold text-foreground"
                     : "border-transparent text-muted"
               }`}
             >

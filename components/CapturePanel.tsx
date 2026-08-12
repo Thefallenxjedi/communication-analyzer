@@ -9,14 +9,10 @@ import {
   MAX_DURATION_SECONDS,
   MAX_FILE_SIZE_BYTES,
   MIN_DURATION_SECONDS,
-  SUGGESTED_DURATION_SECONDS,
 } from "@/lib/validate-media";
 
-type CapturePanelProps = {
-  onAudioReady: (audio: File) => void;
-  onError: (message: string) => void;
-  disabled?: boolean;
-};
+const SPEAK_HINT =
+  "Talk about anything — how your day went, a favorite movie, or chatting with a friend.";
 
 function pickMimeType(): string {
   const candidates = [
@@ -35,6 +31,12 @@ function pickMimeType(): string {
   }
   return "";
 }
+
+type CapturePanelProps = {
+  onAudioReady: (audio: File, durationSec: number | null) => void;
+  onError: (message: string) => void;
+  disabled?: boolean;
+};
 
 export function CapturePanel({
   onAudioReady,
@@ -94,23 +96,23 @@ export function CapturePanel({
       try {
         const duration = await getMediaDuration(file);
         if (duration < MIN_DURATION_SECONDS) {
-          throw new Error(
-            `Please record at least ${MIN_DURATION_SECONDS} seconds, then try again.`,
-          );
+          throw new Error(`Recording too short — please record again.`);
         }
         if (duration > MAX_DURATION_SECONDS + 2) {
           throw new Error("Audio must be 2 minutes or less.");
         }
+        onAudioReady(file, Math.round(duration));
+        return;
       } catch (err) {
         if (
           err instanceof Error &&
-          /(2 minutes|at least \d+ seconds)/i.test(err.message)
+          /(2 minutes|too short|record again)/i.test(err.message)
         ) {
           throw err;
         }
         // Some browsers can't read duration for all formats — continue
       }
-      onAudioReady(file);
+      onAudioReady(file, null);
     } catch (err) {
       onError(err instanceof Error ? err.message : "Could not use that file.");
     } finally {
@@ -156,14 +158,12 @@ export function CapturePanel({
         const file = new File([blob], `recording.${ext}`, { type: blob.type });
 
         if (seconds < MIN_DURATION_SECONDS) {
-          onErrorRef.current(
-            `Please record at least ${MIN_DURATION_SECONDS} seconds, then try again.`,
-          );
+          onErrorRef.current(`Recording too short — please record again.`);
           return;
         }
 
         onErrorRef.current("");
-        onAudioReadyRef.current(file);
+        onAudioReadyRef.current(file, Math.round(seconds));
       };
 
       recorder.start(250);
@@ -185,30 +185,18 @@ export function CapturePanel({
   if (mode === "record") {
     return (
       <section className="mx-auto w-full max-w-lg px-4 py-10 animate-fade-up">
-        <button
-          type="button"
-          onClick={() => {
-            if (recording) stopRecording();
-            setMode("choose");
-          }}
-          className="mb-6 text-sm text-muted hover:text-foreground"
-        >
-          ← Back
-        </button>
-        <h1 className="text-2xl font-extrabold tracking-tight">Record audio</h1>
-        <p className="mt-2 text-sm text-muted">
-          Suggested min {SUGGESTED_DURATION_SECONDS}s. Analysis starts
-          automatically when you stop.
+        <p className="text-sm font-extrabold uppercase tracking-[0.22em] text-accent">
+          EliteSpeak
         </p>
-        <p className="mt-6 text-3xl font-extrabold tabular-nums text-accent">
-          {formatDuration(Math.min(elapsed, MAX_DURATION_SECONDS))}
-        </p>
-        <p className="mt-1 text-xs text-muted">
-          {elapsed < MIN_DURATION_SECONDS
-            ? `Need ${MIN_DURATION_SECONDS}+ seconds to analyze`
-            : elapsed < SUGGESTED_DURATION_SECONDS
-              ? `Suggested min ${SUGGESTED_DURATION_SECONDS}s — you can stop anytime`
-              : "Suggested length reached — stop anytime"}
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight">
+          Record{" "}
+          <span className="bg-highlight px-1.5 box-decoration-clone">audio</span>
+        </h1>
+
+        <p className="mt-6 text-3xl font-extrabold tabular-nums text-foreground">
+          <span className="bg-highlight px-2 box-decoration-clone">
+            {formatDuration(Math.min(elapsed, MAX_DURATION_SECONDS))}
+          </span>
         </p>
 
         {(recording || liveStream) && (
@@ -219,17 +207,20 @@ export function CapturePanel({
 
         <div className="mt-8 flex flex-col gap-3">
           {!recording && (
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={() => void startRecording()}
-              className="btn-primary"
-            >
-              Start recording
-            </button>
+            <>
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => void startRecording()}
+                className="btn-highlight"
+              >
+                Start recording
+              </button>
+              <p className="text-center text-sm text-muted">{SPEAK_HINT}</p>
+            </>
           )}
           {recording && (
-            <button type="button" onClick={stopRecording} className="btn-secondary">
+            <button type="button" onClick={stopRecording} className="btn-highlight">
               Stop &amp; analyze
             </button>
           )}
@@ -240,18 +231,27 @@ export function CapturePanel({
 
   return (
     <section className="mx-auto w-full max-w-3xl px-4 py-10 animate-fade-up">
-      <h1 className="text-center text-2xl font-extrabold tracking-tight sm:text-3xl">
-        Share up to 2 minutes of speaking.
-      </h1>
-      <p className="mx-auto mt-3 max-w-md text-center text-sm text-muted">
-        Suggested min {SUGGESTED_DURATION_SECONDS}s. Analysis starts when
-        recording stops.
-      </p>
+      <div className="flex flex-col items-center text-center">
+        <p className="inline-flex items-center gap-2 rounded-full border border-border bg-highlight px-4 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-foreground sm:text-xs">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden />
+          Step 2 — capture
+        </p>
+        <p className="mt-5 text-sm font-extrabold uppercase tracking-[0.22em] text-accent">
+          EliteSpeak
+        </p>
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+          Record your{" "}
+          <span className="bg-highlight px-1.5 box-decoration-clone">audio</span>
+        </h1>
+        <p className="mx-auto mt-3 max-w-md text-sm text-muted">
+          A minimum of 30 seconds of audio will help us analyze you better.
+        </p>
+      </div>
 
-      <div className="card-surface mt-8 overflow-hidden">
+      <div className="card-surface mt-6 overflow-hidden">
         <div className="grid md:grid-cols-2 md:divide-x md:divide-border">
           <div className="relative flex flex-col items-center px-6 py-10 text-center sm:px-8">
-            <span className="absolute right-4 top-4 rounded-full bg-accent px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white sm:right-6 sm:top-6 sm:text-xs">
+            <span className="absolute right-4 top-4 rounded-full border border-border bg-highlight px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-foreground sm:right-6 sm:top-6 sm:text-xs">
               Recommended
             </span>
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent">
@@ -273,13 +273,11 @@ export function CapturePanel({
               type="button"
               disabled={disabled}
               onClick={() => setMode("record")}
-              className="btn-primary mt-6 uppercase tracking-wide"
+              className="btn-highlight mt-6 uppercase tracking-wide"
             >
               Record Audio
             </button>
-            <p className="mt-3 text-xs text-muted">
-              Suggested min 30s · Max 2 min
-            </p>
+            <p className="mt-3 max-w-xs text-sm text-muted">{SPEAK_HINT}</p>
           </div>
 
           <div className="flex flex-col items-center border-t border-border px-6 py-10 text-center sm:px-8 md:border-t-0">
@@ -314,13 +312,11 @@ export function CapturePanel({
               type="button"
               disabled={disabled || busy}
               onClick={() => inputRef.current?.click()}
-              className="btn-secondary mt-6 uppercase tracking-wide"
+              className="btn-highlight mt-6 uppercase tracking-wide"
             >
               {busy ? "Working…" : "Upload Audio"}
             </button>
-            <p className="mt-3 text-xs text-muted">
-              MP3, WAV, or M4A · Max 2 min
-            </p>
+            <p className="mt-3 text-xs text-muted">MP3, WAV, or M4A</p>
           </div>
         </div>
       </div>

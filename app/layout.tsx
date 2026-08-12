@@ -11,7 +11,7 @@ const dmSans = DM_Sans({
 export const metadata: Metadata = {
   title: "EliteSpeak — Free Communication Diagnosis",
   description:
-    "Upload or record up to 2 minutes of audio (suggested min 30s). Get a blunt AI diagnosis of how you sound — main challenge, rankings, and what to fix next.",
+    "Upload or record a short audio clip. Get a blunt AI diagnosis of how you sound — main challenge, rankings, and what to fix next.",
 };
 
 export default function RootLayout({

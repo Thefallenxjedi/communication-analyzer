@@ -27,7 +27,7 @@ type NameGateProps = {
   onBack?: () => void;
 };
 
-/** Legacy name/email gate — funnel now uses KartraGate. Kept for reference. */
+/** Legacy name/email gate — funnel uses Kartra on the home page. Kept for reference. */
 export function NameGate({ onComplete, onBack }: NameGateProps) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -70,7 +70,7 @@ export function NameGate({ onComplete, onBack }: NameGateProps) {
         Get your free personalized communication diagnosis
       </h1>
       <p className="mt-3 text-center text-sm text-muted">
-        Takes under a minute to start. Audio only — up to 2 minutes.
+        A minimum of 30 seconds of audio will help us analyze you better.
       </p>
 
       <div className="mt-8 flex justify-center gap-2 overflow-hidden px-2">

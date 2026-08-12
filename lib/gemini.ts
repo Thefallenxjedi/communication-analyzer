@@ -53,8 +53,18 @@ export function isQuotaError(err: unknown): boolean {
   const message = err instanceof Error ? err.message : String(err);
   return (
     /quota|rate.?limit|resource.?exhausted|429/i.test(message) ||
-    /exceeded your current quota/i.test(message)
+    /exceeded your current quota/i.test(message) ||
+    /high demand|temporarily|try again later|unavailable|503/i.test(message) ||
+    /maxRetriesExceeded/i.test(message)
   );
+}
+
+export function userFacingAnalyzeError(err: unknown): string {
+  if (isQuotaError(err)) {
+    return "Our analysis service is busy right now. Please wait a moment and try again.";
+  }
+  if (err instanceof Error && err.message.trim()) return err.message;
+  return "Analysis failed unexpectedly.";
 }
 
 export const TRANSCRIBE_PROMPT = `# ROLE
@@ -165,38 +175,72 @@ Never ignore transcript evidence because of vocal performance.
 
 # EVALUATION MARKERS
 
-Evaluate the communication using these twenty markers.
+Score TWO sets. Do not flatten them into one undifferentiated list in your reasoning.
 
-Every marker receives a score from 1 to 10.
+PART A — Main Challenges (15) — primary scorecard. These drive the overall score and main focus.
+PART B — Supporting diagnostics (14) — secondary signals that deepen the diagnosis.
 
-10 always represents excellent communication.
+CRITICAL SCORING RULE — READ CAREFULLY:
+- Every marker score MUST be an INTEGER from 0 to 100 inclusive.
+- Do NOT use a 1–10 or 0–10 scale. Do NOT return 7 for "good" — return ~70.
+- Examples of correct scores: 42, 58, 73, 85, 91. Wrong: 4, 6, 7, 8, 9.
+- A typical competent speaker should land many markers in the 50–80 band on the 0–100 scale.
+- Higher score = stronger performance on that marker (including markers named after a problem: e.g. high "rambling" = strong control / little rambling; high "fillers" = few fillers; high "visibleNervousness" = composure).
 
-1 represents a severe weakness.
+100 = excellent on that marker. 0 = severe weakness.
 
-Use the rubric definitions consistently.
+This product is AUDIO-ONLY. If a cue is primarily visual (body language, face), score from audible proxies (rush, breath, tension in voice) or give a mid-band score (~50) when evidence is insufficient — never invent video-only observations.
 
-Return stats with EXACTLY these ids and labels:
+Return stats with EXACTLY these 29 ids and labels:
 
-1. verbalOrangeCones — Verbal Orange Cones — unnecessary jargon, abstract wording or unusual language that creates friction
-2. cognitiveLoad — Cognitive Load — how mentally demanding the message is for a listener
-3. overexplaining — Overexplaining — whether the speaker continues after the point has already landed
-4. selfMonitoring — Self-Monitoring — visible or audible editing while speaking
-5. clarity — Clarity — how easy every idea is to understand immediately
-6. fillerWordDensity — Filler Word Density — unnecessary fillers such as "um" "uh" "like" "you know" "I mean"
-7. bookendConsistency — Bookend Consistency — whether the ending reinforces the opening idea
-8. calm — Calm — steadiness throughout the recording
-9. pauseQuality — Pause Quality — whether pauses are deliberate and well placed
-10. executivePresence — Executive Presence — overall command, credibility and composure
-11. memorability — Memorability — memorable language, analogies or punchlines
-12. assertiveness — Assertiveness — ideas expressed directly without unnecessary hedging
-13. certaintyRatio — Certainty Ratio — decisive language versus qualifying language
-14. conciseness — Conciseness — efficiency of communication
-15. rambling — Rambling — topic drift and unnecessary tangents (higher = less rambling / better control)
-16. rambleTriggerWords — Ramble Trigger Words — repeated words or phrases that consistently lead into rambling (higher = fewer triggers)
-17. structure — Structure — logical organization
-18. anxietyLevel — Anxiety Level — observable nervous behaviours (higher = more composure / less anxiety)
-19. impact — Impact — whether ideas land with force
-20. visualLanguage — Visual Language — imagery, stories, analogies and concrete examples
+## PART A — Main Challenges (15)
+
+Fluency & real-time processing:
+1. selfMonitoring — Self-Monitoring — editing yourself mid-sentence; “am I saying this right?”
+2. blanking — Blanking — losing words under pressure; mind goes empty
+3. rambling — Rambling — talking without a clear destination (higher = less rambling)
+4. fillers — Filler Words — um, like, so, basically (higher = fewer fillers)
+
+Content & message:
+5. clarity — Clarity — listeners catch your actual point quickly
+6. structure — Structure — point, support, then close in a clear order
+7. wordPrecision — Word Precision — exact words, not vague “stuff / things / kind of”
+8. conciseness — Conciseness — same idea in fewer words without losing meaning
+9. repetition — Repetition — re-saying the same thing without adding info (higher = less redundant)
+
+Vocal delivery:
+10. energy — Energy — vocal dynamism vs flat / monotone
+11. pace — Pace Control — too fast, too slow, or uneven under pressure
+12. pauseComfort — Pause Comfort — using silence on purpose instead of filling gaps
+13. upspeak — Upspeak — statements that rise and sound like questions (higher = clean landing)
+
+Certainty & authority:
+14. hedging — Hedging — “I think / maybe / sort of” softens claims (higher = less hedging)
+15. confidence — Vocal Confidence — volume, projection, certainty of tone
+
+## PART B — Supporting diagnostics (14)
+
+Content depth:
+16. complexLanguage — Complex Language — jargon / formal wording that creates friction (higher = clearer wording)
+17. mentalEffort — Mental Effort — how hard it is for listeners to track dense ideas (higher = easier to follow)
+18. talkingPastPoint — Talking Past the Point — kept talking after the point landed (higher = stopped cleanly)
+19. bookendConsistency — Beginning & End — whether the close matches and reinforces the open
+20. visualLanguage — Word Pictures — imagery, analogies, concrete examples
+21. concisenessDetail — Tight Wording — efficiency of each point — padding vs tight wording
+
+Emotional state:
+22. steadiness — Steadiness — composure in voice and pace when it gets hard
+23. visibleNervousness — Nervous Signals — rush, tension, or audible anxiety across moments (higher = more composure)
+
+Certainty & presence:
+24. decisiveness — Decisiveness — decisive language vs hesitant qualifiers overall
+25. assertiveness — Assertiveness — direct claims without softening or tag questions
+26. rambleTriggers — Ramble Triggers — habit words that start tangents (higher = fewer triggers)
+
+Overall impression:
+27. impact — Impact — whether the message lands with force
+28. memorability — Memorability — sticky, quotable lines listeners can repeat
+29. executivePresence — Executive Presence — command, credibility, and composure overall
 
 ---
 
@@ -208,15 +252,15 @@ Never inflate scores.
 
 Never punish minor issues excessively.
 
-Use the full 1-10 range.
+Use the full 0–100 range ONLY. Never score on 1–10.
 
-General guidance:
+General guidance (0–100 integers):
 
-9–10 Outstanding
-7–8 Strong
-5–6 Average with noticeable issues
-3–4 Weak
-1–2 Severely limiting
+90–100 Outstanding
+70–89 Strong
+50–69 Average with noticeable issues
+30–49 Weak
+0–29 Severely limiting
 
 ---
 
@@ -232,24 +276,43 @@ Instead be balanced and coach-like:
 - Name what to improve (specific, actionable)
 - Assume the speaker can improve with practice
 
-Always write in second person ("you").
+Always write in second person ("you" / "your").
+Never refer to the user as "the speaker", "they", "this person", or "he/she".
 Do not mention numeric scores in prose.
 
 ---
 
 # MAIN DIAGNOSIS
 
-Identify ONE communication habit that creates the greatest improvement opportunity.
+Identify ONE Part A challenge that creates the greatest improvement opportunity (usually your lowest or highest-priority Part A score).
 
-Only choose one.
+Only choose one — it MUST be from the Part A catalog (use the exact imageKey):
+
+1. selfMonitoring — Self-Monitoring
+2. blanking — Blanking
+3. rambling — Rambling
+4. fillers — Filler Words
+5. clarity — Clarity
+6. structure — Structure
+7. wordPrecision — Word Precision
+8. conciseness — Conciseness
+9. repetition — Repetition
+10. energy — Energy
+11. pace — Pace Control
+12. pauseComfort — Pause Comfort
+13. upspeak — Upspeak
+14. hedging — Hedging
+15. confidence — Vocal Confidence
+
+Do NOT pick a Part B id as mainChallenge.imageKey.
 
 Return mainChallenge with:
 
-- title: short name of the habit (neutral, not insulting)
-- imageKey: exactly one of rambling, fillers, pace, clarity, confidence, structure, energy, presence, generic
-- strengths: 2–3 sentences on what went well related to this area or nearby strengths (specific evidence from audio/transcript)
-- improvements: 2–3 sentences on what to improve for this main habit — pointed, practical, not demeaning
-- summary: optional short combined blurb (can mirror strengths + improvements); may be empty if strengths/improvements are filled
+- title: MUST be the exact label from the catalog row you chose (e.g. "Pause Comfort")
+- imageKey: MUST be the exact Part A id from the list above (camelCase). Prefer one of the 15 — use "generic" only if nothing fits
+- strengths: 2–3 sentences on what went well related to this area (specific evidence from audio/transcript). Always second person ("you")
+- improvements: 2–3 sentences on what to improve for this main habit — pointed, practical, not demeaning. Always second person ("you")
+- summary: optional short combined blurb; may be empty if strengths/improvements are filled
 
 ---
 
@@ -259,24 +322,26 @@ Write one concise paragraph (minorChallenges).
 
 Structure it as balanced coaching:
 1) Briefly note 1–2 things that worked in secondary areas
-2) Then the next two or three biggest weaknesses (not repeating the main challenge)
+2) Then the next two or three biggest weaknesses (not repeating the main challenge) — may mix Part A and Part B
 3) Keep it constructive and evidence-based
 
 ---
 
 # STATS
 
-Return all twenty markers in stats[].
+Return ALL 29 markers (15 Part A + 14 Part B) in stats[].
 
-Each marker must contain: id, label, score (integers 1–10 only).
+Each marker must contain: id, label, score.
+score MUST be an integer 0–100 (NOT 1–10). Example: {"id":"clarity","label":"Clarity","score":72}
 
 ---
 
 # OVERALL SCORE
 
-Calculate overallScore: Average of all twenty markers × 10.
+Calculate overallScore as the arithmetic mean of the 15 PART A marker scores ONLY (each already 0–100).
+Do NOT average in Part B scores.
 
-Return an integer from 0–100.
+Return an integer from 0–100. Do NOT multiply by 10. Do NOT use a 1–10 overall.
 
 ---
 
@@ -301,7 +366,7 @@ Tone: Direct. Practical. High-performance coaching. Balanced.
 
 Structure:
 1) Start with what to keep doing (strengths worth protecting)
-2) Then drills for the three lowest scoring habits over ~2–3 months
+2) Then drills for the three lowest scoring PART A challenges over ~2–3 months
 3) Suggest concrete drills (one-take recordings, storytelling reps, executive answer drills, removing fillers, shortening answers, structured frameworks, pause practice)
 
 Do not promise unrealistic transformation.

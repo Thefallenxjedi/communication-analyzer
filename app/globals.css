@@ -1,15 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f7f7f8;
-  --foreground: #111827;
+  /* YouTube-style: white + red CTAs + yellow punch */
+  --background: #ffffff;
+  --foreground: #111111;
   --muted: #6b7280;
   --card: #ffffff;
   --border: #e5e7eb;
-  --accent: #7c3aed;
-  --accent-soft: #ede9fe;
-  --accent-dark: #5b21b6;
-  --track: #e5e7eb;
+  --accent: #e10600;
+  --accent-soft: #ffe8e6;
+  --accent-dark: #b10500;
+  --highlight: #ffe600;
+  --track: #ececec;
 }
 
 @theme inline {
@@ -21,6 +23,7 @@
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-accent-dark: var(--accent-dark);
+  --color-highlight: var(--highlight);
   --color-track: var(--track);
   --font-sans: var(--font-dm-sans);
 }
@@ -49,7 +52,7 @@ body {
   font-weight: 700;
   font-size: 0.9375rem;
   letter-spacing: 0.02em;
-  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.28);
+  box-shadow: 0 8px 24px rgba(225, 6, 0, 0.28);
   transition: filter 0.15s ease, transform 0.15s ease;
 }
 
@@ -58,7 +61,7 @@ body {
   font-size: 1.0625rem;
   padding-left: 1.5rem;
   padding-right: 1.5rem;
-  box-shadow: 0 12px 32px rgba(124, 58, 237, 0.35);
+  box-shadow: 0 12px 32px rgba(225, 6, 0, 0.35);
 }
 
 .btn-primary:hover {
@@ -66,6 +69,33 @@ body {
 }
 
 .btn-primary:disabled {
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+/* Yellow primary — same as Kartra Continue */
+.btn-highlight {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  width: 100%;
+  border-radius: 9999px;
+  border: none;
+  background: var(--highlight);
+  color: #111111;
+  font-weight: 800;
+  font-size: 0.9375rem;
+  letter-spacing: 0.02em;
+  box-shadow: 0 8px 24px rgba(255, 230, 0, 0.45);
+  transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.btn-highlight:hover {
+  filter: brightness(0.97);
+}
+
+.btn-highlight:disabled {
   opacity: 0.55;
   box-shadow: none;
 }
@@ -133,6 +163,7 @@ body {
 
 @media (min-width: 640px) {
   .btn-primary,
+  .btn-highlight,
   .btn-secondary {
     width: auto;
     min-width: 12rem;
@@ -173,48 +204,77 @@ body {
 
 .kartra_optin_containerc20ad4d76fe97759aa27a0c99bff6710 input:focus,
 .kartra-gate input:focus {
-  border-color: var(--accent);
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(225, 6, 0, 0.15);
 }
 
+/* Punchy yellow CTA — hide Kartra "Continue", show "I'M READY" */
+.kartra_optin_containerc20ad4d76fe97759aa27a0c99bff6710 button,
 .kartra_optin_containerc20ad4d76fe97759aa27a0c99bff6710 button[type="submit"],
-.kartra-gate button[type="submit"] {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 3rem;
-  width: 100%;
-  border: none;
-  border-radius: 9999px;
-  background: var(--accent);
-  color: #fff;
-  font-weight: 700;
-  font-size: 0.9375rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-  box-shadow: 0 8px 24px rgba(124, 58, 237, 0.28);
+.kartra_optin_containerc20ad4d76fe97759aa27a0c99bff6710 input[type="submit"],
+.kartra_optin_containerc20ad4d76fe97759aa27a0c99bff6710 a.btn,
+.kartra_optin_containerc20ad4d76fe97759aa27a0c99bff6710 .kartra-button,
+.kartra-gate button,
+.kartra-gate button[type="submit"],
+.kartra-gate input[type="submit"],
+.kartra-gate a.btn,
+.kartra-gate .kartra-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 3.5rem !important;
+  width: 100% !important;
+  border: none !important;
+  border-radius: 9999px !important;
+  background: var(--highlight) !important;
+  background-color: var(--highlight) !important;
+  background-image: none !important;
+  color: transparent !important;
+  font-size: 0 !important;
+  cursor: pointer !important;
+  box-shadow: 0 10px 28px rgba(255, 230, 0, 0.5) !important;
   transition: filter 0.15s ease;
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
 }
 
+.kartra_optin_containerc20ad4d76fe97759aa27a0c99bff6710 button::after,
+.kartra_optin_containerc20ad4d76fe97759aa27a0c99bff6710 button[type="submit"]::after,
+.kartra-gate button::after,
+.kartra-gate button[type="submit"]::after {
+  content: "I'M READY";
+  color: #111111 !important;
+  font-size: 0.9375rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.1em !important;
+  text-transform: uppercase !important;
+}
+
+.kartra_optin_containerc20ad4d76fe97759aa27a0c99bff6710 button:hover,
 .kartra_optin_containerc20ad4d76fe97759aa27a0c99bff6710 button[type="submit"]:hover,
+.kartra-gate button:hover,
 .kartra-gate button[type="submit"]:hover {
-  filter: brightness(1.05);
+  filter: brightness(0.97);
 }
 
+.kartra_optin_containerc20ad4d76fe97759aa27a0c99bff6710 button:disabled,
 .kartra_optin_containerc20ad4d76fe97759aa27a0c99bff6710 button[type="submit"]:disabled,
+.kartra-gate button:disabled,
 .kartra-gate button[type="submit"]:disabled {
-  opacity: 0.55;
-  box-shadow: none;
-  cursor: not-allowed;
+  opacity: 0.55 !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
 }
 
 @media (min-width: 640px) {
+  .kartra_optin_containerc20ad4d76fe97759aa27a0c99bff6710 button,
   .kartra_optin_containerc20ad4d76fe97759aa27a0c99bff6710 button[type="submit"],
-  .kartra-gate button[type="submit"] {
-    width: auto;
-    min-width: 12rem;
-    align-self: stretch;
-    padding-left: 1.75rem;
-    padding-right: 1.75rem;
+  .kartra_optin_containerc20ad4d76fe97759aa27a0c99bff6710 input[type="submit"],
+  .kartra-gate button,
+  .kartra-gate button[type="submit"],
+  .kartra-gate input[type="submit"] {
+    width: 100% !important;
+    min-width: 100% !important;
+    align-self: stretch !important;
   }
 }

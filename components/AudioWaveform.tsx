@@ -113,7 +113,7 @@ export function AudioWaveform({ stream, active }: AudioWaveformProps) {
         {levels.map((level, i) => (
           <span
             key={i}
-            className="w-[3px] shrink-0 rounded-full bg-accent sm:w-1.5"
+            className="w-[3px] shrink-0 rounded-full bg-highlight sm:w-1.5"
             style={{
               height: `${Math.round(12 + level * 88)}%`,
               opacity: 0.55 + level * 0.45,
@@ -122,7 +122,7 @@ export function AudioWaveform({ stream, active }: AudioWaveformProps) {
           />
         ))}
       </div>
-      <p className="mt-2 text-center text-xs font-medium text-accent">
+      <p className="mt-2 text-center text-xs font-medium text-foreground">
         Listening… speak into your mic
       </p>
     </div>
