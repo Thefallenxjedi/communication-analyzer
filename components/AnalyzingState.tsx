@@ -3,13 +3,13 @@
 import { useEffect, useState } from "react";
 
 const MESSAGES = [
-  "Understanding your speaking style…",
-  "Measuring confidence…",
-  "Finding filler words…",
-  "Evaluating clarity…",
-  "Checking speaking pace…",
-  "Identifying your strongest moments…",
-  "Building your personalized diagnosis…",
+  "Counting the ums, likes, and “you knows”…",
+  "Checking how much leftover meeting-anxiety is in your voice…",
+  "Seeing if you said the point, then said it two more times…",
+  "Rating your fake-it-till-you-make-it confidence…",
+  "Timing whether you sprint, stall, or actually pause…",
+  "Hunting for the one sentence that actually landed…",
+  "Writing up the honest diagnosis…",
 ] as const;
 
 type AnalyzingStateProps = {
@@ -33,7 +33,6 @@ export function AnalyzingState({ status }: AnalyzingStateProps) {
   }, []);
 
   const onLast = index >= MESSAGES.length - 1;
-  // Keep the bar moving slowly on the last step so it doesn't look frozen
   const progress = onLast
     ? Math.min(96, 88 + Math.floor(elapsed / 15))
     : Math.min(85, ((index + 1) / MESSAGES.length) * 80);
@@ -45,13 +44,10 @@ export function AnalyzingState({ status }: AnalyzingStateProps) {
           <span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-accent" aria-hidden />
           Analyzing
         </p>
-        <p className="mt-5 text-sm font-extrabold uppercase tracking-[0.22em] text-accent">
-          EliteSpeak
-        </p>
-        <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
-          Analyzing your{" "}
+        <h1 className="mt-5 text-2xl font-extrabold tracking-tight sm:text-3xl">
+          Listening harder than your last{" "}
           <span className="bg-highlight px-1.5 box-decoration-clone">
-            communication
+            Zoom call
           </span>
         </h1>
         <p className="mt-3 text-sm text-muted">
@@ -60,13 +56,13 @@ export function AnalyzingState({ status }: AnalyzingStateProps) {
         </p>
         {elapsed >= 30 && (
           <p className="mt-2 text-xs text-muted">
-            This can take up to about 90 seconds when traffic is high — keep this
+            This can take up to about 90 seconds when traffic is high. Keep this
             tab open.
           </p>
         )}
         {elapsed >= 60 && (
           <p className="mt-1 text-xs font-semibold text-foreground/80">
-            Almost there — finishing your report…
+            Almost there. Finishing your report…
           </p>
         )}
       </div>

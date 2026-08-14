@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { IntroVideoPlayer } from "@/components/IntroVideoPlayer";
+import Image from "next/image";
 import { HomepageOptIn } from "@/components/HomepageOptIn";
 import type { LeadPayload } from "@/lib/lead";
 
@@ -18,7 +18,7 @@ const FAQ_ITEMS = [
       <>
         <p>
           You speak for{" "}
-          <strong className="font-bold text-foreground">30 seconds to 2 minutes</strong>
+          <strong className="font-bold text-foreground">30 seconds to 5 minutes</strong>
           . We analyze how you sound — not a quiz, not a personality test.
         </p>
         <p className="mt-3">
@@ -118,47 +118,43 @@ export function LandingPage({ onCta: _onCta, onLeadComplete }: LandingPageProps)
 
   return (
     <div className="relative left-1/2 w-screen -translate-x-1/2 bg-background text-foreground">
-      <section className="mx-auto flex min-h-dvh max-w-3xl flex-col items-center justify-center px-4 py-8 text-center sm:py-10">
-        <p className="inline-flex items-center gap-2 rounded-full border border-border bg-highlight px-4 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-foreground sm:text-xs">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden />
-          Free speaking diagnosis
-        </p>
-
-        <p className="mt-5 text-sm font-extrabold uppercase tracking-[0.22em] text-accent">
+      <header className="border-b border-border/80 px-4 py-4 sm:py-5">
+        <p className="text-center text-sm font-extrabold uppercase tracking-[0.22em] text-accent">
           EliteSpeak
         </p>
+      </header>
 
-        <h1 className="mt-2 max-w-2xl text-[1.5rem] font-extrabold leading-[1.15] tracking-tight sm:text-4xl md:text-[2.5rem]">
-          Is how you speak{" "}
+      <section className="mx-auto w-full max-w-6xl px-4 pb-12 pt-7 sm:pb-16 sm:pt-10">
+        <h1 className="mx-auto max-w-4xl text-center text-[1.65rem] font-extrabold leading-[1.15] tracking-tight sm:text-4xl md:text-[2.65rem]">
+          Get your free communication diagnosis in less than{" "}
           <span className="bg-highlight px-1.5 box-decoration-clone">
-            holding you back?
+            60 seconds
           </span>
+          .
         </h1>
-
-        <p className="mt-3 max-w-xl text-sm font-medium text-muted sm:text-base">
-          Speak for 30 seconds. Get a free, personalized report card of how you
-          sound — score, strengths, and what to fix first.
+        <p className="mx-auto mt-3 max-w-xl text-center text-sm font-medium text-muted sm:text-base">
+          Speak for a minute. Get your score, your main focus, and what to fix
+          first.
         </p>
 
-        <div className="mt-5 w-full max-w-2xl overflow-hidden rounded-xl border border-border bg-black shadow-[0_16px_48px_rgba(0,0,0,0.12)] sm:mt-6">
-          <IntroVideoPlayer />
-        </div>
+        <div className="mt-6 grid w-full items-center gap-6 lg:mt-10 lg:grid-cols-2 lg:gap-10">
+          <div className="relative mx-auto w-full max-w-xl lg:max-w-none">
+            <Image
+              src="/hero/report-sample.png"
+              alt="Sample personalized communication report"
+              width={998}
+              height={482}
+              priority
+              className="h-auto w-full object-contain"
+            />
+          </div>
 
-        <p className="mt-5 max-w-xl text-sm leading-relaxed text-muted sm:text-base">
-          Your score. Your main focus. What to practice next.
-        </p>
-
-        <div
-          id="get-report"
-          className="mt-6 w-full max-w-md scroll-mt-8 sm:mt-7"
-        >
-          <div className="card-surface mt-4 px-4 py-5 text-left sm:px-6 sm:py-6">
+          <div id="get-report" className="w-full scroll-mt-6 lg:max-w-md lg:justify-self-start">
             <HomepageOptIn onComplete={onLeadComplete} />
           </div>
         </div>
       </section>
 
-      {/* Hormozi-style Q&A — communication diagnosis */}
       <section className="border-t border-border bg-track/40 px-4 py-12 sm:py-16">
         <div className="mx-auto w-full max-w-2xl text-left">
           <p className="text-center text-xs font-extrabold uppercase tracking-[0.14em] text-accent">
@@ -206,15 +202,12 @@ export function LandingPage({ onCta: _onCta, onLeadComplete }: LandingPageProps)
           </div>
 
           <div className="mt-10 text-center">
-            <p className="text-sm font-semibold text-muted">
-              Ready to hear how you actually sound?
-            </p>
             <button
               type="button"
               onClick={scrollToForm}
               className="btn-highlight btn-primary-lg mt-4 max-w-md uppercase tracking-[0.1em]"
             >
-              I&apos;M READY TO HEAR HOW I SOUND
+              Get my diagnosis
             </button>
           </div>
         </div>

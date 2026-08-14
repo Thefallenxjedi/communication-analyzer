@@ -23,7 +23,11 @@ export function scoreLabel(overall: number): string {
   return "Needs Significant Improvement";
 }
 
-/** Clamp a marker score to 0–100. */
+function stripDashes(value: string): string {
+  return value.replace(/\s*[—–]\s*/g, ". ").replace(/\s{2,}/g, " ").trim();
+}
+
+/** Clamp a marker score to 0-100. */
 export function coerceScore100(raw: number, legacyScale = false): number {
   if (!Number.isFinite(raw)) return 50;
   let score = Math.round(raw);
@@ -158,35 +162,41 @@ function lowestPartAId(stats: DiagnosisStat[]): ChallengeImageKey {
 }
 
 export function normalizeStats(
-  raw: Array<{ id: string; label?: string; score: number }>,
+  raw: Array<{ id: string; label?: string; score: number; example?: string }>,
 ): DiagnosisStat[] {
-  // Models often still emit 1–10. If every present score is ≤10, treat as legacy
-  // and ×10. A true all-markers-≤10 on a 0–100 scale is extremely rare; product
-  // priority is fixing the common 1–10 case.
+  // Models often still emit 1-10. If every present score is <=10, treat as legacy
+  // and x10. A true all-markers-<=10 on a 0-100 scale is extremely rare; product
+  // priority is fixing the common 1-10 case.
   const present = raw.filter((s) => Number.isFinite(s.score));
   const maxScore =
     present.length > 0 ? Math.max(...present.map((s) => s.score)) : 0;
   const legacyScale = present.length > 0 && maxScore <= 10;
 
-  const byId = new Map<StatId, number>();
+  const byId = new Map<StatId, { score: number; example: string }>();
   for (const row of raw) {
     const id = remapStatId(String(row.id));
     if (!id) continue;
-    // Prefer first occurrence; later duplicates ignored
     if (!byId.has(id)) {
-      byId.set(id, coerceScore100(row.score, legacyScale));
+      byId.set(id, {
+        score: coerceScore100(row.score, legacyScale),
+        example: stripDashes(row.example || "").trim(),
+      });
     }
   }
 
-  return STAT_IDS.map((id) => ({
-    id,
-    label: STAT_LABELS[id],
-    score: byId.get(id) ?? 50,
-  }));
+  return STAT_IDS.map((id) => {
+    const hit = byId.get(id);
+    return {
+      id,
+      label: STAT_LABELS[id],
+      score: hit?.score ?? 50,
+      example: hit?.example || undefined,
+    };
+  });
 }
 
 export function normalizeDiagnosis(
-  report: DiagnosisReport,
+  report: Omit<DiagnosisReport, "transcript"> & { transcript?: string },
   transcriptFallback: string,
 ): DiagnosisReport {
   const stats = normalizeStats(report.stats);
@@ -203,28 +213,37 @@ export function normalizeDiagnosis(
     stats,
     overallScore: Math.min(100, Math.max(0, overall)),
     level: report.level?.trim() || scoreLabel(overall),
-    transcript: report.transcript?.trim() || transcriptFallback,
+    transcript: transcriptFallback.trim() || report.transcript?.trim() || "",
+    comesAcross: stripDashes(report.comesAcross || ""),
     mainChallenge: {
       title:
         imageKey !== "generic"
           ? catalogTitle
           : report.mainChallenge.title?.trim() || catalogTitle,
-      summary: report.mainChallenge.summary?.trim() || "",
-      strengths:
+      summary: stripDashes(report.mainChallenge.summary?.trim() || ""),
+      strengths: stripDashes(
         report.mainChallenge.strengths?.trim() ||
-        "You showed up and shared a real sample — that gives us something concrete to work with.",
-      improvements:
+          "You showed up and shared a real sample. That gives us something concrete to work with.",
+      ),
+      improvements: stripDashes(
         report.mainChallenge.improvements?.trim() ||
-        report.mainChallenge.summary?.trim() ||
-        "Tighten one main habit so listeners grasp your point faster and with less effort.",
+          report.mainChallenge.summary?.trim() ||
+          "Tighten one main habit so listeners grasp your point faster and with less effort.",
+      ),
+      evidence: stripDashes(report.mainChallenge.evidence?.trim() || ""),
+      mechanism: stripDashes(report.mainChallenge.mechanism?.trim() || ""),
+      whyItMatters: stripDashes(report.mainChallenge.whyItMatters?.trim() || ""),
+      upside: stripDashes(report.mainChallenge.upside?.trim() || ""),
       imageKey,
     },
-    minorChallenges:
+    minorChallenges: stripDashes(
       report.minorChallenges?.trim() ||
-      "What worked: a few moments were easier to follow. What to improve: secondary gaps in pacing and structure still steal clarity — tighten those next.",
-    solutionsCopy:
+        "What worked: a few moments were easier to follow. What to improve: secondary gaps in pacing and structure still steal clarity. Tighten those next.",
+    ),
+    solutionsCopy: stripDashes(
       report.solutionsCopy?.trim() ||
-      "Keep the habits that already land. Then run 2–3 months of deliberate drills on your three weakest Part A challenges: one-take recordings, shorter answers, and pause practice under light pressure.",
+        "Keep the habits that already land. Then run 2-3 months of deliberate drills on your three weakest Part A challenges: one-take recordings, shorter answers, and pause practice under light pressure.",
+    ),
   };
 }
 

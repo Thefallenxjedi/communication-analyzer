@@ -76,37 +76,37 @@ export const STAT_LABELS: Record<StatId, string> = {
   executivePresence: "Executive Presence",
 };
 
-/** Explanatory hints under each score */
+/** Micro-definitions shown under each marker (3–8 words). */
 export const STAT_HINTS: Record<StatId, string> = {
-  selfMonitoring: "Editing yourself mid-sentence — “am I saying this right?”",
-  blanking: "Losing your words under pressure; mind goes empty",
-  rambling: "Talking without a clear destination or way back",
-  fillers: "Um, like, so, basically — noise that breaks flow",
-  clarity: "Can listeners catch your actual point quickly",
-  structure: "Point, support, then close — in a clear order",
-  wordPrecision: "Exact words, not vague “stuff / things / kind of”",
-  conciseness: "Same idea in fewer words without losing meaning",
-  repetition: "Saying the same thing again without adding new info",
-  energy: "Vocal dynamism vs flat, monotone delivery",
-  pace: "Too fast, too slow, or uneven under pressure",
-  pauseComfort: "Using silence on purpose instead of filling gaps",
-  upspeak: "Statements that rise and sound like questions",
-  hedging: "“I think / maybe / sort of” softens claims",
-  confidence: "Volume, projection, and certainty of tone",
-  complexLanguage: "Jargon or formal words that confuse listeners",
-  mentalEffort: "Hard for listeners to track dense, stacked ideas",
-  talkingPastPoint: "Kept talking after the point already landed",
-  bookendConsistency: "Whether the close matches and reinforces the open",
-  visualLanguage: "Imagery, analogies, and concrete examples",
-  concisenessDetail: "Efficiency of each point — padding vs tight wording",
-  steadiness: "Composure in voice and pace when it gets hard",
-  visibleNervousness: "Rush, tension, or fidgeting across multiple moments",
-  decisiveness: "Decisive language vs hesitant qualifiers overall",
-  assertiveness: "Direct claims without softening or tag questions",
-  rambleTriggers: "Habit words that reliably start tangents",
-  impact: "Whether the message really lands with force",
-  memorability: "Sticky, quotable lines listeners can repeat",
-  executivePresence: "Command, credibility, and composure overall",
+  selfMonitoring: "how much you edit while speaking",
+  blanking: "losing words under pressure",
+  rambling: "talking without a clear destination",
+  fillers: "ums and likes that break flow",
+  clarity: "how easy your ideas are to follow",
+  structure: "how logically your ideas are organized",
+  wordPrecision: "exact words, not vague ones",
+  conciseness: "how quickly you get to the point",
+  repetition: "restating without adding new meaning",
+  energy: "vocal dynamism versus flat delivery",
+  pace: "whether you rush, stall, or stay even",
+  pauseComfort: "how effectively you use silence",
+  upspeak: "statements that rise like questions",
+  hedging: "softening claims with maybe or sort of",
+  confidence: "volume, projection, and vocal certainty",
+  complexLanguage: "jargon that makes ideas harder",
+  mentalEffort: "how hard your message is to follow",
+  talkingPastPoint: "talking after the point already landed",
+  bookendConsistency: "whether the close matches the open",
+  visualLanguage: "how vividly you make ideas feel",
+  concisenessDetail: "padding versus tight wording",
+  steadiness: "composure when it gets hard",
+  visibleNervousness: "rush or tension in the voice",
+  decisiveness: "decisive language versus hesitant qualifiers",
+  assertiveness: "how directly you state your ideas",
+  rambleTriggers: "habit words that start tangents",
+  impact: "whether the message lands with force",
+  memorability: "how likely your ideas are remembered",
+  executivePresence: "command, credibility, and composure",
 };
 
 /** Part A UI sections */
@@ -137,7 +137,7 @@ export const PART_A_SECTIONS = [
   {
     id: "aVocal",
     title: "Vocal delivery",
-    blurb: "How it sounds — energy, pace, pauses, and landing.",
+    blurb: "How it sounds: energy, pace, pauses, and landing.",
     ids: [
       "energy",
       "pace",
@@ -199,7 +199,7 @@ export const PART_B_SECTIONS = [
   },
 ] as const;
 
-/** @deprecated use PART_A_SECTIONS — kept for transitional imports */
+/** @deprecated use PART_A_SECTIONS. Kept for transitional imports. */
 export const STAT_SECTIONS = PART_A_SECTIONS;
 
 export type StatSectionId =
@@ -257,38 +257,57 @@ export const diagnosisStatSchema = z.object({
   id: z.string(),
   label: z.string(),
   score: z.number().min(0).max(100),
+  example: z.string().optional(),
 });
 
 export const diagnosisReportSchema = z.object({
   overallScore: z.number().min(0).max(100),
   level: z.string(),
+  comesAcross: z.string().optional(),
   mainChallenge: z.object({
     title: z.string(),
     summary: z.string().optional(),
     strengths: z.string().optional(),
     improvements: z.string().optional(),
+    evidence: z.string().optional(),
+    mechanism: z.string().optional(),
+    whyItMatters: z.string().optional(),
+    upside: z.string().optional(),
     imageKey: z.string(),
   }),
   minorChallenges: z.string(),
   stats: z.array(diagnosisStatSchema).min(15).max(35),
   solutionsCopy: z.string(),
-  transcript: z.string(),
+  transcript: z.string().optional(),
 });
 
 export type DiagnosisReport = z.infer<typeof diagnosisReportSchema>;
 export type DiagnosisStat = z.infer<typeof diagnosisStatSchema>;
 
+const diagnosisStatLlmSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  score: z.number().min(0).max(100),
+  example: z.string().optional(),
+});
+
+/** Structured output for Gemini. Transcript filled from transcribe; no evidence dump. */
+export const diagnosisLlmSchema = diagnosisReportSchema.omit({ transcript: true }).extend({
+  stats: z.array(diagnosisStatLlmSchema).min(15).max(35),
+  mainChallenge: z.object({
+    title: z.string(),
+    summary: z.string().optional(),
+    strengths: z.string().optional(),
+    improvements: z.string().optional(),
+    mechanism: z.string().optional(),
+    whyItMatters: z.string().optional(),
+    upside: z.string().optional(),
+    imageKey: z.string(),
+  }),
+});
+
 export const transcriptSchema = z.object({
   transcript: z.string(),
-  segments: z
-    .array(
-      z.object({
-        startSec: z.number().optional(),
-        endSec: z.number().optional(),
-        text: z.string(),
-      }),
-    )
-    .optional(),
 });
 
 /** @deprecated */

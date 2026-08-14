@@ -96,6 +96,50 @@ export async function attachLeadToAnalysis(input: {
   }
 }
 
+export async function deleteAnalysis(id: string): Promise<boolean> {
+  if (!isConvexConfigured()) return false;
+  const client = getConvexHttpClient();
+  if (!client) return false;
+  const trimmed = id.trim();
+  if (!trimmed) return false;
+
+  try {
+    const result = (await client.mutation(analysesApi.remove, {
+      id: trimmed as never,
+    })) as { ok?: boolean };
+    return Boolean(result?.ok);
+  } catch (err) {
+    console.error("[analyses] remove failed", formatConvexError(err), err);
+    return false;
+  }
+}
+
+export async function deleteAnalyses(
+  ids: string[],
+): Promise<{ deleted: number; missing: number } | null> {
+  if (!isConvexConfigured()) return null;
+  const client = getConvexHttpClient();
+  if (!client) return null;
+  const cleaned = [...new Set(ids.map((id) => id.trim()).filter(Boolean))].slice(
+    0,
+    500,
+  );
+  if (cleaned.length === 0) return { deleted: 0, missing: 0 };
+
+  try {
+    const result = (await client.mutation(analysesApi.removeMany, {
+      ids: cleaned as never,
+    })) as { ok?: boolean; deleted?: number; missing?: number };
+    return {
+      deleted: result?.deleted ?? 0,
+      missing: result?.missing ?? 0,
+    };
+  } catch (err) {
+    console.error("[analyses] removeMany failed", formatConvexError(err), err);
+    return null;
+  }
+}
+
 export async function listAnalyses(limit = 100): Promise<AnalysisListItem[]> {
   if (!isConvexConfigured()) return [];
   const client = getConvexHttpClient();

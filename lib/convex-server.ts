@@ -26,6 +26,8 @@ export function getConvexHttpClient(): ConvexHttpClient | null {
 export const analysesApi = {
   insert: makeFunctionReference<"mutation">("analyses:insert"),
   attachLead: makeFunctionReference<"mutation">("analyses:attachLead"),
+  remove: makeFunctionReference<"mutation">("analyses:remove"),
+  removeMany: makeFunctionReference<"mutation">("analyses:removeMany"),
   listRecent: makeFunctionReference<"query">("analyses:listRecent"),
   getStats: makeFunctionReference<"query">("analyses:getStats"),
 };

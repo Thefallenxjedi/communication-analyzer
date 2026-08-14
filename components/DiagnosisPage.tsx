@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
-import type { DiagnosisReport, StatId } from "@/lib/schema";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import type { DiagnosisReport, DiagnosisStat, StatId } from "@/lib/schema";
 import { STAT_HINTS } from "@/lib/schema";
 import { buildPartASections, buildPartBSections } from "@/lib/scoring";
 import { ChallengeVisual } from "@/components/ChallengeVisual";
@@ -12,37 +12,92 @@ import {
 import { validateEmail } from "@/lib/email";
 import { getOrCreateAnonymousId } from "@/lib/anonymous-id";
 import { readLead, saveLead } from "@/lib/lead";
+import {
+  splitTranscriptSentences,
+  tagSentence,
+} from "@/lib/transcript-tags";
 
 type DiagnosisPageProps = {
   report: DiagnosisReport;
+  onHome: () => void;
 };
 
+const LEVELS = [
+  "Needs Significant Improvement",
+  "Inconsistent Communicator",
+  "Developing Communicator",
+  "Effective Communicator",
+  "Strong Communicator",
+  "Elite Communicator",
+] as const;
+
 function scoreStroke(score100: number): string {
-  if (score100 >= 70) return "stroke-emerald-600";
-  if (score100 >= 50) return "stroke-amber-500";
+  if (score100 >= 70) return "stroke-emerald-700";
+  if (score100 >= 50) return "stroke-[#111111]";
   return "stroke-accent";
 }
 
-function barFill(score100: number): string {
-  if (score100 >= 70) return "bg-emerald-600";
-  if (score100 >= 50) return "bg-amber-500";
-  return "bg-accent";
+function evidenceLines(raw?: string): string[] {
+  if (!raw?.trim()) return [];
+  return raw
+    .split(/\n+|(?<=[.?!])\s+(?=["“])/)
+    .map((s) => cleanPhrase(s))
+    .filter(Boolean);
 }
 
-function CircularScore({
-  score,
-  label,
-  hint,
-}: {
-  score: number;
-  label: string;
-  hint?: string;
-}) {
+function cleanPhrase(raw: string): string {
+  return raw
+    .replace(/^["“'`]+|["”'`]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function StoryHeading({ children }: { children: ReactNode }) {
+  return (
+    <h2 className="text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
+      {children}
+    </h2>
+  );
+}
+
+function LevelLadder({ level }: { level: string }) {
+  const current = LEVELS.findIndex(
+    (name) => name.toLowerCase() === level.trim().toLowerCase(),
+  );
+  const active = current >= 0 ? current : 2;
+
+  return (
+    <ol className="w-full space-y-1.5">
+      {LEVELS.map((name, i) => {
+        const on = i === active;
+        return (
+          <li
+            key={name}
+            className={`flex items-center gap-2 text-xs sm:text-sm ${
+              on ? "font-extrabold text-foreground" : "text-muted"
+            }`}
+          >
+            <span
+              className={`h-2 w-2 shrink-0 rounded-full ${
+                on ? "bg-accent" : "bg-track"
+              }`}
+            />
+            {name}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function CircularMarker({ stat }: { stat: DiagnosisStat }) {
+  const hint = STAT_HINTS[stat.id as StatId];
+  const example = stat.example?.trim();
   const size = 72;
   const stroke = 5;
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
-  const clamped = Math.max(0, Math.min(100, Math.round(score)));
+  const clamped = Math.max(0, Math.min(100, Math.round(stat.score)));
   const offset = c * (1 - clamped / 100);
 
   return (
@@ -73,15 +128,17 @@ function CircularScore({
           {clamped}
         </span>
       </div>
-      <p className="mt-2 w-full text-[11px] font-semibold leading-snug text-foreground sm:text-xs">
-        {label}
+      <p className="mt-2 w-full text-[11px] font-extrabold leading-snug text-foreground sm:text-xs">
+        {stat.label}
       </p>
       {hint ? (
-        <p
-          className="mt-1 line-clamp-2 w-full text-[10px] leading-snug text-muted sm:text-[11px]"
-          title={hint}
-        >
+        <p className="mt-1 w-full text-[10px] leading-snug text-muted sm:text-[11px]">
           {hint}
+        </p>
+      ) : null}
+      {example ? (
+        <p className="mt-1.5 w-full text-[11px] italic leading-snug text-foreground/80">
+          “{example.replace(/^["“]|["”]$/g, "")}”
         </p>
       ) : null}
     </li>
@@ -90,55 +147,34 @@ function CircularScore({
 
 function RankBlock({
   heading,
-  subheading,
   sections,
 }: {
   heading: string;
-  subheading: string;
   sections: ReturnType<typeof buildPartASections>;
 }) {
   return (
     <div>
-      <div className="rounded-2xl border border-foreground/15 bg-highlight px-4 py-4 sm:px-5 sm:py-5">
-        <h2 className="text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
-          {heading}
-        </h2>
-        <p className="mt-1 text-sm text-foreground/80">{subheading}</p>
-      </div>
-
-      <div className="mt-8 space-y-10">
-        {sections.map((section, i) => (
+      <h2 className="border-b border-foreground pb-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+        {heading}
+      </h2>
+      <div className="mt-10 space-y-14">
+        {sections.map((section, index) => (
           <div key={section.id}>
-            <div className="flex items-end justify-between gap-3">
-              <div className="min-w-0">
-                <h3 className="flex items-baseline gap-2 text-base font-extrabold sm:text-lg">
-                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-foreground/20 bg-highlight text-sm font-extrabold text-foreground">
-                    {i + 1}
-                  </span>
-                  {section.title}
-                </h3>
-                <p className="mt-0.5 pl-9 text-xs text-muted">{section.blurb}</p>
-              </div>
-              <p className="shrink-0 text-lg font-extrabold tabular-nums text-accent">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+              Section {index + 1} of {sections.length}
+            </p>
+            <div className="mt-1 flex items-end justify-between gap-3">
+              <h3 className="text-xl font-extrabold tracking-tight sm:text-2xl">
+                {section.title}
+              </h3>
+              <p className="shrink-0 text-lg font-extrabold tabular-nums">
                 {section.score}
                 <span className="text-sm font-semibold text-muted">/100</span>
               </p>
             </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-track">
-              <div
-                className={`h-full rounded-full ${barFill(section.score)}`}
-                style={{ width: `${section.score}%` }}
-              />
-            </div>
-
-            <ul className="mt-5 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-4 sm:gap-x-4">
+            <ul className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-4">
               {section.stats.map((stat) => (
-                <CircularScore
-                  key={stat.id}
-                  score={stat.score}
-                  label={stat.label}
-                  hint={STAT_HINTS[stat.id as StatId]}
-                />
+                <CircularMarker key={stat.id} stat={stat} />
               ))}
             </ul>
           </div>
@@ -148,103 +184,62 @@ function RankBlock({
   );
 }
 
-function RankSections({
-  stats,
-}: {
-  stats: DiagnosisReport["stats"];
-}) {
-  const partA = buildPartASections(stats);
-  const partB = buildPartBSections(stats);
+function TranscriptReview({ report }: { report: DiagnosisReport }) {
+  const transcript = report.transcript?.trim();
+  if (!transcript) return null;
+
+  const sentences = splitTranscriptSentences(transcript).map((text) => ({
+    text,
+    ...tagSentence(text),
+  }));
+  const hasTags = sentences.some((s) => s.tags.length > 0);
 
   return (
-    <div className="space-y-14">
-      <RankBlock
-        heading="Part A — Main Challenges"
-        subheading="Primary scorecard. Overall score is the average of these 15. Strongest area first."
-        sections={partA}
-      />
-      <RankBlock
-        heading="Part B — Supporting diagnostics"
-        subheading="Secondary signals that deepen the diagnosis. Not averaged into overall."
-        sections={partB}
-      />
-    </div>
-  );
-}
-
-function BalancedBlock({
-  strengths,
-  improvements,
-  fallback,
-}: {
-  strengths?: string;
-  improvements?: string;
-  fallback?: string;
-}) {
-  if (strengths || improvements) {
-    return (
-      <div className="mt-5 space-y-4">
-        {strengths ? (
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">
-              What went well
-            </p>
-            <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90 sm:text-base">
-              {strengths}
-            </p>
-          </div>
-        ) : null}
-        {improvements ? (
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent">
-              What to improve
-            </p>
-            <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90 sm:text-base">
-              {improvements}
+    <div className="mt-14">
+      <StoryHeading>Your words</StoryHeading>
+      <p className="mt-2 text-sm leading-relaxed text-muted">
+        {hasTags
+          ? "Highlighted words map to a criterion from your scorecard. This is from your transcript, not a second analysis."
+          : "This is the transcript from your recording."}
+      </p>
+      <div className="mt-5 space-y-3">
+        {sentences.map((line, i) => (
+          <div
+            key={`${i}-${line.text.slice(0, 24)}`}
+            className={
+              line.tags.length
+                ? "border-l-2 border-accent bg-[#fff4f3] px-3 py-2"
+                : "px-3 py-2"
+            }
+          >
+            {line.tags.length ? (
+              <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.12em] text-accent">
+                {line.tags.map((t) => t.label).join(" · ")}
+              </p>
+            ) : null}
+            <p className="text-sm leading-relaxed sm:text-base">
+              {line.spans.map((span, j) =>
+                span.tag ? (
+                  <mark
+                    key={`${i}-${j}`}
+                    className="rounded-sm bg-highlight/70 px-0.5 font-semibold not-italic"
+                    title={span.tag.label}
+                  >
+                    {span.text}
+                  </mark>
+                ) : (
+                  <span key={`${i}-${j}`}>{span.text}</span>
+                ),
+              )}
             </p>
           </div>
-        ) : null}
+        ))}
       </div>
-    );
-  }
-  if (!fallback) return null;
-  return (
-    <p className="mt-5 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90 sm:text-base">
-      {fallback}
-    </p>
-  );
-}
-
-function SolveCtas() {
-  return (
-    <div className="card-surface border-border p-5 sm:p-7">
-      <p className="inline-flex items-center gap-2 rounded-full border border-border bg-highlight px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.12em] text-foreground">
-        Next step
-      </p>
-      <h2 className="mt-3 text-xl font-extrabold sm:text-2xl">
-        Want to solve your{" "}
-        <span className="bg-highlight px-1 box-decoration-clone">speaking</span>?
-      </h2>
-      <p className="mt-2 text-sm text-muted">
-        Book a diagnosis call with EliteSpeak — direct feedback that changes how
-        you think and speak.
-      </p>
-      <a
-        href={DIAGNOSIS_CALL_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="btn-primary mt-5 text-center no-underline"
-      >
-        Set Up a Diagnosis Call
-      </a>
-      <p className="mt-3 text-center text-xs text-muted">
-        Free coaching diagnosis for practice — not a clinical assessment.
-      </p>
     </div>
   );
 }
 
-export function DiagnosisPage({ report }: DiagnosisPageProps) {
+export function DiagnosisPage({ report, onHome }: DiagnosisPageProps) {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfNote, setPdfNote] = useState("");
   const [showLeadForm, setShowLeadForm] = useState(false);
@@ -252,23 +247,14 @@ export function DiagnosisPage({ report }: DiagnosisPageProps) {
   const [email, setEmail] = useState("");
   const [leadError, setLeadError] = useState("");
   const [recipientName, setRecipientName] = useState("");
-
-  useEffect(() => {
-    const existing = readLead();
-    if (existing?.name) {
-      const first = existing.name.trim().split(/\s+/)[0];
-      if (first) setRecipientName(first);
-    }
-    if (existing?.email) setEmail(existing.email);
-    if (existing?.name) setFirstName(existing.name.split(/\s+/)[0] || "");
-  }, []);
+  const autoDownloadRef = useRef(false);
 
   const runDownload = async (name: string) => {
     setPdfBusy(true);
     setPdfNote("");
     try {
       await downloadReportPdf(report, { recipientName: name });
-      setPdfNote("Report downloaded — personalized with your name.");
+      setPdfNote("Report downloaded with your name.");
       setShowLeadForm(false);
     } catch {
       setPdfNote("Couldn’t download the PDF. Try again.");
@@ -276,6 +262,34 @@ export function DiagnosisPage({ report }: DiagnosisPageProps) {
       setPdfBusy(false);
     }
   };
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    const existing = readLead();
+    let first = "";
+    if (existing?.name) {
+      first = existing.name.trim().split(/\s+/)[0] || "";
+      if (first) {
+        setRecipientName(first);
+        setFirstName(first);
+      }
+    }
+    if (existing?.email) setEmail(existing.email);
+
+    if (!first || autoDownloadRef.current) return;
+    autoDownloadRef.current = true;
+
+    const autoKey = `ca_pdf_auto_${Math.round(report.overallScore)}_${(report.level || "").slice(0, 40)}`;
+    try {
+      if (sessionStorage.getItem(autoKey)) return;
+      sessionStorage.setItem(autoKey, "1");
+    } catch {
+      // private mode: still attempt once via ref
+    }
+    void runDownload(first);
+    // Auto-download once when the report page mounts with a known lead name.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional mount-only
+  }, []);
 
   const onRequestPdf = () => {
     setLeadError("");
@@ -325,7 +339,7 @@ export function DiagnosisPage({ report }: DiagnosisPageProps) {
         at: Date.now(),
       });
       await downloadReportPdf(report, { recipientName: first });
-      setPdfNote("Report downloaded — personalized with your name.");
+      setPdfNote("Report downloaded with your name.");
       setShowLeadForm(false);
     } catch (err) {
       setLeadError(err instanceof Error ? err.message : "Something went wrong.");
@@ -334,163 +348,257 @@ export function DiagnosisPage({ report }: DiagnosisPageProps) {
     }
   };
 
-  return (
-    <section className="mx-auto w-full max-w-2xl px-4 pb-24 pt-10 animate-fade-up">
-      <div className="mb-8">
-        <p className="inline-flex items-center gap-2 rounded-full border border-border bg-highlight px-4 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.12em] text-foreground">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden />
-          Your report
-        </p>
-        <p className="mt-5 text-sm font-extrabold uppercase tracking-[0.22em] text-accent">
-          EliteSpeak
-        </p>
-        <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
-          Your Communication{" "}
-          <span className="bg-highlight px-1.5 box-decoration-clone">Report</span>
-        </h1>
-        <p className="mt-3 text-4xl font-extrabold tabular-nums">
-          {Math.round(report.overallScore)}
-          <span className="text-lg font-semibold text-muted"> / 100</span>
-        </p>
-        <p className="mt-1 text-sm font-semibold text-accent">{report.level}</p>
-        <div className="mt-5 flex max-w-md flex-col gap-3">
-          <a
-            href={DIAGNOSIS_CALL_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-primary text-center no-underline"
-          >
-            Set Up a Diagnosis Call
-          </a>
-          <button
-            type="button"
-            onClick={onRequestPdf}
-            disabled={pdfBusy}
-            className="btn-secondary"
-          >
-            {pdfBusy
-              ? "Preparing PDF…"
-              : recipientName
-                ? "Download PDF report"
-                : "Get my personalized PDF"}
-          </button>
-          {pdfNote ? (
-            <p className="text-center text-xs text-muted">{pdfNote}</p>
-          ) : null}
-        </div>
+  const overall = Math.round(report.overallScore);
+  const challenge = report.mainChallenge.title.trim() || "Clarity";
+  const noticed =
+    report.mainChallenge.summary?.trim() ||
+    report.mainChallenge.improvements?.trim() ||
+    "";
+  const quotes = evidenceLines(report.mainChallenge.evidence);
+  const partA = buildPartASections(report.stats);
+  const partB = buildPartBSections(report.stats);
 
-        {showLeadForm ? (
-          <form
-            onSubmit={(e) => void onLeadSubmit(e)}
-            className="card-surface mt-5 max-w-md space-y-3 p-4 text-left sm:p-5"
+  return (
+    <section className="mx-auto w-full max-w-2xl px-4 pb-24 pt-2 animate-fade-up">
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={onHome}
+          className="text-sm font-semibold text-accent hover:underline"
+        >
+          ← EliteSpeak Home
+        </button>
+        <button
+          type="button"
+          onClick={onRequestPdf}
+          disabled={pdfBusy}
+          className="text-sm font-semibold text-muted underline-offset-2 hover:text-foreground hover:underline"
+        >
+          {pdfBusy ? "Preparing PDF…" : "Download PDF"}
+        </button>
+      </div>
+      {pdfNote ? (
+        <p className="mb-4 text-right text-xs text-muted">{pdfNote}</p>
+      ) : null}
+
+      {showLeadForm ? (
+        <form
+          onSubmit={(e) => void onLeadSubmit(e)}
+          className="mb-8 space-y-3 border border-border p-4 text-left"
+        >
+          <p className="text-sm font-extrabold">Name and email to download</p>
+          <input
+            type="text"
+            autoComplete="given-name"
+            placeholder="First name"
+            value={firstName}
+            onChange={(e) => {
+              setFirstName(e.target.value);
+              setLeadError("");
+            }}
+            className="min-h-11 w-full rounded-xl border border-border bg-card px-4 text-sm outline-none focus:border-accent"
+            disabled={pdfBusy}
+          />
+          <input
+            type="email"
+            autoComplete="email"
+            inputMode="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setLeadError("");
+            }}
+            className="min-h-11 w-full rounded-xl border border-border bg-card px-4 text-sm outline-none focus:border-accent"
+            disabled={pdfBusy}
+          />
+          {leadError ? (
+            <p className="text-sm text-accent" role="alert">
+              {leadError}
+            </p>
+          ) : null}
+          <button
+            type="submit"
+            disabled={pdfBusy}
+            className="btn-primary w-full"
           >
-            <p className="text-sm font-extrabold text-foreground">
-              Enter your name &amp; email to download
+            {pdfBusy ? "Saving…" : "Download my PDF"}
+          </button>
+        </form>
+      ) : null}
+
+      <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">
+        Your results
+      </p>
+      <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
+        Your main challenge is{" "}
+        <span className="bg-highlight px-1.5 box-decoration-clone">
+          {challenge.replace(/\.$/, "")}.
+        </span>
+      </h1>
+
+      <div className="mt-6">
+        <ChallengeVisual imageKey={report.mainChallenge.imageKey} />
+      </div>
+
+      {noticed ? (
+        <div className="mt-10">
+          <StoryHeading>What you noticed</StoryHeading>
+          <p className="mt-2 text-base leading-relaxed text-foreground/90">
+            {noticed}
+          </p>
+        </div>
+      ) : null}
+
+      {report.comesAcross?.trim() ? (
+        <div className="mt-10">
+          <StoryHeading>How your communication comes across</StoryHeading>
+          <p className="mt-2 text-base leading-relaxed text-foreground/90">
+            {report.comesAcross}
+          </p>
+        </div>
+      ) : report.mainChallenge.mechanism?.trim() ? (
+        <div className="mt-10">
+          <StoryHeading>What is happening</StoryHeading>
+          <p className="mt-2 text-base leading-relaxed text-foreground/90">
+            {report.mainChallenge.mechanism}
+          </p>
+        </div>
+      ) : null}
+
+      {report.mainChallenge.mechanism?.trim() && report.comesAcross?.trim() ? (
+        <div className="mt-10">
+          <StoryHeading>What is happening</StoryHeading>
+          <p className="mt-2 text-base leading-relaxed text-foreground/90">
+            {report.mainChallenge.mechanism}
+          </p>
+        </div>
+      ) : null}
+
+      {quotes.length > 0 ? (
+        <div className="mt-10">
+          <StoryHeading>Evidence</StoryHeading>
+          <ul className="mt-3 space-y-3">
+            {quotes.map((q) => (
+              <li
+                key={q}
+                className="border-l-2 border-foreground/20 pl-3 text-base italic leading-relaxed text-foreground/85"
+              >
+                “{q}”
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {report.mainChallenge.whyItMatters?.trim() ? (
+        <div className="mt-10">
+          <StoryHeading>Why it matters</StoryHeading>
+          <p className="mt-2 text-base leading-relaxed text-foreground/90">
+            {report.mainChallenge.whyItMatters}
+          </p>
+        </div>
+      ) : null}
+
+      {report.mainChallenge.upside?.trim() ? (
+        <div className="mt-10">
+          <StoryHeading>What changes when this improves</StoryHeading>
+          <p className="mt-2 text-base leading-relaxed text-foreground/90">
+            {report.mainChallenge.upside}
+          </p>
+        </div>
+      ) : null}
+
+      <div className="mt-10 flex flex-col gap-6 sm:flex-row sm:items-start">
+        <div className="text-center sm:text-left">
+          <p className="text-4xl font-extrabold tabular-nums">{overall}</p>
+          <p className="text-sm font-semibold text-muted">out of 100</p>
+          <p className="mt-2 text-base font-extrabold">{report.level}</p>
+        </div>
+        <LevelLadder level={report.level} />
+      </div>
+
+      <a
+        href={DIAGNOSIS_CALL_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="btn-primary mt-8 text-center no-underline"
+      >
+        Speak to a coach about your results
+      </a>
+
+      <div className="mt-14 space-y-8">
+        <StoryHeading>
+          {`Your ${challenge.replace(/\.$/, "")} patterns`}
+        </StoryHeading>
+        {report.mainChallenge.strengths ? (
+          <div>
+            <h3 className="text-base font-extrabold text-emerald-700">
+              What went well
+            </h3>
+            <p className="mt-2 text-base leading-relaxed text-foreground/90">
+              {report.mainChallenge.strengths}
             </p>
-            <p className="text-xs text-muted">
-              We&apos;ll put your name on the PDF so it feels personal.
+          </div>
+        ) : null}
+        {report.mainChallenge.improvements ? (
+          <div>
+            <h3 className="text-base font-extrabold text-accent">
+              What to improve
+            </h3>
+            <p className="mt-2 text-base leading-relaxed text-foreground/90">
+              {report.mainChallenge.improvements}
             </p>
-            <input
-              type="text"
-              autoComplete="given-name"
-              placeholder="First name"
-              value={firstName}
-              onChange={(e) => {
-                setFirstName(e.target.value);
-                setLeadError("");
-              }}
-              className="min-h-11 w-full rounded-xl border border-border bg-card px-4 text-sm outline-none focus:border-accent"
-              disabled={pdfBusy}
-            />
-            <input
-              type="email"
-              autoComplete="email"
-              inputMode="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                setLeadError("");
-              }}
-              className="min-h-11 w-full rounded-xl border border-border bg-card px-4 text-sm outline-none focus:border-accent"
-              disabled={pdfBusy}
-            />
-            {leadError ? (
-              <p className="text-sm text-accent" role="alert">
-                {leadError}
-              </p>
-            ) : null}
-            <button
-              type="submit"
-              disabled={pdfBusy}
-              className="btn-highlight w-full uppercase tracking-[0.08em]"
-            >
-              {pdfBusy ? "Saving & preparing…" : "Download my PDF"}
-            </button>
-            <button
-              type="button"
-              disabled={pdfBusy}
-              onClick={() => setShowLeadForm(false)}
-              className="w-full text-center text-xs text-muted underline-offset-2 hover:underline"
-            >
-              Cancel
-            </button>
-          </form>
+          </div>
         ) : null}
       </div>
 
-      <div className="card-surface p-5 sm:p-7">
-        <h2 className="text-lg font-extrabold sm:text-xl">
-          Your Main{" "}
-          <span className="bg-highlight px-1 box-decoration-clone">Focus</span>
-        </h2>
-        <p className="mt-1 text-base font-bold text-accent">
-          {report.mainChallenge.title}
-        </p>
-        <div className="mt-5">
-          <ChallengeVisual imageKey={report.mainChallenge.imageKey} />
+      <TranscriptReview report={report} />
+
+      <div className="mt-16 space-y-16">
+        <RankBlock heading="Main challenges" sections={partA} />
+        <RankBlock heading="Supporting diagnostics" sections={partB} />
+      </div>
+
+      {report.minorChallenges?.trim() ? (
+        <div className="mt-16">
+          <StoryHeading>Secondary notes</StoryHeading>
+          <p className="mt-3 text-base leading-relaxed text-foreground/90">
+            {report.minorChallenges}
+          </p>
         </div>
-        <BalancedBlock
-          strengths={report.mainChallenge.strengths}
-          improvements={report.mainChallenge.improvements}
-          fallback={report.mainChallenge.summary}
-        />
-      </div>
+      ) : null}
 
-      <div className="card-surface mt-5 p-5 sm:p-7">
-        <RankSections stats={report.stats} />
-      </div>
-
-      <div className="mt-5">
-        <SolveCtas />
-      </div>
-
-      <div className="card-surface mt-5 p-5 sm:p-7">
-        <h2 className="text-lg font-extrabold">Secondary notes</h2>
-        <p className="mt-1 text-xs text-muted">
-          What else worked — and what to tighten next.
+      <div className="mt-16 border border-border p-5 sm:p-7">
+        <StoryHeading>What&apos;s next</StoryHeading>
+        <h3 className="mt-3 text-lg font-extrabold sm:text-xl">
+          Want a coach, or want to work it yourself?
+        </h3>
+        <p className="mt-2 text-sm leading-relaxed text-foreground/85">
+          Book a diagnosis call with an EliteSpeak coach to get feedback and put a
+          plan together. If you want more solutions on your own, download the PDF.
+          It includes your practice plan so you can start today.
         </p>
-        <p className="mt-3 text-sm leading-relaxed text-foreground/90 sm:text-base">
-          {report.minorChallenges}
-        </p>
-      </div>
-
-      <div className="card-surface mt-5 border-highlight/80 bg-highlight/25 p-5 sm:p-7">
-        <h2 className="text-lg font-extrabold">Your practice plan</h2>
-        <p className="mt-1 text-xs text-muted">
-          Keep what works. Drill what doesn&apos;t.
-        </p>
-        <p className="mt-3 text-sm leading-relaxed text-foreground/90 sm:text-base">
-          {report.solutionsCopy}
-        </p>
-      </div>
-
-      <div className="mt-8">
-        <SolveCtas />
+        <a
+          href={DIAGNOSIS_CALL_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn-primary mt-5 text-center no-underline"
+        >
+          Speak with a coach
+        </a>
+        <button
+          type="button"
+          onClick={onRequestPdf}
+          disabled={pdfBusy}
+          className="mt-3 w-full text-center text-sm font-semibold text-muted underline-offset-2 hover:text-foreground hover:underline"
+        >
+          Download PDF with your practice plan
+        </button>
       </div>
 
       <p className="mt-10 text-center text-xs text-muted">
-        Free coaching diagnosis for practice — not a clinical assessment.
+        Free coaching diagnosis for practice. Not a clinical assessment.
       </p>
     </section>
   );

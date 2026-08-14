@@ -1,4 +1,6 @@
 import {
+  deleteAnalysis,
+  deleteAnalyses,
   getAnalysisStats,
   listAnalyses,
 } from "@/lib/analyses";
@@ -76,6 +78,81 @@ export async function GET(request: Request) {
         analyses: [],
         stats: null,
       },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  if (!isAdminConfigured()) {
+    return Response.json(
+      { error: "ADMIN_PASSWORD is not configured on Vercel." },
+      { status: 503 },
+    );
+  }
+  if (!checkAdminAuth(request)) {
+    return Response.json({ error: "Wrong admin password." }, { status: 401 });
+  }
+  if (!isConvexConfigured()) {
+    return Response.json(
+      { error: "Convex is not configured." },
+      { status: 503 },
+    );
+  }
+
+  try {
+    const url = new URL(request.url);
+    let ids: string[] = [];
+
+    const single = url.searchParams.get("id")?.trim();
+    if (single) ids.push(single);
+
+    try {
+      const body = (await request.json()) as { id?: string; ids?: string[] };
+      if (typeof body.id === "string" && body.id.trim()) {
+        ids.push(body.id.trim());
+      }
+      if (Array.isArray(body.ids)) {
+        for (const raw of body.ids) {
+          if (typeof raw === "string" && raw.trim()) ids.push(raw.trim());
+        }
+      }
+    } catch {
+      // no body
+    }
+
+    ids = [...new Set(ids)].slice(0, 500);
+    if (ids.length === 0) {
+      return Response.json({ error: "Missing analysis id(s)." }, { status: 400 });
+    }
+
+    if (ids.length === 1) {
+      const ok = await deleteAnalysis(ids[0]);
+      if (!ok) {
+        return Response.json(
+          { error: "Could not delete that row (not found or Convex error)." },
+          { status: 404 },
+        );
+      }
+      return Response.json({ ok: true, deleted: 1 });
+    }
+
+    const result = await deleteAnalyses(ids);
+    if (!result) {
+      return Response.json(
+        { error: "Could not delete selected rows (Convex error)." },
+        { status: 500 },
+      );
+    }
+    return Response.json({
+      ok: true,
+      deleted: result.deleted,
+      missing: result.missing,
+    });
+  } catch (err) {
+    console.error("[admin/analyses] DELETE", err);
+    return Response.json(
+      { error: `Delete failed: ${formatConvexError(err)}` },
       { status: 500 },
     );
   }

@@ -13,6 +13,7 @@
     "@ai-sdk/google": "^4.0.27",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
+    "@vercel/functions": "^3.9.3",
     "ai": "^7.0.41",
     "convex": "^1.43.0",
     "jspdf": "^4.2.1",

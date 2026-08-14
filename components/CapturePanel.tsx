@@ -2,17 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AudioWaveform } from "@/components/AudioWaveform";
+import { pickPromptQuestions } from "@/lib/prompt-questions";
 import {
   formatDuration,
   getMediaDuration,
   isAudioMime,
   MAX_DURATION_SECONDS,
   MAX_FILE_SIZE_BYTES,
+  MAX_UPLOAD_DURATION_SECONDS,
   MIN_DURATION_SECONDS,
 } from "@/lib/validate-media";
-
-const SPEAK_HINT =
-  "Talk about anything — how your day went, a favorite movie, or chatting with a friend.";
 
 function pickMimeType(): string {
   const candidates = [
@@ -38,6 +37,8 @@ type CapturePanelProps = {
   disabled?: boolean;
 };
 
+type Mode = "choose" | "pick-question" | "record";
+
 export function CapturePanel({
   onAudioReady,
   onError,
@@ -57,11 +58,13 @@ export function CapturePanel({
     onErrorRef.current = onError;
   }, [onAudioReady, onError]);
 
-  const [mode, setMode] = useState<"choose" | "record">("choose");
+  const [mode, setMode] = useState<Mode>("choose");
   const [busy, setBusy] = useState(false);
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [selectedQuestion, setSelectedQuestion] = useState("");
 
   const cleanupStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -82,6 +85,12 @@ export function CapturePanel({
     };
   }, [clearTimer, cleanupStream]);
 
+  const goPickQuestion = () => {
+    setQuestions(pickPromptQuestions(3));
+    setSelectedQuestion("");
+    setMode("pick-question");
+  };
+
   const processUpload = async (file: File) => {
     setBusy(true);
     onError("");
@@ -98,19 +107,18 @@ export function CapturePanel({
         if (duration < MIN_DURATION_SECONDS) {
           throw new Error(`Recording too short — please record again.`);
         }
-        if (duration > MAX_DURATION_SECONDS + 2) {
-          throw new Error("Audio must be 2 minutes or less.");
+        if (duration > MAX_UPLOAD_DURATION_SECONDS) {
+          throw new Error("Audio must be 5 minutes or less.");
         }
         onAudioReady(file, Math.round(duration));
         return;
       } catch (err) {
         if (
           err instanceof Error &&
-          /(2 minutes|too short|record again)/i.test(err.message)
+          /(5 minutes|too short|record again)/i.test(err.message)
         ) {
           throw err;
         }
-        // Some browsers can't read duration for all formats — continue
       }
       onAudioReady(file, null);
     } catch (err) {
@@ -182,22 +190,93 @@ export function CapturePanel({
     }
   }, [cleanupStream, stopRecording]);
 
-  if (mode === "record") {
+  if (mode === "pick-question") {
     return (
       <section className="mx-auto w-full max-w-lg px-4 py-10 animate-fade-up">
-        <p className="text-sm font-extrabold uppercase tracking-[0.22em] text-accent">
-          EliteSpeak
+        <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-muted">
+          Step 2 — capture
         </p>
-        <h1 className="mt-2 text-2xl font-extrabold tracking-tight">
-          Record{" "}
-          <span className="bg-highlight px-1.5 box-decoration-clone">audio</span>
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+          Pick one question to answer
         </h1>
+        <p className="mt-2 text-sm text-muted">
+          Open-ended is better. Talk about real work, a real project, a real
+          conversation.
+        </p>
+        <ul className="mt-6 space-y-3">
+          {questions.map((q) => {
+            const selected = selectedQuestion === q;
+            return (
+              <li key={q}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedQuestion(q)}
+                  className={`w-full rounded-xl border px-4 py-3.5 text-left text-sm leading-relaxed transition ${
+                    selected
+                      ? "border-foreground bg-highlight/50 font-semibold text-foreground"
+                      : "border-border bg-card text-foreground/90 hover:border-foreground/40"
+                  }`}
+                >
+                  {q}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <button
+          type="button"
+          disabled={disabled || !selectedQuestion}
+          onClick={() => setMode("record")}
+          className="btn-highlight mt-6 uppercase tracking-wide"
+        >
+          Record audio
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("choose")}
+          className="mt-3 w-full text-center text-sm text-muted underline-offset-2 hover:underline"
+        >
+          Back
+        </button>
+      </section>
+    );
+  }
+
+  if (mode === "record") {
+    const pastThirty = recording && elapsed >= 30;
+
+    return (
+      <section className="mx-auto w-full max-w-lg px-4 py-10 animate-fade-up">
+        <h1 className="text-2xl font-extrabold tracking-tight">Record audio</h1>
+        {selectedQuestion ? (
+          <p className="mt-3 text-sm font-medium leading-relaxed text-foreground">
+            {selectedQuestion}
+          </p>
+        ) : null}
+        {!pastThirty ? (
+          <p className="mt-3 text-sm text-muted">
+            If you can get past 60 seconds, your insights will be much more
+            valuable. Keep going.
+          </p>
+        ) : null}
 
         <p className="mt-6 text-3xl font-extrabold tabular-nums text-foreground">
           <span className="bg-highlight px-2 box-decoration-clone">
             {formatDuration(Math.min(elapsed, MAX_DURATION_SECONDS))}
           </span>
         </p>
+
+        {pastThirty ? (
+          <p
+            className="mt-6 bg-highlight px-4 py-4 text-center text-2xl font-extrabold leading-snug tracking-tight sm:text-3xl"
+            role="status"
+          >
+            Keep going.
+            <span className="mt-1 block text-base font-bold sm:text-lg">
+              The longer you speak, the better your diagnosis.
+            </span>
+          </p>
+        ) : null}
 
         {(recording || liveStream) && (
           <div className="mt-6">
@@ -216,7 +295,13 @@ export function CapturePanel({
               >
                 Start recording
               </button>
-              <p className="text-center text-sm text-muted">{SPEAK_HINT}</p>
+              <button
+                type="button"
+                onClick={() => setMode("pick-question")}
+                className="text-center text-sm text-muted underline-offset-2 hover:underline"
+              >
+                Pick a different question
+              </button>
             </>
           )}
           {recording && (
@@ -236,14 +321,7 @@ export function CapturePanel({
           <span className="h-2 w-2 shrink-0 rounded-full bg-accent" aria-hidden />
           Step 2 — capture
         </p>
-        <p className="mt-5 text-sm font-extrabold uppercase tracking-[0.22em] text-accent">
-          EliteSpeak
-        </p>
-        <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
-          Record your{" "}
-          <span className="bg-highlight px-1.5 box-decoration-clone">audio</span>
-        </h1>
-        <p className="mx-auto mt-3 max-w-md text-sm text-muted">
+        <p className="mx-auto mt-4 max-w-md text-sm font-semibold text-emerald-700">
           A minimum of 30 seconds of audio will help us analyze you better.
         </p>
       </div>
@@ -251,10 +329,10 @@ export function CapturePanel({
       <div className="card-surface mt-6 overflow-hidden">
         <div className="grid md:grid-cols-2 md:divide-x md:divide-border">
           <div className="relative flex flex-col items-center px-6 py-10 text-center sm:px-8">
-            <span className="absolute right-4 top-4 rounded-full border border-border bg-highlight px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-foreground sm:right-6 sm:top-6 sm:text-xs">
+            <span className="absolute right-4 top-4 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-emerald-800 sm:right-6 sm:top-6 sm:text-xs">
               Recommended
             </span>
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-soft text-accent">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden>
                 <path
                   d="M12 14a3 3 0 003-3V6a3 3 0 10-6 0v5a3 3 0 003 3zm5-3a5 5 0 01-10 0M12 19v3m-4 0h8"
@@ -267,17 +345,16 @@ export function CapturePanel({
             </div>
             <h2 className="mt-5 text-lg font-extrabold">Record audio</h2>
             <p className="mt-2 text-sm text-muted">
-              Use your microphone — stop when done and we analyze automatically.
+              Use your microphone and answer a question for 60 seconds.
             </p>
             <button
               type="button"
               disabled={disabled}
-              onClick={() => setMode("record")}
+              onClick={goPickQuestion}
               className="btn-highlight mt-6 uppercase tracking-wide"
             >
               Record Audio
             </button>
-            <p className="mt-3 max-w-xs text-sm text-muted">{SPEAK_HINT}</p>
           </div>
 
           <div className="flex flex-col items-center border-t border-border px-6 py-10 text-center sm:px-8 md:border-t-0">
@@ -294,7 +371,7 @@ export function CapturePanel({
             </div>
             <h2 className="mt-5 text-lg font-extrabold">Upload audio</h2>
             <p className="mt-2 text-sm text-muted">
-              Select an audio clip from your computer or phone.
+              Select a clip or video from your computer or phone.
             </p>
             <input
               ref={inputRef}

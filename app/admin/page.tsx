@@ -68,14 +68,19 @@ function SimpleBarChart({
   bars: { label: string; attempts: number }[];
 }) {
   const max = Math.max(1, ...bars.map((b) => b.attempts));
+  const chartH = 140;
+
   return (
     <div className="card-surface p-4 sm:p-5">
       <h3 className="text-xs font-extrabold uppercase tracking-wide text-muted">
         {title}
       </h3>
-      <div className="mt-4 flex h-40 items-end gap-1.5 sm:gap-2">
+      <div className="mt-4 flex items-end gap-1.5 sm:gap-2" style={{ height: chartH + 40 }}>
         {bars.map((b) => {
-          const h = Math.max(b.attempts > 0 ? 8 : 2, (b.attempts / max) * 100);
+          const barPx =
+            b.attempts <= 0
+              ? 4
+              : Math.max(12, Math.round((b.attempts / max) * chartH));
           return (
             <div
               key={b.label}
@@ -83,13 +88,15 @@ function SimpleBarChart({
               title={`${b.label}: ${b.attempts}`}
             >
               <span className="text-[10px] font-bold tabular-nums text-foreground">
-                {b.attempts || ""}
+                {b.attempts > 0 ? b.attempts : ""}
               </span>
               <div
-                className="w-full max-w-[2.5rem] rounded-t-md bg-accent/90"
-                style={{ height: `${h}%` }}
+                className={`w-full max-w-[2.75rem] rounded-t-md ${
+                  b.attempts > 0 ? "bg-accent" : "bg-track"
+                }`}
+                style={{ height: barPx }}
               />
-              <span className="w-full truncate text-center text-[9px] text-muted sm:text-[10px]">
+              <span className="w-full truncate text-center text-[9px] leading-tight text-muted sm:text-[10px]">
                 {b.label}
               </span>
             </div>
@@ -102,7 +109,9 @@ function SimpleBarChart({
 
 function AttemptsCharts({ days }: { days: DayStat[] }) {
   const [mode, setMode] = useState<"day" | "week">("day");
-  const dayBars = days.map((d) => ({
+  // Default day view: last 7 days (API still returns 14)
+  const last7 = days.slice(-7);
+  const dayBars = last7.map((d) => ({
     label: dayLabel(d.date),
     attempts: d.attempts,
   }));
@@ -141,7 +150,7 @@ function AttemptsCharts({ days }: { days: DayStat[] }) {
       </div>
       <div className="mt-3">
         {mode === "day" ? (
-          <SimpleBarChart title="Last 14 days (UTC)" bars={dayBars} />
+          <SimpleBarChart title="Last 7 days (UTC)" bars={dayBars} />
         ) : (
           <SimpleBarChart title="By week (UTC)" bars={weekBars} />
         )}
@@ -157,6 +166,9 @@ export default function AdminPage() {
   const [error, setError] = useState("");
   const [rows, setRows] = useState<AnalysisListItem[]>([]);
   const [stats, setStats] = useState<AnalysisStats | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const load = useCallback(async (pwd: string) => {
     setBusy(true);
@@ -185,6 +197,7 @@ export default function AdminPage() {
       }
       setRows(data.analyses || []);
       setStats(data.stats ?? null);
+      setSelectedIds(new Set());
       setPassword(pwd);
       setUnlocked(true);
       try {
@@ -196,6 +209,7 @@ export default function AdminPage() {
       setUnlocked(false);
       setRows([]);
       setStats(null);
+      setSelectedIds(new Set());
       try {
         sessionStorage.removeItem(ADMIN_SESSION_KEY);
       } catch {
@@ -233,8 +247,104 @@ export default function AdminPage() {
     setUnlocked(false);
     setRows([]);
     setStats(null);
+    setSelectedIds(new Set());
     setPassword("");
     setError("");
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allSelected = rows.length > 0 && selectedIds.size === rows.length;
+  const someSelected = selectedIds.size > 0;
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+      return;
+    }
+    setSelectedIds(new Set(rows.map((r) => r.id)));
+  };
+
+  const onDelete = async (row: AnalysisListItem) => {
+    const label = row.email || row.firstName || row.id;
+    if (
+      !window.confirm(
+        `Delete this row?\n\n${label}\nScore: ${row.overallScore || "—"}\n\nThis cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setDeletingId(row.id);
+    setError("");
+    try {
+      const res = await fetch(
+        `/api/admin/analyses?id=${encodeURIComponent(row.id)}`,
+        {
+          method: "DELETE",
+          headers: { "x-admin-password": password },
+        },
+      );
+      const data = (await res.json()) as { error?: string; ok?: boolean };
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Delete failed.");
+      }
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(row.id);
+        return next;
+      });
+      void load(password);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed.");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const onBulkDelete = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    if (
+      !window.confirm(
+        `Delete ${ids.length} selected ${ids.length === 1 ? "row" : "rows"}?\n\nThis cannot be undone.`,
+      )
+    ) {
+      return;
+    }
+    setBulkDeleting(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/analyses", {
+        method: "DELETE",
+        headers: {
+          "x-admin-password": password,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ids }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        ok?: boolean;
+        deleted?: number;
+      };
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Bulk delete failed.");
+      }
+      setSelectedIds(new Set());
+      void load(password);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Bulk delete failed.");
+    } finally {
+      setBulkDeleting(false);
+    }
   };
 
   return (
@@ -281,7 +391,19 @@ export default function AdminPage() {
                 {rows.length} recent{" "}
                 {rows.length === 1 ? "analysis" : "analyses"}
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
+                {someSelected ? (
+                  <button
+                    type="button"
+                    disabled={bulkDeleting || busy}
+                    onClick={() => void onBulkDelete()}
+                    className="btn-secondary !w-auto px-4 text-red-700"
+                  >
+                    {bulkDeleting
+                      ? "Deleting…"
+                      : `Delete selected (${selectedIds.size})`}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   disabled={busy}
@@ -398,13 +520,34 @@ export default function AdminPage() {
             ) : null}
 
             <div>
-              <h2 className="text-sm font-extrabold uppercase tracking-wide">
-                Recent analyses
-              </h2>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-extrabold uppercase tracking-wide">
+                  Recent analyses
+                </h2>
+                {rows.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={toggleSelectAll}
+                    className="text-xs font-bold text-accent hover:underline"
+                  >
+                    {allSelected ? "Clear selection" : "Select all"}
+                  </button>
+                ) : null}
+              </div>
               <div className="card-surface mt-3 overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
                   <thead className="border-b border-border bg-track/60 text-xs uppercase tracking-wide text-muted">
                     <tr>
+                      <th className="px-3 py-3 font-semibold">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          disabled={rows.length === 0 || bulkDeleting}
+                          onChange={toggleSelectAll}
+                          aria-label="Select all rows"
+                          className="h-4 w-4 accent-[var(--accent,#c9a227)]"
+                        />
+                      </th>
                       <th className="px-4 py-3 font-semibold">When</th>
                       <th className="px-4 py-3 font-semibold">Status</th>
                       <th className="px-4 py-3 font-semibold">Name</th>
@@ -413,13 +556,14 @@ export default function AdminPage() {
                       <th className="px-4 py-3 font-semibold">Speak time</th>
                       <th className="px-4 py-3 font-semibold">Main focus</th>
                       <th className="px-4 py-3 font-semibold">Level</th>
+                      <th className="px-4 py-3 font-semibold"> </th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.length === 0 ? (
                       <tr>
                         <td
-                          colSpan={8}
+                          colSpan={10}
                           className="px-4 py-10 text-center text-muted"
                         >
                           No analyses yet. Run a diagnosis to create the first
@@ -429,11 +573,22 @@ export default function AdminPage() {
                     ) : (
                       rows.map((row) => {
                         const completed = row.overallScore > 0;
+                        const checked = selectedIds.has(row.id);
                         return (
                         <tr
                           key={row.id}
                           className="border-b border-border/70 last:border-0"
                         >
+                          <td className="px-3 py-3">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={bulkDeleting || deletingId === row.id}
+                              onChange={() => toggleSelect(row.id)}
+                              aria-label={`Select ${row.email || row.firstName || row.id}`}
+                              className="h-4 w-4 accent-[var(--accent,#c9a227)]"
+                            />
+                          </td>
                           <td className="whitespace-nowrap px-4 py-3 text-muted">
                             {formatWhen(row.createdAt)}
                           </td>
@@ -466,6 +621,16 @@ export default function AdminPage() {
                           <td className="px-4 py-3">{row.mainFocus || "—"}</td>
                           <td className="px-4 py-3 text-muted">
                             {row.level || "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              disabled={deletingId === row.id || busy || bulkDeleting}
+                              onClick={() => void onDelete(row)}
+                              className="text-xs font-bold text-red-600 hover:underline disabled:opacity-50"
+                            >
+                              {deletingId === row.id ? "Deleting…" : "Delete"}
+                            </button>
                           </td>
                         </tr>
                         );

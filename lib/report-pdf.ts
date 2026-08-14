@@ -8,6 +8,7 @@ import {
 } from "@/lib/schema";
 import { buildPartASections, buildPartBSections } from "@/lib/scoring";
 import { challengeImagePath } from "@/lib/challenge-images";
+import { resolvePracticePlan } from "@/lib/practice-plans";
 
 export type ReportPdfOptions = {
   recipientName?: string;
@@ -656,7 +657,7 @@ export async function buildReportPdf(
     buildPartBSections(report.stats),
   );
 
-  // ——— Notes + plan ———
+  // ——— Notes ———
   newPage();
   drawEyebrow("Practice 03");
   drawBrand();
@@ -664,71 +665,104 @@ export async function buildReportPdf(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.setTextColor(...C.muted);
-  doc.text("What else worked — and what to tighten next.", marginX, y);
+  doc.text("What else worked, and what to tighten next.", marginX, y);
   y += 18;
   body(report.minorChallenges || "—");
+  drawCta();
 
-  y += 6;
-  const planPad = 20;
-  const planLineH = 15;
-  const planLines = wrapLines(
-    doc,
-    report.solutionsCopy || "—",
-    contentW - planPad * 2,
-    10.5,
-  );
-  const planH = 58 + planLines.length * planLineH + 22;
-  const maxPlanH = pageH - bottomSafe - 48;
+  // ——— Practice workbook (2–3 pages by level) ———
+  const plan = resolvePracticePlan(report.level, report.overallScore);
+  const mainFocusTitle = (report.mainChallenge.title || "").trim();
 
-  if (planH > maxPlanH) {
-    ensureSpace(40);
-    drawEyebrow("Plan");
+  const drawPlanSection = (label: string) => {
+    ensureSpace(28);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(16);
-    doc.setTextColor(...C.ink);
-    doc.text("Your practice plan", marginX, y);
-    y += 14;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...C.muted);
-    doc.text("Keep what works. Drill what doesn't.", marginX, y);
+    doc.setFontSize(11);
+    doc.setTextColor(...C.accent);
+    doc.text(label.toUpperCase(), marginX, y);
     y += 16;
-    body(report.solutionsCopy || "—");
-  } else {
-    if (y + planH > pageH - bottomSafe) newPage();
-    doc.setFillColor(...C.white);
-    doc.setDrawColor(...C.line);
-    doc.setLineWidth(0.8);
-    doc.roundedRect(marginX, y, contentW, planH, 16, 16, "FD");
-    doc.setFillColor(...C.yellow);
-    doc.roundedRect(marginX, y, 10, planH, 5, 5, "F");
+  };
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.setTextColor(...C.ink);
-    doc.text("Your practice plan", marginX + planPad, y + 26);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...C.muted);
-    doc.text("Keep what works. Drill what doesn't.", marginX + planPad, y + 42);
-
-    let planY = y + 62;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10.5);
-    doc.setTextColor(...C.ink);
-    for (const line of planLines) {
-      doc.text(line, marginX + planPad, planY);
-      planY += planLineH;
+  const drawCheckLines = (items: string[]) => {
+    for (const item of items) {
+      body(item, { size: 10.5 });
     }
-    y += planH + 22;
+  };
+
+  // Plan page 1 — Where you are
+  newPage();
+  drawEyebrow("Plan 04");
+  drawBrand();
+  drawTitle("Your practice plan");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(...C.muted);
+  doc.text(`For your level: ${plan.level}`, marginX, y);
+  y += 18;
+
+  drawPlanSection("Where you are");
+  body(plan.whatThisLevelMeans);
+  body(plan.nextFourteenDays);
+  if (mainFocusTitle) {
+    body(
+      `Start with your main challenge: ${mainFocusTitle}. Use the drills below to attack that habit first.`,
+    );
   }
 
+  drawPlanSection("Week 1 focus");
+  body(plan.week1Focus);
+  drawPlanSection("Week 2 focus");
+  body(plan.week2Focus);
+  drawCta();
+
+  // Plan page 2 — Drills
+  newPage();
+  drawEyebrow("Plan 05");
+  drawBrand();
+  drawTitle("Your drills");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(...C.muted);
+  doc.text("Check each box as you complete it. Keep sessions short.", marginX, y);
+  y += 18;
+
+  drawPlanSection("Daily (5 to 10 minutes)");
+  drawCheckLines([...plan.dailyDrills]);
+  drawPlanSection("Three times this week (about 15 minutes)");
+  drawCheckLines([...plan.thriceWeeklyDrills]);
+  drawPlanSection("Pressure drill (once this week)");
+  body(plan.pressureDrill);
+  drawCta();
+
+  // Plan page 3 — Make it stick
+  newPage();
+  drawEyebrow("Plan 06");
+  drawBrand();
+  drawTitle("Make it stick");
+
+  drawPlanSection("What to stop doing");
+  drawCheckLines(plan.trapsToStop.map((t) => `• ${t}`));
+  drawPlanSection("Your framework");
+  body(plan.framework);
+  drawPlanSection("How you will know it is working");
+  drawCheckLines(plan.successSignals.map((s, i) => `${i + 1}. ${s}`));
+  drawPlanSection("What the next level looks like");
+  body(plan.nextLevelLooksLike);
+
+  drawPlanSection("Notes from this week");
+  doc.setDrawColor(...C.line);
+  doc.setLineWidth(0.6);
+  for (let i = 0; i < 5; i++) {
+    ensureSpace(22);
+    doc.line(marginX, y, marginX + contentW, y);
+    y += 22;
+  }
+  y += 8;
   drawCta();
 
   // ——— Testimonials ———
   newPage();
-  drawEyebrow("Stories 04");
+  drawEyebrow("Stories 07");
   const testimonials = await loadImageDataUrl("/pdf/testimonials.png");
   if (testimonials) {
     const imgW = contentW;

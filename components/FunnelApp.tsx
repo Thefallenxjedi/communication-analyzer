@@ -57,6 +57,10 @@ export function FunnelApp() {
     [pathname, router],
   );
 
+  useEffect(() => {
+    if (phase === "done") window.scrollTo(0, 0);
+  }, [phase]);
+
   // One-time hydrate. Refresh mid-funnel → home (audio/session can't resume).
   // Only /report stays if we still have a stored result.
   useEffect(() => {
@@ -153,8 +157,8 @@ export function FunnelApp() {
       setStatus("Understanding your speaking style…");
 
       const controller = new AbortController();
-      // Hard stop so the UI never spins forever if the API hangs
-      const timeoutMs = 100_000;
+      // Align with server maxDuration (300s); leave a small buffer for the response
+      const timeoutMs = 290_000;
       const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
 
       try {
@@ -207,6 +211,32 @@ export function FunnelApp() {
         storeReport(nextReport);
         analyzingRef.current = false;
         goTo("done");
+
+        // Backup Kartra sync (analyze already schedules after(); this covers timeouts)
+        const syncLead = leadNow || lead || readLead();
+        if (syncLead?.email) {
+          void fetch("/api/kartra-sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: syncLead.email,
+              firstName:
+                (syncLead.name || "Friend").split(/\s+/)[0] || "Friend",
+              report: {
+                overallScore: nextReport.overallScore,
+                level: nextReport.level,
+                mainChallenge: {
+                  title: nextReport.mainChallenge?.title || "",
+                  strengths: nextReport.mainChallenge?.strengths,
+                  improvements: nextReport.mainChallenge?.improvements,
+                },
+              },
+            }),
+            keepalive: true,
+          }).catch(() => {
+            /* non-blocking */
+          });
+        }
       } catch (err) {
         analyzingRef.current = false;
         const aborted =
@@ -235,18 +265,6 @@ export function FunnelApp() {
 
   return (
     <div className="app-shell">
-      {phase === "done" && (
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-4 pt-4">
-          <button
-            type="button"
-            onClick={goHome}
-            className="text-sm font-semibold text-accent hover:underline"
-          >
-            ← EliteSpeak Home
-          </button>
-        </div>
-      )}
-
       {onLanding && (
         <LandingPage
           onCta={startFunnel}
@@ -259,7 +277,9 @@ export function FunnelApp() {
 
       {phase === "analyzing" && <AnalyzingState status={status} />}
 
-      {phase === "done" && report && <DiagnosisPage report={report} />}
+      {phase === "done" && report && (
+        <DiagnosisPage report={report} onHome={goHome} />
+      )}
 
       {phase === "capture" && (
         <div>

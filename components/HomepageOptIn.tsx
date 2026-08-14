@@ -62,39 +62,38 @@ export function HomepageOptIn({ onComplete }: HomepageOptInProps) {
     }
   };
 
+  const fieldClass =
+    "min-h-12 w-full rounded-xl border border-border bg-card px-4 text-sm outline-none focus:border-accent";
+
   return (
     <form onSubmit={(e) => void onSubmit(e)} className="space-y-3">
-      <p className="text-sm font-extrabold text-foreground">
-        Get your free report
-      </p>
-      <p className="text-xs text-muted">
-        Enter your name and email to start the speaking diagnosis.
-      </p>
-      <input
-        type="text"
-        autoComplete="given-name"
-        placeholder="First name"
-        value={firstName}
-        onChange={(e) => {
-          setFirstName(e.target.value);
-          setError("");
-        }}
-        className="min-h-11 w-full rounded-xl border border-border bg-card px-4 text-sm outline-none focus:border-accent"
-        disabled={busy}
-      />
-      <input
-        type="email"
-        autoComplete="email"
-        inputMode="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => {
-          setEmail(e.target.value);
-          setError("");
-        }}
-        className="min-h-11 w-full rounded-xl border border-border bg-card px-4 text-sm outline-none focus:border-accent"
-        disabled={busy}
-      />
+      <div className="grid grid-cols-2 gap-3">
+        <input
+          type="text"
+          autoComplete="given-name"
+          placeholder="First name"
+          value={firstName}
+          onChange={(e) => {
+            setFirstName(e.target.value);
+            setError("");
+          }}
+          className={fieldClass}
+          disabled={busy}
+        />
+        <input
+          type="email"
+          autoComplete="email"
+          inputMode="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setError("");
+          }}
+          className={fieldClass}
+          disabled={busy}
+        />
+      </div>
       {error ? (
         <p className="text-sm text-red-600" role="alert">
           {error}
@@ -105,7 +104,7 @@ export function HomepageOptIn({ onComplete }: HomepageOptInProps) {
         disabled={busy}
         className="btn-primary w-full uppercase tracking-wide"
       >
-        {busy ? "Starting…" : "Start my free diagnosis"}
+        {busy ? "Starting…" : "Get my diagnosis"}
       </button>
     </form>
   );

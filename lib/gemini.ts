@@ -16,7 +16,7 @@ export const MODEL_OPTIONS = [
   {
     id: "gemini-2.0-flash",
     label: "2.0 Flash",
-    hint: "Often quota 0 — avoid if possible",
+    hint: "Often quota 0. Avoid if possible.",
   },
   {
     id: "gemini-flash-latest",
@@ -72,8 +72,7 @@ You are an elite executive communication coach and speech analyst.
 Transcribe the provided audio accurately.
 - Preserve natural sentence structure. Do not invent content.
 - If unclear, use [unclear] rather than guessing.
-- Prefer segments with startSec (seconds from start) and text.
-- Also return the full concatenated transcript string.
+- Return only the full concatenated transcript string.
 - Only include speech from the primary Speaker.`;
 
 export const DIAGNOSIS_PROMPT = `# ROLE
@@ -310,8 +309,8 @@ Return mainChallenge with:
 
 - title: MUST be the exact label from the catalog row you chose (e.g. "Pause Comfort")
 - imageKey: MUST be the exact Part A id from the list above (camelCase). Prefer one of the 15 — use "generic" only if nothing fits
-- strengths: 2–3 sentences on what went well related to this area (specific evidence from audio/transcript). Always second person ("you")
-- improvements: 2–3 sentences on what to improve for this main habit — pointed, practical, not demeaning. Always second person ("you")
+- strengths: 2-3 sentences. What went well on THIS clip. Point to concrete moments (words they used or how they sounded). Never write generic filler like "you attempted to analyze", "good starting point", or "you showed up". Sound like a coach who listened.
+- improvements: 2-3 sentences. What to improve for this main habit. Specific and practical. Not demeaning. Always second person ("you").
 - summary: optional short combined blurb; may be empty if strengths/improvements are filled
 
 ---
@@ -321,9 +320,9 @@ Return mainChallenge with:
 Write one concise paragraph (minorChallenges).
 
 Structure it as balanced coaching:
-1) Briefly note 1–2 things that worked in secondary areas
+1) Briefly note 1-2 things that worked in secondary areas
 2) Then the next two or three biggest weaknesses (not repeating the main challenge) — may mix Part A and Part B
-3) Keep it constructive and evidence-based
+3) Keep it constructive and evidence-based. No generic coaching cliches.
 
 ---
 
@@ -332,7 +331,10 @@ Structure it as balanced coaching:
 Return ALL 29 markers (15 Part A + 14 Part B) in stats[].
 
 Each marker must contain: id, label, score.
-score MUST be an integer 0–100 (NOT 1–10). Example: {"id":"clarity","label":"Clarity","score":72}
+score MUST be an integer 0-100 (NOT 1-10). Example: {"id":"clarity","label":"Clarity","score":72}
+
+For PART A markers only, also set example: one short verbatim phrase (under 12 words) from THIS transcript when it clearly shows the pattern, else "".
+Do not invent quotes. Part B: score only (no example).
 
 ---
 
@@ -374,11 +376,19 @@ Do not shame.
 
 ---
 
-# TRANSCRIPT
+# PERSONALIZATION (one pass, short)
 
-Return the exact transcript that was analyzed in transcript.
+Also return these fields. Do not rewrite.
 
-Do not rewrite it. Do not clean it. Do not summarize it.
+comesAcross: 2-3 sentences. How this recording would land on a first-time listener. Specific to THIS clip. Second person. No generic praise.
+
+mainChallenge.whyItMatters: 1-2 sentences. What this one habit costs (clarity, authority, or attention).
+
+mainChallenge.upside: 1-2 sentences. What gets easier when they improve this habit. Practical. No magic.
+
+mainChallenge.mechanism: 1-2 sentences only if the process is clear (for example: starting the answer before the point is chosen). Otherwise "".
+
+Never use em dashes or en dashes. Write once.
 
 ---
 

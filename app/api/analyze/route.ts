@@ -1,6 +1,7 @@
 import { generateObject } from "ai";
 import { createGoogle } from "@ai-sdk/google";
-import { diagnosisReportSchema, transcriptSchema } from "@/lib/schema";
+import { after } from "next/server";
+import { diagnosisLlmSchema, transcriptSchema } from "@/lib/schema";
 import {
   DIAGNOSIS_PROMPT,
   TRANSCRIBE_PROMPT,
@@ -21,7 +22,7 @@ import {
 import { isValidLeadEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 function normalizeMediaMime(mime: string, filename: string): string {
   const base = mime.split(";")[0].trim().toLowerCase();
@@ -93,8 +94,8 @@ async function transcribeMedia(
     const { object } = await generateObject({
       model: google(modelId),
       schema: transcriptSchema,
-      schemaName: "TimestampedTranscript",
-      maxRetries: 1,
+      schemaName: "Transcript",
+      maxRetries: 0,
       messages: [
         {
           role: "user",
@@ -125,10 +126,10 @@ async function runDiagnosis(
   return withModelFallback(google, preferredModel, async (modelId) => {
     const { object } = await generateObject({
       model: google(modelId),
-      schema: diagnosisReportSchema,
+      schema: diagnosisLlmSchema,
       schemaName: "CommunicationDiagnosis",
-      schemaDescription: "Hormozi-style communication diagnosis",
-      maxRetries: 1,
+      schemaDescription: "World-class communication diagnosis",
+      maxRetries: 0,
       messages: [
         {
           role: "user",
@@ -219,7 +220,7 @@ export async function POST(request: Request) {
       return Response.json(
         {
           error:
-            "Could not transcribe speech. Use clear spoken audio up to 2 minutes.",
+            "Could not transcribe speech. Use clear spoken audio up to 5 minutes.",
         },
         { status: 422 },
       );
@@ -248,55 +249,77 @@ export async function POST(request: Request) {
       .split(/\s+/)[0]
       .slice(0, 80);
 
-    // Must await on Vercel — fire-and-forget is killed when the response returns.
-    try {
-      const saved = await insertAnalysis({
-        anonymousId,
-        overallScore: Math.round(report.overallScore),
-        durationSec,
-        level: report.level || "",
-        mainFocus: report.mainChallenge?.title || "",
-        source,
-      });
-      if (!saved) {
-        console.error("[analyze] Convex insert returned false", {
-          anonymousId,
-          convexConfigured: Boolean(
-            process.env.NEXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL,
-          ),
-        });
-      }
+    const trackAnonymousId = anonymousId;
+    const trackDurationSec = durationSec;
+    const trackSource = source;
+    const trackEmail = email;
+    const trackFirstName = firstName;
+    const trackScore = Math.round(report.overallScore);
+    const trackLevel = report.level || "";
+    const trackFocus = report.mainChallenge?.title || "";
 
-      if (saved && email && firstName) {
-        const attached = await attachLeadToAnalysis({
-          anonymousId,
-          firstName,
-          email,
-        });
-        if (!attached) {
-          console.error("[analyze] attach lead after insert failed", {
-            anonymousId,
-          });
-        }
-      }
-    } catch (trackErr) {
-      console.error("[analyze] Convex tracking failed", trackErr);
-    }
-
-    if (email && isKartraConfigured()) {
-      // Must await on Vercel — after() often gets killed before fields + list finish
+    after(async () => {
       try {
-        const kartra = await syncReportToKartra({
-          email,
-          firstName: firstName || "Friend",
-          report,
+        const saved = await insertAnalysis({
+          anonymousId: trackAnonymousId,
+          overallScore: trackScore,
+          durationSec: trackDurationSec,
+          level: trackLevel,
+          mainFocus: trackFocus,
+          source: trackSource,
         });
-        if (!kartra.ok) {
-          console.error("[analyze] Kartra sync incomplete", kartra.message, kartra.raw);
+        if (!saved) {
+          console.error("[analyze] Convex insert returned false", {
+            anonymousId: trackAnonymousId,
+            convexConfigured: Boolean(
+              process.env.NEXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL,
+            ),
+          });
+          return;
         }
-      } catch (kartraErr) {
-        console.error("[analyze] Kartra sync failed", kartraErr);
+        if (trackEmail && trackFirstName) {
+          const attached = await attachLeadToAnalysis({
+            anonymousId: trackAnonymousId,
+            firstName: trackFirstName,
+            email: trackEmail,
+          });
+          if (!attached) {
+            console.error("[analyze] attach lead after insert failed", {
+              anonymousId: trackAnonymousId,
+            });
+          }
+        }
+      } catch (trackErr) {
+        console.error("[analyze] Convex tracking failed", trackErr);
       }
+    });
+
+    // Kartra after the response (Vercel waitUntil). Client also POSTs /api/kartra-sync.
+    if (email && isKartraConfigured()) {
+      const kartraEmail = email;
+      const kartraName = firstName || "Friend";
+      after(async () => {
+        try {
+          const kartra = await syncReportToKartra({
+            email: kartraEmail,
+            firstName: kartraName,
+            report,
+          });
+          if (!kartra.ok) {
+            console.error(
+              "[analyze] Kartra after() incomplete",
+              kartra.message,
+              kartra.raw,
+            );
+          } else {
+            console.info("[analyze] Kartra after() ok", { email: kartraEmail });
+          }
+        } catch (kartraErr) {
+          console.error("[analyze] Kartra after() failed", kartraErr);
+        }
+      });
+    } else if (!email) {
+      console.warn("[analyze] Skipping Kartra — no email on request");
     }
 
     return Response.json(report);

@@ -1,9 +1,9 @@
-export const MAX_DURATION_SECONDS = 120; // record / analyze max: 2 minutes
+export const MAX_DURATION_SECONDS = 300; // record / analyze max: 5 minutes
 /** Suggested length for stronger results — not a hard block */
 export const SUGGESTED_DURATION_SECONDS = 30;
 /** Below this → ask to re-record; at/above → analyze */
 export const MIN_DURATION_SECONDS = 10;
-export const MAX_UPLOAD_DURATION_SECONDS = 150; // slight buffer on upload
+export const MAX_UPLOAD_DURATION_SECONDS = 320; // slight buffer on upload
 export const MAX_FILE_SIZE_BYTES = 80 * 1024 * 1024; // 80 MB phone videos
 
 export const ACCEPTED_AUDIO_TYPES = [

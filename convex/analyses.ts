@@ -76,6 +76,39 @@ export const attachLead = mutation({
   },
 });
 
+/** Admin: delete a single analysis / lead row. */
+export const remove = mutation({
+  args: { id: v.id("analyses") },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.id);
+    if (!existing) {
+      return { ok: false as const, reason: "not_found" };
+    }
+    await ctx.db.delete(args.id);
+    return { ok: true as const };
+  },
+});
+
+/** Admin: delete many analysis / lead rows in one call. */
+export const removeMany = mutation({
+  args: { ids: v.array(v.id("analyses")) },
+  handler: async (ctx, args) => {
+    const unique = [...new Set(args.ids)].slice(0, 500);
+    let deleted = 0;
+    let missing = 0;
+    for (const id of unique) {
+      const existing = await ctx.db.get(id);
+      if (!existing) {
+        missing += 1;
+        continue;
+      }
+      await ctx.db.delete(id);
+      deleted += 1;
+    }
+    return { ok: true as const, deleted, missing };
+  },
+});
+
 export const listRecent = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {

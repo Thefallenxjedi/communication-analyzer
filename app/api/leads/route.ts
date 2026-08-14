@@ -7,7 +7,8 @@ export const runtime = "nodejs";
 
 /**
  * Lead capture — homepage opt-in or PDF gate.
- * Saves to Convex/admin only. Kartra is synced after the report is ready.
+ * Saves to Convex/admin only. Kartra is synced once after the report
+ * (score + fields + list subscribe) from /api/analyze and /api/kartra-sync.
  */
 export async function POST(request: Request) {
   try {
@@ -49,32 +50,23 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!isConvexConfigured()) {
-      // Still allow funnel via sessionStorage when Convex isn't set locally
-      console.warn("[leads] Convex not configured — client session only");
-      return NextResponse.json({
-        ok: true,
+    let convexOk = false;
+    if (isConvexConfigured()) {
+      convexOk = await attachLeadToAnalysis({
+        anonymousId,
         firstName: first,
         email: emailCheck.email,
         source,
-        convex: false,
-        kartra: false,
       });
-    }
-
-    const convexOk = await attachLeadToAnalysis({
-      anonymousId,
-      firstName: first,
-      email: emailCheck.email,
-      source,
-    });
-
-    if (!convexOk) {
-      console.error("[leads] Convex attach failed", { anonymousId, source });
-      return NextResponse.json(
-        { ok: false, error: "Could not save your details. Try again." },
-        { status: 500 },
-      );
+      if (!convexOk) {
+        console.error("[leads] Convex attach failed", { anonymousId, source });
+        return NextResponse.json(
+          { ok: false, error: "Could not save your details. Try again." },
+          { status: 500 },
+        );
+      }
+    } else {
+      console.warn("[leads] Convex not configured — client session only");
     }
 
     return NextResponse.json({
@@ -82,7 +74,7 @@ export async function POST(request: Request) {
       firstName: first,
       email: emailCheck.email,
       source,
-      convex: true,
+      convex: convexOk,
       kartra: false,
     });
   } catch {
