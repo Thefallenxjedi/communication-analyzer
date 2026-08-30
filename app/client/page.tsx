@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Ember } from "@/components/Ember";
 import { HowItWorksRoadmap } from "@/components/HowItWorksRoadmap";
 import { ClipPlayer } from "@/components/ClipPlayer";
 import { IntroCallView } from "@/components/IntroCallView";
