@@ -37,8 +37,9 @@ Anyone who communicates for work (interviews, sales, presentations, meetings).
 | Variable | Purpose |
 |----------|---------|
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Server Gemini key (required) |
-| `ANALYZE_DAILY_LIMIT` | Soft per-IP daily analyses (default `20`) |
-| `GOOGLE_GENERATIVE_AI_MODEL` | Optional model override (default `gemini-2.5-flash`) |
+| `ANALYZE_DAILY_AUDIO_LIMIT` | Soft per-IP daily record/upload analyses (default `10`) |
+| `ANALYZE_DAILY_YOUTUBE_LIMIT` | Soft per-IP daily YouTube analyses (default `5`) |
+| `GOOGLE_GENERATIVE_AI_MODEL` | Optional model override (default `gemini-3.5-flash-lite`) |
 | `NEXT_PUBLIC_DIAGNOSIS_CALL_URL` | Result page CTAs (default: EliteSpeak diagnosis popup) |
 | `MONGODB_URI` | Atlas connection string (DB name in path, e.g. `.../elitespeak?...`) |
 | `ADMIN_PASSWORD` | Shared password for `/admin` analyses table |
@@ -50,8 +51,8 @@ Anyone who communicates for work (interviews, sales, presentations, meetings).
 
 **Atlas setup (once):** Create free M0 cluster → DB user → Network Access allow `0.0.0.0/0` (for Vercel) → copy `mongodb+srv://…` URI with `/elitespeak` DB name → set `MONGODB_URI` + `ADMIN_PASSWORD` in `.env.local` and Vercel → redeploy.
 
-**Default model:** `gemini-2.5-flash`  
-**Fallbacks:** `gemini-2.5-flash-lite` → `gemini-2.5-flash` → `gemini-flash-latest`  
+**Default model:** `gemini-3.5-flash-lite` (cost-first; new Gemini keys cannot use 2.5 Flash)
+**Fallbacks:** `gemini-3.5-flash-lite` → `gemini-3.6-flash` → `gemini-flash-latest`
 **API:** `POST /api/analyze` (multipart audio), `maxDuration` ~120s  
 **Inputs:** MP3 / WAV / M4A + in-browser record  
 **Leads (Kartra):** Home page embeds the Kartra opt-in form (`KartraOptIn`). Submit goes through Kartra; redirect back with `?step=capture` marks a session lead via `saveKartraLead()`. No Firebase / lead persistence API beyond the demo noop `POST /api/leads`.

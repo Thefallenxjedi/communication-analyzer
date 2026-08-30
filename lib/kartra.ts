@@ -1,4 +1,5 @@
 import type { DiagnosisReport } from "@/lib/schema";
+import { absoluteReportUrl } from "@/lib/shared-reports";
 
 const KARTRA_API_URL = "https://app.kartra.com/api";
 
@@ -26,6 +27,8 @@ function fieldIds() {
     mainFocus: env("KARTRA_FIELD_MAIN_FOCUS") || "main_focus",
     whatWentWell: env("KARTRA_FIELD_WHAT_WENT_WELL") || "what_went_well",
     whatToImprove: env("KARTRA_FIELD_WHAT_TO_IMPROVE") || "what_to_improve",
+    /** Full report URL, e.g. https://app.elitespeakprogram.com/r/abc123 */
+    reportLink: env("KARTRA_FIELD_REPORT_LINK") || "assessment_link",
   };
 }
 
@@ -230,7 +233,10 @@ function scoreBand(score: number): string {
   return "score_high";
 }
 
-function buildReportCustomFields(report: DiagnosisReport) {
+function buildReportCustomFields(
+  report: DiagnosisReport,
+  reportUrl?: string,
+) {
   const ids = fieldIds();
   const overall = Math.round(report.overallScore);
   const strengths = (report.mainChallenge.strengths || "").trim().slice(0, 1900);
@@ -238,31 +244,38 @@ function buildReportCustomFields(report: DiagnosisReport) {
     .trim()
     .slice(0, 1900);
 
-  return {
-    overall,
-    custom_fields: [
-      {
-        field_identifier: ids.overallScore,
-        field_value: String(overall),
-      },
-      {
-        field_identifier: ids.level,
-        field_value: (report.level || "").slice(0, 200),
-      },
-      {
-        field_identifier: ids.mainFocus,
-        field_value: (report.mainChallenge.title || "").slice(0, 200),
-      },
-      {
-        field_identifier: ids.whatWentWell,
-        field_value: strengths || "—",
-      },
-      {
-        field_identifier: ids.whatToImprove,
-        field_value: improvements || "—",
-      },
-    ],
-  };
+  const custom_fields: { field_identifier: string; field_value: string }[] = [
+    {
+      field_identifier: ids.overallScore,
+      field_value: String(overall),
+    },
+    {
+      field_identifier: ids.level,
+      field_value: (report.level || "").slice(0, 200),
+    },
+    {
+      field_identifier: ids.mainFocus,
+      field_value: (report.mainChallenge.title || "").slice(0, 200),
+    },
+    {
+      field_identifier: ids.whatWentWell,
+      field_value: strengths || "—",
+    },
+    {
+      field_identifier: ids.whatToImprove,
+      field_value: improvements || "—",
+    },
+  ];
+
+  const link = (reportUrl || "").trim();
+  if (link) {
+    custom_fields.push({
+      field_identifier: ids.reportLink,
+      field_value: link.slice(0, 500),
+    });
+  }
+
+  return { overall, custom_fields };
 }
 
 /**
@@ -273,6 +286,9 @@ export async function syncReportToKartra(input: {
   email: string;
   firstName: string;
   report: DiagnosisReport;
+  /** Share slug (`abc123`) or full URL. Written to Kartra `assessment_link`. */
+  reportUrl?: string;
+  shareSlug?: string;
 }): Promise<KartraResult> {
   const email = input.email.trim().toLowerCase();
   const firstName = input.firstName.trim().slice(0, 80) || "Friend";
@@ -285,7 +301,14 @@ export async function syncReportToKartra(input: {
   });
   if (!upsert.ok) return upsert;
 
-  const { overall, custom_fields } = buildReportCustomFields(input.report);
+  const reportUrl =
+    input.reportUrl?.trim() ||
+    (input.shareSlug ? absoluteReportUrl(input.shareSlug) : undefined);
+
+  const { overall, custom_fields } = buildReportCustomFields(
+    input.report,
+    reportUrl,
+  );
   const actions: Record<string, unknown>[] = [{ cmd: "edit_lead" }];
   if (env("KARTRA_ASSIGN_SCORE_TAGS") === "true") {
     actions.push({ cmd: "assign_tag", tag_name: scoreBand(overall) });

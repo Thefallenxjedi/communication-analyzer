@@ -19,7 +19,8 @@ npm install
 ```bash
 # .env.local
 GOOGLE_GENERATIVE_AI_API_KEY=your_key_here
-ANALYZE_DAILY_LIMIT=20
+ANALYZE_DAILY_AUDIO_LIMIT=10
+ANALYZE_DAILY_YOUTUBE_LIMIT=5
 
 # Optional CTA destinations
 # NEXT_PUBLIC_THOUGHTS2WORDS_URL=https://...

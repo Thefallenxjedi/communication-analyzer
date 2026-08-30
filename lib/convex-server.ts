@@ -30,6 +30,66 @@ export const analysesApi = {
   removeMany: makeFunctionReference<"mutation">("analyses:removeMany"),
   listRecent: makeFunctionReference<"query">("analyses:listRecent"),
   getStats: makeFunctionReference<"query">("analyses:getStats"),
+  scoreTopPercent: makeFunctionReference<"query">("analyses:scoreTopPercent"),
+  backfillAnalysisDuration: makeFunctionReference<"mutation">(
+    "analyses:backfillAnalysisDuration",
+  ),
+};
+
+export const reportsApi = {
+  create: makeFunctionReference<"mutation">("reports:create"),
+  getBySlug: makeFunctionReference<"query">("reports:getBySlug"),
+};
+
+export const surveysApi = {
+  submit: makeFunctionReference<"mutation">("surveys:submit"),
+  hasRated: makeFunctionReference<"query">("surveys:hasRated"),
+  listRecent: makeFunctionReference<"query">("surveys:listRecent"),
+  getStats: makeFunctionReference<"query">("surveys:getStats"),
+  ratingsBySlugs: makeFunctionReference<"query">("surveys:ratingsBySlugs"),
+};
+
+export const promptAddOnsApi = {
+  list: makeFunctionReference<"query">("promptAddOns:list"),
+  listEnabled: makeFunctionReference<"query">("promptAddOns:listEnabled"),
+  create: makeFunctionReference<"mutation">("promptAddOns:create"),
+  update: makeFunctionReference<"mutation">("promptAddOns:update"),
+  setEnabled: makeFunctionReference<"mutation">("promptAddOns:setEnabled"),
+  remove: makeFunctionReference<"mutation">("promptAddOns:remove"),
+};
+
+export const diagnosisCorePromptApi = {
+  get: makeFunctionReference<"query">("diagnosisCorePrompt:get"),
+  set: makeFunctionReference<"mutation">("diagnosisCorePrompt:set"),
+  clear: makeFunctionReference<"mutation">("diagnosisCorePrompt:clear"),
+};
+
+/** Paid coaching clients — not the free analyzer funnel. */
+export const coachingApi = {
+  listClients: makeFunctionReference<"query">("coaching:listClients"),
+  getClientByEmail: makeFunctionReference<"query">("coaching:getClientByEmail"),
+  createClient: makeFunctionReference<"mutation">("coaching:createClient"),
+  updateClient: makeFunctionReference<"mutation">("coaching:updateClient"),
+  removeClient: makeFunctionReference<"mutation">("coaching:removeClient"),
+  getClient: makeFunctionReference<"query">("coaching:getClient"),
+  listTasksForClient: makeFunctionReference<"query">("coaching:listTasksForClient"),
+  getTask: makeFunctionReference<"query">("coaching:getTask"),
+  createTask: makeFunctionReference<"mutation">("coaching:createTask"),
+  ensureProgramTasks: makeFunctionReference<"mutation">("coaching:ensureProgramTasks"),
+  listSessions: makeFunctionReference<"query">("coachingSessions:listForClient"),
+  markSessionReady: makeFunctionReference<"mutation">("coachingSessions:markReady"),
+  generateUploadUrl: makeFunctionReference<"mutation">("coaching:generateUploadUrl"),
+  submitTask: makeFunctionReference<"mutation">("coaching:submitTask"),
+  reviseTask: makeFunctionReference<"mutation">("coaching:reviseTask"),
+  updateTask: makeFunctionReference<"mutation">("coaching:updateTask"),
+  completeTask: makeFunctionReference<"mutation">("coaching:completeTask"),
+  rateTask: makeFunctionReference<"mutation">("coaching:rateTask"),
+  removeTask: makeFunctionReference<"mutation">("coaching:removeTask"),
+};
+
+export const introCallApi = {
+  getByClient: makeFunctionReference<"query">("introCall:getByClient"),
+  upsert: makeFunctionReference<"mutation">("introCall:upsert"),
 };
 
 export function formatConvexError(err: unknown): string {

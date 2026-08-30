@@ -1,4 +1,5 @@
 import {
+  backfillAnalysisDuration,
   deleteAnalysis,
   deleteAnalyses,
   getAnalysisStats,
@@ -6,6 +7,7 @@ import {
 } from "@/lib/analyses";
 import { checkAdminAuth, isAdminConfigured } from "@/lib/admin-auth";
 import { formatConvexError, getConvexUrl, isConvexConfigured } from "@/lib/convex-server";
+import { getSurveyRatingsBySlugs } from "@/lib/surveys";
 
 export const runtime = "nodejs";
 
@@ -36,11 +38,20 @@ export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
     const limit = Number(url.searchParams.get("limit") || 100);
+    const shouldBackfill = url.searchParams.get("backfillTiming") === "1";
 
     // Load separately so one failure still returns useful detail
     let analyses: Awaited<ReturnType<typeof listAnalyses>> = [];
     let stats: Awaited<ReturnType<typeof getAnalysisStats>> = null;
     const errors: string[] = [];
+
+    if (shouldBackfill) {
+      try {
+        await backfillAnalysisDuration(20);
+      } catch (err) {
+        errors.push(`backfill: ${formatConvexError(err)}`);
+      }
+    }
 
     try {
       analyses = await listAnalyses(limit);
@@ -52,6 +63,22 @@ export async function GET(request: Request) {
       stats = await getAnalysisStats();
     } catch (err) {
       errors.push(formatConvexError(err));
+    }
+
+    try {
+      const slugs = analyses.map((a) => a.reportSlug || "").filter(Boolean);
+      const bySlug = await getSurveyRatingsBySlugs(slugs);
+      analyses = analyses.map((a) => {
+        const slug = (a.reportSlug || "").trim().toLowerCase();
+        const hit = slug ? bySlug[slug] : undefined;
+        return {
+          ...a,
+          surveyRating: hit?.rating ?? null,
+          surveyComment: hit?.comment || "",
+        };
+      });
+    } catch (err) {
+      errors.push(`survey join: ${formatConvexError(err)}`);
     }
 
     if (errors.length && analyses.length === 0 && !stats) {

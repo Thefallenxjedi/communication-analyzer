@@ -3,6 +3,9 @@
   "functions": {
     "app/api/analyze/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/youtube-analyze/route.ts": {
+      "maxDuration": 300
     }
   }
 }

@@ -111,3 +111,40 @@ export function splitTranscriptSentences(transcript: string): string[] {
     .filter(Boolean);
   return parts.length ? parts : [trimmed];
 }
+
+/** Pull short verbatim snippets that match a known pattern (fillers, hedging, etc.). */
+export function extractPatternQuotes(
+  transcript: string,
+  id: StatId,
+  max = 3,
+): string[] {
+  const rule = RULES.find((r) => r.id === id);
+  if (!rule) return [];
+  const text = transcript.replace(/\s+/g, " ").trim();
+  if (!text) return [];
+
+  const re = new RegExp(rule.pattern.source, rule.pattern.flags);
+  const quotes: string[] = [];
+  const seen = new Set<string>();
+  let match: RegExpExecArray | null;
+
+  while ((match = re.exec(text)) !== null && quotes.length < max) {
+    if (match[0].length === 0) {
+      re.lastIndex += 1;
+      continue;
+    }
+    const start = match.index;
+    const end = start + match[0].length;
+    const before = text.slice(Math.max(0, start - 40), start);
+    const after = text.slice(end, Math.min(text.length, end + 40));
+    const left = before.split(/\s+/).slice(-5).join(" ");
+    const right = after.split(/\s+/).slice(0, 5).join(" ");
+    const snippet = `${left} ${match[0]} ${right}`.replace(/\s+/g, " ").trim();
+    const key = snippet.toLowerCase();
+    if (seen.has(key) || snippet.length < 2) continue;
+    seen.add(key);
+    quotes.push(snippet.length > 100 ? `${snippet.slice(0, 99).trimEnd()}…` : snippet);
+  }
+
+  return quotes;
+}

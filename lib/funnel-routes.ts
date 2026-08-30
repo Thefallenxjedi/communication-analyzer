@@ -1,10 +1,17 @@
-export type Phase = "landing" | "name" | "capture" | "analyzing" | "done";
+export type Phase =
+  | "landing"
+  | "name"
+  | "capture"
+  | "analyzing"
+  | "failed"
+  | "done";
 
 export const PHASE_PATH: Record<Phase, string> = {
   landing: "/",
   name: "/start",
   capture: "/capture",
   analyzing: "/analyzing",
+  failed: "/failed",
   done: "/report",
 };
 
@@ -17,6 +24,8 @@ export function pathToPhase(pathname: string): Phase {
       return "capture";
     case "/analyzing":
       return "analyzing";
+    case "/failed":
+      return "failed";
     case "/report":
       return "done";
     default:

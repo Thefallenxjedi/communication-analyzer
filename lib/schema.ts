@@ -199,6 +199,89 @@ export const PART_B_SECTIONS = [
   },
 ] as const;
 
+/** Scoreable from transcript/captions only — no audio (YouTube beta). */
+export const TRANSCRIPT_PART_A_IDS = [
+  "rambling",
+  "clarity",
+  "structure",
+  "wordPrecision",
+  "conciseness",
+  "repetition",
+  "hedging",
+] as const satisfies readonly PartAId[];
+
+export const TRANSCRIPT_PART_B_IDS = [
+  "complexLanguage",
+  "mentalEffort",
+  "talkingPastPoint",
+  "bookendConsistency",
+  "visualLanguage",
+  "concisenessDetail",
+  "rambleTriggers",
+  "impact",
+  "memorability",
+] as const satisfies readonly PartBId[];
+
+/** Part A sections shown for transcript-only reports (no vocal delivery band). */
+export const TRANSCRIPT_ONLY_PART_A_SECTIONS = [
+  {
+    id: "aFluency",
+    title: "Fluency",
+    blurb: "How smoothly ideas flow in what you say.",
+    ids: ["rambling"] as const satisfies readonly PartAId[],
+  },
+  {
+    id: "aContent",
+    title: "Content & message",
+    blurb: "Clarity, structure, precision, and efficiency of what you say.",
+    ids: [
+      "clarity",
+      "structure",
+      "wordPrecision",
+      "conciseness",
+      "repetition",
+    ] as const satisfies readonly PartAId[],
+  },
+  {
+    id: "aCertainty",
+    title: "Certainty & authority",
+    blurb: "How directly you state your ideas in the transcript.",
+    ids: ["hedging"] as const satisfies readonly PartAId[],
+  },
+] as const;
+
+/** Part B sections for transcript-only reports. */
+export const TRANSCRIPT_ONLY_PART_B_SECTIONS = [
+  {
+    id: "bContent",
+    title: "Content depth",
+    blurb: "Supporting signals about wording, density, and imagery.",
+    ids: [
+      "complexLanguage",
+      "mentalEffort",
+      "talkingPastPoint",
+      "bookendConsistency",
+      "visualLanguage",
+      "concisenessDetail",
+    ] as const satisfies readonly PartBId[],
+  },
+  {
+    id: "bCertainty",
+    title: "Language patterns",
+    blurb: "Trigger words and phrasing habits visible in the transcript.",
+    ids: ["rambleTriggers"] as const satisfies readonly PartBId[],
+  },
+  {
+    id: "bImpression",
+    title: "Overall impression",
+    blurb: "Impact and memorability from the words alone.",
+    ids: ["impact", "memorability"] as const satisfies readonly PartBId[],
+  },
+] as const;
+
+/** Overall at or above this → strengths framing, no “main problem” callout. */
+export const HIGH_PERFORMER_THRESHOLD = 80;
+
 /** @deprecated use PART_A_SECTIONS. Kept for transitional imports. */
 export const STAT_SECTIONS = PART_A_SECTIONS;
 
@@ -230,7 +313,7 @@ export const CHALLENGE_LABELS: Record<ChallengeImageKey, string> = {
   upspeak: "Upspeak",
   hedging: "Hedging",
   confidence: "Vocal Confidence",
-  generic: "Communication Focus",
+  generic: "Strong overall communication",
 };
 
 export const CHALLENGE_BLURBS: Record<ChallengeImageKey, string> = {
@@ -279,32 +362,98 @@ export const diagnosisReportSchema = z.object({
   stats: z.array(diagnosisStatSchema).min(15).max(35),
   solutionsCopy: z.string(),
   transcript: z.string().optional(),
+  /** Top X% vs historical completed scores (client/server filled, not from Gemini). */
+  scoreTopPercent: z.number().min(1).max(99).optional(),
+  /** YouTube / pasted transcript — text markers only, no audio delivery. */
+  transcriptOnly: z.boolean().optional(),
 });
 
 export type DiagnosisReport = z.infer<typeof diagnosisReportSchema>;
 export type DiagnosisStat = z.infer<typeof diagnosisStatSchema>;
 
+/** Soft caps used when sanitizing Gemini output (not hard schema rejects). */
+export const LLM_EXAMPLE_MAX = 80;
+export const LLM_TITLE_MAX = 80;
+export const LLM_LEVEL_MAX = 80;
+export const LLM_COACH_MAX = 450;
+export const LLM_SHORT_MAX = 350;
+export const LLM_PARAGRAPH_MAX = 600;
+
+function clipLlm(text: string, max: number): string {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  return `${t.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+}
+
+/**
+ * LLM schema is intentionally permissive on string length.
+ * Hard max() caused 500s when Gemini overshot; we clip in sanitizeDiagnosisLlm().
+ */
 const diagnosisStatLlmSchema = z.object({
   id: z.string(),
   label: z.string(),
-  score: z.number().min(0).max(100),
+  score: z.coerce.number().min(0).max(100),
   example: z.string().optional(),
 });
 
 /** Structured output for Gemini. Transcript filled from transcribe; no evidence dump. */
-export const diagnosisLlmSchema = diagnosisReportSchema.omit({ transcript: true }).extend({
+export const diagnosisLlmSchema = diagnosisReportSchema
+  .omit({ transcript: true, scoreTopPercent: true })
+  .extend({
+  level: z.string(),
+  comesAcross: z.string().optional(),
   stats: z.array(diagnosisStatLlmSchema).min(15).max(35),
+  minorChallenges: z.string(),
+  solutionsCopy: z.string(),
   mainChallenge: z.object({
     title: z.string(),
     summary: z.string().optional(),
     strengths: z.string().optional(),
     improvements: z.string().optional(),
+    /** 1–3 verbatim transcript quotes, one per line (required for trust). */
+    evidence: z.string().min(1),
     mechanism: z.string().optional(),
     whyItMatters: z.string().optional(),
     upside: z.string().optional(),
-    imageKey: z.string(),
+    imageKey: z.string().max(64),
   }),
 });
+
+/** Clip / coerce a parsed LLM object so normalizeDiagnosis always gets safe prose. */
+export function sanitizeDiagnosisLlm(
+  raw: z.infer<typeof diagnosisLlmSchema>,
+): z.infer<typeof diagnosisLlmSchema> {
+  const clipOpt = (v: string | undefined, max: number) =>
+    v != null && v.trim() ? clipLlm(v, max) : undefined;
+
+  return {
+    ...raw,
+    overallScore: Math.min(100, Math.max(0, Math.round(Number(raw.overallScore) || 0))),
+    level: clipLlm(raw.level || "", LLM_LEVEL_MAX),
+    comesAcross: clipOpt(raw.comesAcross, LLM_COACH_MAX),
+    minorChallenges: clipLlm(raw.minorChallenges || "", LLM_PARAGRAPH_MAX),
+    solutionsCopy: clipLlm(raw.solutionsCopy || "", LLM_PARAGRAPH_MAX),
+    mainChallenge: {
+      ...raw.mainChallenge,
+      title: clipLlm(raw.mainChallenge.title || "", LLM_TITLE_MAX),
+      summary: clipOpt(raw.mainChallenge.summary, LLM_COACH_MAX),
+      strengths: clipOpt(raw.mainChallenge.strengths, LLM_COACH_MAX),
+      improvements: clipOpt(raw.mainChallenge.improvements, LLM_COACH_MAX),
+      evidence: clipLlm(raw.mainChallenge.evidence || "", LLM_SHORT_MAX) || "—",
+      mechanism: clipOpt(raw.mainChallenge.mechanism, LLM_SHORT_MAX),
+      whyItMatters: clipOpt(raw.mainChallenge.whyItMatters, LLM_SHORT_MAX),
+      upside: clipOpt(raw.mainChallenge.upside, LLM_SHORT_MAX),
+      imageKey: clipLlm(raw.mainChallenge.imageKey || "generic", 64),
+    },
+    stats: raw.stats.map((s) => ({
+      ...s,
+      id: String(s.id || ""),
+      label: clipLlm(s.label || "", 80),
+      score: Math.min(100, Math.max(0, Math.round(Number(s.score) || 0))),
+      example: clipOpt(s.example, LLM_EXAMPLE_MAX),
+    })),
+  };
+}
 
 export const transcriptSchema = z.object({
   transcript: z.string(),

@@ -1,4 +1,6 @@
-export const MAX_DURATION_SECONDS = 300; // record / analyze max: 5 minutes
+export const MAX_DURATION_SECONDS = 300; // record / upload audio max: 5 minutes
+/** YouTube transcript-only (no audio) — longer clips are OK */
+export const MAX_YOUTUBE_DURATION_SECONDS = 20 * 60; // 20 minutes
 /** Suggested length for stronger results — not a hard block */
 export const SUGGESTED_DURATION_SECONDS = 30;
 /** Below this → ask to re-record; at/above → analyze */
@@ -117,4 +119,22 @@ export function parseYouTubeUrl(input: string): string | null {
   }
 
   return null;
+}
+
+/** Reject counting, digit-only, or too-thin clips before Gemini diagnosis. */
+export function isUnusableSpeechTranscript(transcript: string): boolean {
+  const t = transcript.replace(/\s+/g, " ").trim();
+  if (t.length < 12) return true;
+
+  const words = t.split(/\s+/).filter(Boolean);
+  if (words.length < 3) return true;
+
+  const letterWords = words.filter((w) => /[a-zA-Z]{2,}/.test(w));
+  if (letterWords.length < 3) return true;
+
+  const letters = (t.match(/[a-zA-Z]/g) || []).length;
+  const digits = (t.match(/\d/g) || []).length;
+  if (digits > 0 && digits >= letters) return true;
+
+  return false;
 }

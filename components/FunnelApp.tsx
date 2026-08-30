@@ -5,10 +5,18 @@ import { usePathname, useRouter } from "next/navigation";
 import type { DiagnosisReport } from "@/lib/schema";
 import { readLead, type LeadPayload } from "@/lib/lead";
 import { getOrCreateAnonymousId } from "@/lib/anonymous-id";
+import type { CaptureMethod } from "@/lib/capture-method";
 import { pathToPhase, phaseToPath, type Phase } from "@/lib/funnel-routes";
+import {
+  clearFailure,
+  readFailure,
+  storeFailure,
+} from "@/lib/failure-state";
 import { LandingPage } from "@/components/LandingPage";
 import { CapturePanel } from "@/components/CapturePanel";
+import { SiteFooter } from "@/components/SiteFooter";
 import { AnalyzingState } from "@/components/AnalyzingState";
+import { AnalyzeFailed } from "@/components/AnalyzeFailed";
 import { DiagnosisPage } from "@/components/DiagnosisPage";
 
 const REPORT_STORAGE_KEY = "ca_report";
@@ -46,6 +54,15 @@ export function FunnelApp() {
   const [serverHasDefault, setServerHasDefault] = useState(false);
   const [configLoaded, setConfigLoaded] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [lastAudio, setLastAudio] = useState<File | null>(null);
+  const [lastPromptQuestion, setLastPromptQuestion] = useState<string | null>(
+    null,
+  );
+  const [lastDurationSec, setLastDurationSec] = useState<number | null>(null);
+  const [lastYoutubeUrl, setLastYoutubeUrl] = useState<string | null>(null);
+  const [lastCaptureMethod, setLastCaptureMethod] =
+    useState<CaptureMethod>("upload");
+  const [retryWaitSec, setRetryWaitSec] = useState(0);
 
   const goTo = useCallback(
     (next: Phase, mode: "push" | "replace" = "push") => {
@@ -55,6 +72,34 @@ export function FunnelApp() {
       else router.push(path);
     },
     [pathname, router],
+  );
+
+  const showFailure = useCallback(
+    (
+      message: string,
+      opts: {
+        retryWaitSec: number;
+        lastYoutubeUrl?: string | null;
+        lastDurationSec?: number | null;
+        lastCaptureMethod?: CaptureMethod;
+      },
+    ) => {
+      const yt = opts.lastYoutubeUrl ?? lastYoutubeUrl;
+      const dur = opts.lastDurationSec ?? lastDurationSec;
+      const method = opts.lastCaptureMethod ?? lastCaptureMethod;
+      setError(message);
+      setRetryWaitSec(opts.retryWaitSec);
+      setStatus("");
+      storeFailure({
+        message,
+        lastYoutubeUrl: yt,
+        lastDurationSec: dur,
+        lastCaptureMethod: method,
+        retryWaitSec: opts.retryWaitSec,
+      });
+      goTo("failed", "replace");
+    },
+    [goTo, lastCaptureMethod, lastDurationSec, lastYoutubeUrl],
   );
 
   useEffect(() => {
@@ -69,11 +114,27 @@ export function FunnelApp() {
 
     const existing = readLead();
     const storedReport = readStoredReport();
+    const storedFailure = readFailure();
     const path = pathname.replace(/\/$/, "") || "/";
 
     queueMicrotask(() => {
       if (existing) setLead(existing);
       if (storedReport) setReport(storedReport);
+
+      if (path === "/failed") {
+        if (storedFailure) {
+          setError(storedFailure.message);
+          setLastYoutubeUrl(storedFailure.lastYoutubeUrl);
+          setLastDurationSec(storedFailure.lastDurationSec);
+          setLastCaptureMethod(storedFailure.lastCaptureMethod);
+          setRetryWaitSec(storedFailure.retryWaitSec);
+        } else {
+          router.replace("/");
+        }
+        setHydrated(true);
+        return;
+      }
+
       setHydrated(true);
 
       // Results page: keep only when report is still in session
@@ -131,7 +192,27 @@ export function FunnelApp() {
     setError("");
     setReport(null);
     storeReport(null);
+    clearFailure();
+    setLastAudio(null);
+    setLastPromptQuestion(null);
+    setLastDurationSec(null);
+    setLastYoutubeUrl(null);
+    setLastCaptureMethod("upload");
+    setRetryWaitSec(0);
     goTo("landing");
+  };
+
+  const startNewClip = () => {
+    analyzingRef.current = false;
+    setError("");
+    clearFailure();
+    setLastAudio(null);
+    setLastPromptQuestion(null);
+    setLastDurationSec(null);
+    setLastYoutubeUrl(null);
+    setLastCaptureMethod("upload");
+    setRetryWaitSec(0);
+    goTo("capture");
   };
 
   const startFunnel = () => {
@@ -150,8 +231,21 @@ export function FunnelApp() {
   };
 
   const analyzeAudio = useCallback(
-    async (audio: File, durationSec: number | null) => {
+    async (
+      audio: File,
+      durationSec: number | null,
+      promptQuestion?: string | null,
+      captureMethod: CaptureMethod = "upload",
+    ) => {
+      if (analyzingRef.current) return;
       analyzingRef.current = true;
+      setLastAudio(audio);
+      setLastDurationSec(durationSec);
+      setLastCaptureMethod(captureMethod);
+      const prompt =
+        (promptQuestion ?? lastPromptQuestion)?.trim() || "";
+      setLastPromptQuestion(prompt || null);
+      setRetryWaitSec(0);
       goTo("analyzing");
       setError("");
       setStatus("Understanding your speaking style…");
@@ -165,8 +259,12 @@ export function FunnelApp() {
         const formData = new FormData();
         formData.append("audio", audio);
         formData.append("anonymousId", getOrCreateAnonymousId());
+        formData.append("captureMethod", captureMethod);
         if (durationSec != null && Number.isFinite(durationSec)) {
           formData.append("durationSec", String(Math.round(durationSec)));
+        }
+        if (prompt) {
+          formData.append("promptQuestion", prompt.slice(0, 500));
         }
         const leadNow = lead || readLead();
         if (leadNow?.source) {
@@ -189,7 +287,11 @@ export function FunnelApp() {
           signal: controller.signal,
         });
 
-        let data: { error?: string } & Partial<DiagnosisReport> = {};
+        let data: {
+          error?: string;
+          shareSlug?: string;
+          sharePath?: string;
+        } & Partial<DiagnosisReport> = {};
         try {
           data = (await res.json()) as typeof data;
         } catch {
@@ -198,19 +300,44 @@ export function FunnelApp() {
           );
         }
         if (!res.ok) {
-          throw new Error(
+          const busy = res.status === 429;
+          const err = new Error(
             data.error ||
-              (res.status === 429
+              (busy
                 ? "Our analysis service is busy right now. Please wait a moment and try again."
                 : "Analysis failed."),
           );
+          (err as Error & { retryAfterSec?: number }).retryAfterSec = busy
+            ? 60
+            : 8;
+          throw err;
         }
 
-        const nextReport = data as DiagnosisReport;
+        const { shareSlug, sharePath, ...reportFields } = data;
+        const nextReport = reportFields as DiagnosisReport;
         setReport(nextReport);
         storeReport(nextReport);
+        clearFailure();
+        setLastAudio(null);
+        setLastDurationSec(null);
         analyzingRef.current = false;
-        goTo("done");
+
+        if (shareSlug) {
+          try {
+            sessionStorage.setItem(
+              "ca_share_meta",
+              JSON.stringify({
+                slug: shareSlug,
+                path: sharePath || `/r/${shareSlug}`,
+              }),
+            );
+          } catch {
+            /* ignore */
+          }
+          router.replace(`/r/${shareSlug}`);
+        } else {
+          goTo("done");
+        }
 
         // Backup Kartra sync (analyze already schedules after(); this covers timeouts)
         const syncLead = leadNow || lead || readLead();
@@ -222,6 +349,8 @@ export function FunnelApp() {
               email: syncLead.email,
               firstName:
                 (syncLead.name || "Friend").split(/\s+/)[0] || "Friend",
+              shareSlug,
+              sharePath,
               report: {
                 overallScore: nextReport.overallScore,
                 level: nextReport.level,
@@ -241,20 +370,241 @@ export function FunnelApp() {
         analyzingRef.current = false;
         const aborted =
           err instanceof DOMException && err.name === "AbortError";
-        setError(
-          aborted
-            ? "Analysis is taking too long. Please try again in a minute."
-            : err instanceof Error
-              ? err.message
-              : "Something went wrong.",
-        );
-        setStatus("");
-        goTo("capture");
+        const retryFromErr =
+          err instanceof Error
+            ? (err as Error & { retryAfterSec?: number }).retryAfterSec
+            : undefined;
+        const message = aborted
+          ? "This is taking longer than expected on our end. Please wait about a minute and try again."
+          : err instanceof Error
+            ? err.message
+            : "Something went wrong on our end. Please wait about a minute and try again.";
+        const busy =
+          aborted ||
+          /busy|wait about a minute|try again later|quota|rate limit/i.test(
+            message,
+          );
+        const waitSec =
+          typeof retryFromErr === "number" ? retryFromErr : busy ? 60 : 8;
+        showFailure(message, {
+          retryWaitSec: waitSec,
+          lastYoutubeUrl: null,
+          lastDurationSec: durationSec,
+          lastCaptureMethod: captureMethod,
+        });
       } finally {
         window.clearTimeout(timeoutId);
       }
     },
-    [goTo, lead],
+    [goTo, lastPromptQuestion, lead, router, showFailure],
+  );
+
+  const analyzeYoutube = useCallback(
+    async (url: string) => {
+      if (analyzingRef.current) return;
+      analyzingRef.current = true;
+      setLastYoutubeUrl(url);
+      setLastCaptureMethod("youtube");
+      setLastAudio(null);
+      setRetryWaitSec(0);
+      goTo("analyzing");
+      setError("");
+
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), 290_000);
+      let diagnosisStatusId: number | undefined;
+
+      try {
+        const leadNow = lead || readLead();
+        setStatus("Fetching YouTube transcript and audio…");
+
+        diagnosisStatusId = window.setTimeout(() => {
+          setStatus("Building your personalized diagnosis…");
+        }, 90_000);
+
+        const res = await fetch("/api/youtube-analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url,
+            anonymousId: getOrCreateAnonymousId(),
+            email: leadNow?.email || undefined,
+            firstName: leadNow?.name
+              ? leadNow.name.split(/\s+/)[0] || leadNow.name
+              : undefined,
+            promptQuestion: lastPromptQuestion || undefined,
+          }),
+          signal: controller.signal,
+        });
+
+        let data: {
+          error?: string;
+          shareSlug?: string;
+          sharePath?: string;
+          durationSec?: number;
+        } & Partial<DiagnosisReport> = {};
+        try {
+          data = (await res.json()) as typeof data;
+        } catch {
+          throw new Error(
+            "Analysis timed out or returned an invalid response. Please try again.",
+          );
+        }
+
+        if (res.status === 503) {
+          setStatus("Pulling the YouTube transcript…");
+          const trRes = await fetch("/api/youtube-transcript", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              url,
+              anonymousId: getOrCreateAnonymousId(),
+              email: leadNow?.email || undefined,
+              firstName: leadNow?.name
+                ? leadNow.name.split(/\s+/)[0] || leadNow.name
+                : undefined,
+            }),
+            signal: controller.signal,
+          });
+          const trData = (await trRes.json()) as {
+            error?: string;
+            transcript?: string;
+            durationSec?: number | null;
+          };
+          if (!trRes.ok || !trData.transcript) {
+            throw new Error(
+              trData.error || "Could not read that YouTube video.",
+            );
+          }
+
+          setStatus("Building your personalized diagnosis…");
+          const formData = new FormData();
+          formData.append("transcript", trData.transcript);
+          formData.append("anonymousId", getOrCreateAnonymousId());
+          formData.append("captureMethod", "youtube");
+          formData.append("source", "youtube");
+          if (trData.durationSec != null) {
+            formData.append(
+              "durationSec",
+              String(Math.round(trData.durationSec)),
+            );
+            setLastDurationSec(Math.round(trData.durationSec));
+          }
+          if (leadNow?.email) formData.append("email", leadNow.email);
+          if (leadNow?.name) {
+            formData.append(
+              "firstName",
+              leadNow.name.split(/\s+/)[0] || leadNow.name,
+            );
+          }
+          if (lastPromptQuestion) {
+            formData.append("promptQuestion", lastPromptQuestion);
+          }
+
+          const fallbackRes = await fetch("/api/analyze", {
+            method: "POST",
+            body: formData,
+            signal: controller.signal,
+          });
+          data = (await fallbackRes.json()) as typeof data;
+          if (!fallbackRes.ok) {
+            const busy = fallbackRes.status === 429;
+            throw new Error(
+              data.error ||
+                (busy
+                  ? "Our analysis service is busy right now. Please wait a moment and try again."
+                  : "Analysis failed."),
+            );
+          }
+        } else if (!res.ok) {
+          const busy = res.status === 429;
+          const err = new Error(
+            data.error ||
+              (busy
+                ? "Our analysis service is busy right now. Please wait a moment and try again."
+                : "Analysis failed."),
+          );
+          (err as Error & { retryAfterSec?: number }).retryAfterSec = busy
+            ? 60
+            : 8;
+          throw err;
+        }
+
+        const { shareSlug, sharePath, ...reportFields } = data;
+        const nextReport = reportFields as DiagnosisReport;
+        setReport(nextReport);
+        storeReport(nextReport);
+        clearFailure();
+        analyzingRef.current = false;
+
+        if (shareSlug) {
+          try {
+            sessionStorage.setItem(
+              "ca_share_meta",
+              JSON.stringify({
+                slug: shareSlug,
+                path: sharePath || `/r/${shareSlug}`,
+              }),
+            );
+          } catch {
+            /* ignore */
+          }
+          router.replace(`/r/${shareSlug}`);
+        } else {
+          goTo("done");
+        }
+
+        const syncLead = leadNow || lead || readLead();
+        if (syncLead?.email) {
+          void fetch("/api/kartra-sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: syncLead.email,
+              firstName:
+                (syncLead.name || "Friend").split(/\s+/)[0] || "Friend",
+              shareSlug,
+              sharePath,
+              report: {
+                overallScore: nextReport.overallScore,
+                level: nextReport.level,
+                mainChallenge: {
+                  title: nextReport.mainChallenge?.title || "",
+                  strengths: nextReport.mainChallenge?.strengths,
+                  improvements: nextReport.mainChallenge?.improvements,
+                },
+              },
+            }),
+            keepalive: true,
+          }).catch(() => {});
+        }
+      } catch (err) {
+        analyzingRef.current = false;
+        const aborted =
+          err instanceof DOMException && err.name === "AbortError";
+        const message = aborted
+          ? "This video took longer than 5 minutes. Try a shorter public clip, or wait a minute and retry the same link."
+          : err instanceof Error
+            ? err.message
+            : "Something went wrong on our end. Please wait about a minute and try again.";
+        const busy =
+          aborted ||
+          /busy|wait about a minute|try again later|quota|rate limit/i.test(
+            message,
+          );
+        const waitSec = busy ? 60 : 8;
+        showFailure(message, {
+          retryWaitSec: waitSec,
+          lastYoutubeUrl: url,
+          lastDurationSec: lastDurationSec,
+          lastCaptureMethod: "youtube",
+        });
+      } finally {
+        window.clearTimeout(timeoutId);
+        if (diagnosisStatusId != null) window.clearTimeout(diagnosisStatusId);
+      }
+    },
+    [goTo, lastDurationSec, lastPromptQuestion, lead, router, showFailure],
   );
 
   if (!hydrated) {
@@ -275,21 +625,38 @@ export function FunnelApp() {
         />
       )}
 
-      {phase === "analyzing" && <AnalyzingState status={status} />}
+      {phase === "analyzing" && (
+        <AnalyzingState status={status} captureMethod={lastCaptureMethod} />
+      )}
 
       {phase === "done" && report && (
         <DiagnosisPage report={report} onHome={goHome} />
       )}
 
+      {phase === "failed" && error ? (
+        <AnalyzeFailed
+          message={error}
+          audio={lastAudio}
+          durationSec={lastDurationSec}
+          retryWaitSec={retryWaitSec}
+          onRetry={() =>
+            lastYoutubeUrl
+              ? void analyzeYoutube(lastYoutubeUrl)
+              : lastAudio
+                ? void analyzeAudio(
+                    lastAudio,
+                    lastDurationSec,
+                    lastPromptQuestion,
+                    lastCaptureMethod,
+                  )
+                : startNewClip()
+          }
+          onNewClip={startNewClip}
+        />
+      ) : null}
+
       {phase === "capture" && (
         <div>
-          {error && (
-            <div className="mx-auto max-w-3xl px-4 pt-4">
-              <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
-              </p>
-            </div>
-          )}
           {configLoaded && !serverHasDefault && (
             <div className="mx-auto max-w-3xl px-4 pt-4">
               <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -309,20 +676,22 @@ export function FunnelApp() {
             </p>
           )}
           <CapturePanel
-            onAudioReady={(file, durationSec) =>
-              void analyzeAudio(file, durationSec)
+            onAudioReady={(file, durationSec, promptQuestion, captureMethod) =>
+              void analyzeAudio(
+                file,
+                durationSec,
+                promptQuestion,
+                captureMethod,
+              )
             }
+            onYoutubeReady={(url) => void analyzeYoutube(url)}
             onError={setError}
             disabled={!serverHasDefault}
           />
         </div>
       )}
 
-      {phase !== "landing" && phase !== "name" && (
-        <footer className="border-t border-border py-8 text-center text-xs text-muted">
-          EliteSpeak · Free communication diagnosis
-        </footer>
-      )}
+      {phase !== "landing" && phase !== "name" && <SiteFooter />}
     </div>
   );
 }

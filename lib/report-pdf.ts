@@ -6,9 +6,20 @@ import {
   STAT_HINTS,
   type StatId,
 } from "@/lib/schema";
-import { buildPartASections, buildPartBSections } from "@/lib/scoring";
+import { buildPartASections, buildPartBSections, isHighPerformer } from "@/lib/scoring";
 import { challengeImagePath } from "@/lib/challenge-images";
 import { resolvePracticePlan } from "@/lib/practice-plans";
+import {
+  PROFILE_RING,
+  PROFILE_RING_STROKE_RGB,
+  angleForIndex,
+  flattenProfileAxes,
+  focusSectionIdForKey,
+  orderProfileSections,
+  polarAt,
+  profileBandSummary,
+  shortProfileLabel,
+} from "@/lib/communication-profile";
 
 export type ReportPdfOptions = {
   recipientName?: string;
@@ -484,7 +495,12 @@ export async function buildReportPdf(
   // Score card — cream-white card with yellow left rail
   const overall = Math.round(report.overallScore);
   const levelText = report.level || "Communication Profile";
-  const scoreCardH = 100;
+  const topPct =
+    typeof report.scoreTopPercent === "number" &&
+    Number.isFinite(report.scoreTopPercent)
+      ? Math.max(1, Math.min(99, Math.round(report.scoreTopPercent)))
+      : null;
+  const scoreCardH = topPct != null ? 172 : 112;
   const scorePad = 22;
   const scoreCardY = y;
 
@@ -516,56 +532,67 @@ export async function buildReportPdf(
   doc.setTextColor(...C.ink);
   const levelLines = wrapLines(doc, levelText, levelMaxW, 12);
   const levelBlockH = levelLines.length * 16;
-  let levelY = scoreCardY + (scoreCardH - levelBlockH) / 2 + 12;
+  let levelY = scoreCardY + 36;
   for (const line of levelLines) {
     doc.text(line, marginX + contentW - scorePad, levelY, { align: "right" });
     levelY += 16;
   }
-  y = scoreCardY + scoreCardH + 28;
 
-  // ——— Main focus ———
-  drawEyebrow("Focus 02");
-  drawTitle("Your main focus");
+  if (topPct != null) {
+    const beatPct = Math.max(1, Math.min(99, 100 - topPct));
+    const barX = marginX + scorePad;
+    const barW = contentW - scorePad * 2;
+    const barY = scoreCardY + scoreCardH - 32;
 
-  const focusTitle = report.mainChallenge.title || "Primary opportunity";
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  const focusPadX = 18;
-  const focusTextW = doc.getTextWidth(focusTitle);
-  const focusW = Math.min(contentW, focusTextW + focusPadX * 2);
-  const focusH = 32;
-  doc.setFillColor(...C.yellow);
-  doc.roundedRect(marginX, y, focusW, focusH, 16, 16, "F");
-  doc.setTextColor(...C.ink);
-  doc.text(focusTitle, marginX + focusPadX, y + 21);
-  y += focusH + 16;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(...C.accent);
+    doc.text(
+      `You outscored ${beatPct}% of communicators`,
+      marginX + scorePad,
+      scoreCardY + 92,
+    );
 
-  // Same challenge illustration as the on-screen report
-  const challengeImg = await loadImageDataUrl(
-    challengeImagePath(report.mainChallenge.imageKey || "generic"),
-  );
-  if (challengeImg) {
-    const imgW = Math.min(contentW, 340);
-    const imgH = imgW * (10 / 16);
-    ensureSpace(imgH + 16);
-    try {
-      const fmt = challengeImg.startsWith("data:image/jpeg") ? "JPEG" : "PNG";
-      doc.addImage(
-        challengeImg,
-        fmt,
-        marginX + (contentW - imgW) / 2,
-        y,
-        imgW,
-        imgH,
-        undefined,
-        "FAST",
-      );
-      y += imgH + 12;
-    } catch {
-      // skip image if encode fails
-    }
+    const rawX = barX + (barW * beatPct) / 100;
+    const markerX = Math.max(barX + 14, Math.min(barX + barW - 14, rawX));
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(...C.accent);
+    doc.text("You", markerX, barY - 16, { align: "center" });
+
+    doc.setFillColor(...C.accent);
+    doc.triangle(
+      markerX,
+      barY - 3,
+      markerX - 3.5,
+      barY - 11,
+      markerX + 3.5,
+      barY - 11,
+      "F",
+    );
+
+    doc.setFillColor(...C.line);
+    doc.roundedRect(barX, barY, barW, 5, 2, 2, "F");
+    doc.setFillColor(...C.accent);
+    doc.roundedRect(barX, barY, Math.max(4, markerX - barX), 5, 2, 2, "F");
+
+    doc.setFillColor(...C.accent);
+    doc.circle(markerX, barY + 2.5, 4, "F");
+    doc.setFillColor(...C.white);
+    doc.circle(markerX, barY + 2.5, 1.8, "F");
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...C.muted);
+    doc.text("Lower", barX, barY + 14);
+    doc.text("Higher", barX + barW, barY + 14, { align: "right" });
   }
 
+  y = scoreCardY + scoreCardH + 22;
+
+  // ——— Page 1 continued: focus image + what went well / improve ———
+  const focusTitle = report.mainChallenge.title || "Primary opportunity";
   const imageKey = (
     (CHALLENGE_IMAGE_KEYS as readonly string[]).includes(
       report.mainChallenge.imageKey || "",
@@ -573,88 +600,433 @@ export async function buildReportPdf(
       ? report.mainChallenge.imageKey
       : "generic"
   ) as ChallengeImageKey;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(...C.orange);
+  doc.text("YOUR MAIN FOCUS", marginX, y);
+  y += 10;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  const focusPadX = 16;
+  const focusTextW = doc.getTextWidth(focusTitle);
+  const focusPillW = Math.min(contentW, focusTextW + focusPadX * 2);
+  const focusPillH = 28;
+  doc.setFillColor(...C.yellow);
+  doc.roundedRect(marginX, y, focusPillW, focusPillH, 14, 14, "F");
+  doc.setTextColor(...C.ink);
+  doc.text(focusTitle, marginX + focusPadX, y + 18);
+  y += focusPillH + 14;
+
+  const challengeImg = await loadImageDataUrl(
+    challengeImagePath(report.mainChallenge.imageKey || "generic"),
+  );
+
+  const strengthsText = report.mainChallenge.strengths?.trim() || "";
+  const improveText = report.mainChallenge.improvements?.trim() || "";
   const focusBlurb =
     report.mainChallenge.summary?.trim() || CHALLENGE_BLURBS[imageKey];
-  if (focusBlurb) {
-    const blurbLines = wrapLines(doc, focusBlurb, contentW, 10);
-    ensureSpace(blurbLines.length * 14 + 12);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(...C.muted);
-    for (const line of blurbLines) {
-      doc.text(line, marginX + contentW / 2, y, { align: "center" });
-      y += 14;
+
+  // Two-column: illustration left, feedback cards right (fills empty page-1 space)
+  const colGap = 16;
+  const leftW = Math.min(210, contentW * 0.42);
+  const rightW = contentW - leftW - colGap;
+  const imgH = leftW * (10 / 16);
+  const feedbackStartY = y;
+
+  if (challengeImg) {
+    try {
+      const fmt = challengeImg.startsWith("data:image/jpeg") ? "JPEG" : "PNG";
+      doc.setFillColor(...C.white);
+      doc.setDrawColor(...C.line);
+      doc.setLineWidth(0.7);
+      doc.roundedRect(marginX, y, leftW, imgH + 12, 14, 14, "FD");
+      doc.addImage(
+        challengeImg,
+        fmt,
+        marginX + 6,
+        y + 6,
+        leftW - 12,
+        imgH,
+        undefined,
+        "FAST",
+      );
+    } catch {
+      // skip image if encode fails
     }
-    y += 10;
   }
 
-  const drawFeedbackBlock = (
+  const drawFeedbackCard = (
+    x: number,
+    startY: number,
+    width: number,
     label: string,
     text: string,
     labelColor: RGB,
-  ) => {
-    const size = 10.5;
-    const lines = wrapLines(doc, text, contentW - 36, size);
-    const lineH = size + 5;
-    const boxH = 32 + lines.length * lineH + 14;
-    ensureSpace(boxH + 10);
+  ): number => {
+    const size = 9.5;
+    const lines = wrapLines(doc, text, width - 28, size);
+    const lineH = size + 4;
+    const boxH = Math.max(72, 28 + lines.length * lineH + 12);
 
     doc.setFillColor(...C.white);
     doc.setDrawColor(...C.line);
     doc.setLineWidth(0.8);
-    doc.roundedRect(marginX, y, contentW, boxH, 14, 14, "FD");
+    doc.roundedRect(x, startY, width, boxH, 12, 12, "FD");
 
-    drawPlusBullet(marginX + 18, y + 16);
+    drawPlusBullet(x + 12, startY + 14);
 
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setTextColor(...labelColor);
-    doc.text(label, marginX + 30, y + 19);
+    doc.text(label, x + 24, startY + 17);
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(size);
     doc.setTextColor(...C.ink);
-    let ty = y + 38;
-    for (const line of lines) {
-      doc.text(line, marginX + 18, ty);
+    let ty = startY + 34;
+    for (const line of lines.slice(0, 6)) {
+      doc.text(line, x + 12, ty);
       ty += lineH;
     }
-    y += boxH + 12;
+    return boxH;
   };
 
-  if (report.mainChallenge.strengths) {
-    drawFeedbackBlock(
-      "WHAT WENT WELL",
-      report.mainChallenge.strengths,
-      C.good,
+  let rightY = feedbackStartY;
+  const rightX = marginX + leftW + colGap;
+  if (strengthsText) {
+    rightY +=
+      drawFeedbackCard(
+        rightX,
+        rightY,
+        rightW,
+        "WHAT WENT WELL",
+        strengthsText,
+        C.good,
+      ) + 10;
+  }
+  if (improveText) {
+    rightY +=
+      drawFeedbackCard(
+        rightX,
+        rightY,
+        rightW,
+        "WHAT TO IMPROVE",
+        improveText,
+        C.accent,
+      ) + 10;
+  }
+  if (!strengthsText && !improveText && focusBlurb) {
+    rightY +=
+      drawFeedbackCard(
+        rightX,
+        rightY,
+        rightW,
+        "YOUR FOCUS",
+        focusBlurb,
+        C.orange,
+      ) + 10;
+  }
+
+  y = Math.max(feedbackStartY + imgH + 20, rightY) + 4;
+
+  // ——— Page 2: Communication profile radar ———
+  newPage();
+  drawEyebrow("Profile 02");
+  drawBrand();
+  drawTitle("Your communication profile");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9.5);
+  doc.setTextColor(...C.muted);
+  doc.text(
+    "Four areas from your Part A scorecard. Closer to the edge means stronger.",
+    marginX,
+    y,
+  );
+  y += 16;
+
+  const partAForProfile = buildPartASections(report.stats, {
+    transcriptOnly: Boolean(report.transcriptOnly),
+  });
+  const orderedProfile = orderProfileSections(partAForProfile);
+  const profileAxes = flattenProfileAxes(orderedProfile);
+  const focusSecId = focusSectionIdForKey(
+    orderedProfile,
+    report.mainChallenge.imageKey,
+  );
+
+  if (profileAxes.length >= 3) {
+    const chartSize = Math.min(contentW, 288);
+    const cx = marginX + contentW / 2;
+    const cy = y + chartSize / 2 - 8;
+    const n = profileAxes.length;
+    const radarR = chartSize * 0.32;
+    const ringInner = chartSize * 0.36;
+    const ringOuter = chartSize * 0.44;
+    const labelR = chartSize * 0.49;
+
+    // Soft card behind chart
+    const cardPad = 10;
+    doc.setFillColor(...C.white);
+    doc.setDrawColor(...C.line);
+    doc.setLineWidth(0.7);
+    doc.roundedRect(
+      cx - chartSize / 2 - cardPad,
+      y - 4,
+      chartSize + cardPad * 2,
+      chartSize + 8,
+      16,
+      16,
+      "FD",
     );
-  }
-  if (report.mainChallenge.improvements) {
-    drawFeedbackBlock(
-      "WHAT TO IMPROVE",
-      report.mainChallenge.improvements,
-      C.accent,
+
+    // Ring segments as fan wedges (outer arc approx via triangle strips)
+    let axisCursor = 0;
+    for (const section of orderedProfile) {
+      const count = section.stats.length;
+      const a0 = angleForIndex(axisCursor - 0.5, n);
+      const a1 = angleForIndex(axisCursor + count - 0.5, n);
+      axisCursor += count;
+      const fill = PROFILE_RING[section.id]?.rgb || ([240, 240, 240] as const);
+      const stroke =
+        PROFILE_RING_STROKE_RGB[section.id] || ([120, 120, 120] as const);
+      const focused = section.id === focusSecId;
+      const steps = Math.max(8, Math.ceil(((a1 - a0) / (Math.PI * 2)) * 48));
+      doc.setFillColor(...fill);
+      for (let s = 0; s < steps; s++) {
+        const t0 = a0 + ((a1 - a0) * s) / steps;
+        const t1 = a0 + ((a1 - a0) * (s + 1)) / steps;
+        const o0 = polarAt(cx, cy, t0, ringOuter);
+        const o1 = polarAt(cx, cy, t1, ringOuter);
+        const i1 = polarAt(cx, cy, t1, ringInner);
+        const i0 = polarAt(cx, cy, t0, ringInner);
+        doc.triangle(o0.x, o0.y, o1.x, o1.y, i1.x, i1.y, "F");
+        doc.triangle(o0.x, o0.y, i1.x, i1.y, i0.x, i0.y, "F");
+      }
+      if (focused) {
+        doc.setDrawColor(...stroke);
+        doc.setLineWidth(1.6);
+        const midSteps = Math.max(6, steps);
+        for (let s = 0; s < midSteps; s++) {
+          const t0 = a0 + ((a1 - a0) * s) / midSteps;
+          const t1 = a0 + ((a1 - a0) * (s + 1)) / midSteps;
+          const p0 = polarAt(cx, cy, t0, ringOuter);
+          const p1 = polarAt(cx, cy, t1, ringOuter);
+          doc.line(p0.x, p0.y, p1.x, p1.y);
+        }
+      }
+      // Ring label
+      const mid = (a0 + a1) / 2;
+      const lp = polarAt(cx, cy, mid, (ringInner + ringOuter) / 2);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...C.ink);
+      doc.text(
+        PROFILE_RING[section.id]?.short || "Area",
+        lp.x,
+        lp.y + 2.5,
+        { align: "center" },
+      );
+    }
+
+    // White radar disc
+    doc.setFillColor(255, 255, 255);
+    // approximate disc with polygon
+    {
+      const pts: number[] = [];
+      for (let i = 0; i < n; i++) {
+        const p = polarAt(cx, cy, angleForIndex(i, n), radarR);
+        pts.push(p.x, p.y);
+      }
+      // jsPDF doesn't have easy filled polygon - use triangles from center
+      for (let i = 0; i < n; i++) {
+        const p0 = polarAt(cx, cy, angleForIndex(i, n), radarR);
+        const p1 = polarAt(cx, cy, angleForIndex((i + 1) % n, n), radarR);
+        doc.triangle(cx, cy, p0.x, p0.y, p1.x, p1.y, "F");
+      }
+    }
+
+    // Grid + spokes
+    doc.setDrawColor(...C.line);
+    doc.setLineWidth(0.5);
+    for (let level = 1; level <= 4; level++) {
+      const r = (radarR * level) / 4;
+      for (let i = 0; i < n; i++) {
+        const p0 = polarAt(cx, cy, angleForIndex(i, n), r);
+        const p1 = polarAt(cx, cy, angleForIndex((i + 1) % n, n), r);
+        doc.line(p0.x, p0.y, p1.x, p1.y);
+      }
+    }
+    for (let i = 0; i < n; i++) {
+      const p = polarAt(cx, cy, angleForIndex(i, n), radarR);
+      doc.line(cx, cy, p.x, p.y);
+    }
+
+    // Data polygon (filled via triangles) + outline
+    const dataPts = profileAxes.map((axis, i) => {
+      const r = (Math.min(100, Math.max(0, axis.score)) / 100) * radarR;
+      return polarAt(cx, cy, angleForIndex(i, n), r);
+    });
+    doc.setFillColor(225, 6, 0);
+    // light fill - jsPDF setFillColor with GState would be better; approximate with translucent look via pale red
+    doc.setFillColor(255, 214, 210);
+    for (let i = 0; i < n; i++) {
+      const p0 = dataPts[i];
+      const p1 = dataPts[(i + 1) % n];
+      doc.triangle(cx, cy, p0.x, p0.y, p1.x, p1.y, "F");
+    }
+    doc.setDrawColor(...C.accent);
+    doc.setLineWidth(1.4);
+    for (let i = 0; i < n; i++) {
+      const p0 = dataPts[i];
+      const p1 = dataPts[(i + 1) % n];
+      doc.line(p0.x, p0.y, p1.x, p1.y);
+    }
+    for (let i = 0; i < n; i++) {
+      const axis = profileAxes[i];
+      const p = dataPts[i];
+      const focused = axis.id === report.mainChallenge.imageKey;
+      const dot: RGB = focused ? C.accent : C.ink;
+      doc.setFillColor(...dot);
+      doc.circle(p.x, p.y, focused ? 2.4 : 1.7, "F");
+      doc.setFillColor(...C.white);
+      doc.circle(p.x, p.y, focused ? 0.9 : 0.6, "F");
+    }
+
+    // Axis labels
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(6.2);
+    for (let i = 0; i < n; i++) {
+      const axis = profileAxes[i];
+      const p = polarAt(cx, cy, angleForIndex(i, n), labelR);
+      const focused = axis.id === report.mainChallenge.imageKey;
+      const labelColor: RGB = focused ? C.accent : C.muted;
+      doc.setTextColor(...labelColor);
+      doc.text(shortProfileLabel(axis.label), p.x, p.y + 1.8, {
+        align: "center",
+      });
+    }
+
+    y += chartSize + 18;
+
+    // Band score cards (2–4 depending on transcript-only vs full audio)
+    const bandCount = orderedProfile.length;
+    const gap = 8;
+    const boxW = (contentW - gap * Math.max(0, bandCount - 1)) / bandCount;
+    const boxH = 52;
+    ensureSpace(boxH + 24);
+    orderedProfile.forEach((section, idx) => {
+      const bx = marginX + idx * (boxW + gap);
+      const stroke =
+        PROFILE_RING_STROKE_RGB[section.id] || ([180, 180, 180] as const);
+      const focused = section.id === focusSecId;
+      const border: RGB = focused ? C.accent : C.line;
+      const bandShort =
+        section.id === "aCertainty"
+          ? "Authority"
+          : PROFILE_RING[section.id]?.short || "Area";
+      doc.setFillColor(...C.white);
+      doc.setDrawColor(...border);
+      doc.setLineWidth(focused ? 1.4 : 0.7);
+      doc.roundedRect(bx, y, boxW, boxH, 10, 10, "FD");
+      doc.setFillColor(...stroke);
+      doc.rect(bx, y, boxW, 3.5, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7);
+      doc.setTextColor(...C.muted);
+      doc.text(bandShort.toUpperCase(), bx + 8, y + 16);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(18);
+      doc.setTextColor(...C.ink);
+      const scoreStr = String(section.score);
+      const scoreW = doc.getTextWidth(scoreStr);
+      doc.text(scoreStr, bx + 8, y + 38);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(...C.muted);
+      doc.text("/100", bx + 8 + scoreW + 6, y + 38);
+    });
+    y += boxH + 16;
+
+    const weakest = [...orderedProfile].sort((a, b) => a.score - b.score)[0];
+    const bandLine = profileBandSummary(
+      Math.round(report.overallScore),
+      weakest,
     );
+    if (bandLine) {
+      const focusGeneric = report.mainChallenge.imageKey === "generic";
+      const highPerformer = isHighPerformer(Math.round(report.overallScore));
+      const soft =
+        highPerformer && focusGeneric
+          ? bandLine
+          : `${bandLine.replace(/\.$/, "")}${
+              focusSecId === weakest?.id
+                ? " — that’s where your main challenge sits."
+                : "."
+            }`;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9.5);
+      doc.setTextColor(...C.muted);
+      const softLines = wrapLines(doc, soft, contentW, 9.5);
+      ensureSpace(softLines.length * 13 + 8);
+      for (const line of softLines) {
+        doc.text(line, marginX, y);
+        y += 13;
+      }
+      y += 12;
+    }
   }
-  if (
-    !report.mainChallenge.strengths &&
-    !report.mainChallenge.improvements &&
-    report.mainChallenge.summary
-  ) {
-    body(report.mainChallenge.summary);
+
+  // Compact full-width focus strip (details live on page 1)
+  ensureSpace(58);
+  const stripH = 52;
+  doc.setFillColor(...C.white);
+  doc.setDrawColor(...C.line);
+  doc.setLineWidth(0.8);
+  doc.roundedRect(marginX, y, contentW, stripH, 14, 14, "FD");
+  doc.setFillColor(...C.yellow);
+  doc.roundedRect(marginX, y, 8, stripH, 4, 4, "F");
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...C.orange);
+  doc.text("MAIN FOCUS", marginX + 20, y + 18);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.setTextColor(...C.ink);
+  doc.text(focusTitle, marginX + 20, y + 38);
+
+  if (focusBlurb) {
+    const blurbMax = contentW * 0.48;
+    const blurbLines = wrapLines(doc, focusBlurb, blurbMax, 9);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(...C.muted);
+    let by = y + 18;
+    for (const line of blurbLines.slice(0, 3)) {
+      doc.text(line, marginX + contentW - 18, by, { align: "right" });
+      by += 12;
+    }
   }
+  y += stripH + 12;
 
   // ——— Part A / B ———
   drawPartWithNumbers(
     "PART A — Main Challenges",
     "Primary scorecard. Overall score is the average of these 15. Strongest area first.",
-    buildPartASections(report.stats),
+    buildPartASections(report.stats, {
+      transcriptOnly: Boolean(report.transcriptOnly),
+    }),
   );
 
   drawPartWithNumbers(
     "PART B — Supporting diagnostics",
     "Secondary signals. Not averaged into overall. Strongest area first.",
-    buildPartBSections(report.stats),
+    buildPartBSections(report.stats, {
+      transcriptOnly: Boolean(report.transcriptOnly),
+    }),
   );
 
   // ——— Notes ———

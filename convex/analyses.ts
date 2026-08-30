@@ -1,5 +1,47 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { estimateAnalysisDurationMs } from "./estimateAnalysisDuration";
+
+function displayAnalysisDurationMs(row: {
+  analysisDurationMs?: number;
+  analysisDurationEstimated?: boolean;
+  durationSec?: number | null;
+  captureMethod?: string;
+  source?: string;
+  status?: string;
+  overallScore?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  costUsd?: number;
+}): { ms: number | null; estimated: boolean } {
+  // Incomplete leads never ran analysis — do not invent a "~Ns" estimate.
+  if (
+    row.status !== "failed" &&
+    row.status !== "success" &&
+    (row.overallScore ?? 0) <= 0
+  ) {
+    return { ms: null, estimated: false };
+  }
+  if (
+    typeof row.analysisDurationMs === "number" &&
+    row.analysisDurationMs > 0
+  ) {
+    return {
+      ms: row.analysisDurationMs,
+      estimated: row.analysisDurationEstimated === true,
+    };
+  }
+  const ms = estimateAnalysisDurationMs(row);
+  return { ms, estimated: true };
+}
+
+/** Lead placeholder: opted in before any diagnosis finished. */
+function isIncompleteLead(row: {
+  status?: string;
+  overallScore: number;
+}): boolean {
+  return row.status !== "failed" && row.status !== "success" && row.overallScore <= 0;
+}
 
 export const insert = mutation({
   args: {
@@ -9,13 +51,29 @@ export const insert = mutation({
     level: v.string(),
     mainFocus: v.string(),
     source: v.optional(v.string()),
+    captureMethod: v.optional(v.string()),
+    firstName: v.optional(v.string()),
+    email: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("success"), v.literal("failed"))),
+    failureReason: v.optional(v.string()),
+    reportSlug: v.optional(v.string()),
+    costUsd: v.optional(v.number()),
+    inputTokens: v.optional(v.number()),
+    outputTokens: v.optional(v.number()),
+    analysisDurationMs: v.optional(v.number()),
+    promptAddOnIds: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const anonymousId = args.anonymousId.trim().slice(0, 128);
     if (!anonymousId) throw new Error("anonymousId required");
 
-    const id = await ctx.db.insert("analyses", {
-      anonymousId,
+    const status = args.status ?? "success";
+    const firstName = args.firstName?.trim().slice(0, 80);
+    const email = args.email?.trim().toLowerCase().slice(0, 200);
+    const reportSlug = args.reportSlug?.trim().toLowerCase().slice(0, 32);
+    const now = Date.now();
+
+    const fields = {
       overallScore: Math.round(args.overallScore),
       durationSec:
         args.durationSec != null && Number.isFinite(args.durationSec)
@@ -24,7 +82,69 @@ export const insert = mutation({
       level: args.level.slice(0, 120),
       mainFocus: args.mainFocus.slice(0, 200),
       source: args.source?.slice(0, 64),
-      createdAt: Date.now(),
+      ...(args.captureMethod
+        ? { captureMethod: args.captureMethod.slice(0, 32) }
+        : {}),
+      ...(firstName ? { firstName } : {}),
+      ...(email ? { email } : {}),
+      status,
+      ...(status === "failed" && args.failureReason
+        ? { failureReason: args.failureReason.slice(0, 240) }
+        : {}),
+      ...(reportSlug ? { reportSlug } : {}),
+      ...(typeof args.costUsd === "number" && Number.isFinite(args.costUsd)
+        ? { costUsd: Math.max(0, args.costUsd) }
+        : {}),
+      ...(typeof args.inputTokens === "number" && Number.isFinite(args.inputTokens)
+        ? { inputTokens: Math.max(0, Math.round(args.inputTokens)) }
+        : {}),
+      ...(typeof args.outputTokens === "number" &&
+      Number.isFinite(args.outputTokens)
+        ? { outputTokens: Math.max(0, Math.round(args.outputTokens)) }
+        : {}),
+      ...(typeof args.analysisDurationMs === "number" &&
+      Number.isFinite(args.analysisDurationMs)
+        ? {
+            analysisDurationMs: Math.max(
+              0,
+              Math.round(args.analysisDurationMs),
+            ),
+          }
+        : {}),
+      ...(Array.isArray(args.promptAddOnIds) && args.promptAddOnIds.length
+        ? {
+            promptAddOnIds: args.promptAddOnIds
+              .map((id) => String(id).trim().slice(0, 64))
+              .filter(Boolean)
+              .slice(0, 50),
+          }
+        : {}),
+      createdAt: now,
+    };
+
+    // Upgrade latest incomplete lead for this browser into this attempt
+    // instead of leaving a duplicate Incomplete + Completed pair.
+    const latest = await ctx.db
+      .query("analyses")
+      .withIndex("by_anonymousId_createdAt", (q) =>
+        q.eq("anonymousId", anonymousId),
+      )
+      .order("desc")
+      .first();
+
+    if (latest && isIncompleteLead(latest)) {
+      await ctx.db.patch(latest._id, {
+        ...fields,
+        // Keep lead name/email if this attempt did not send them again.
+        firstName: firstName || latest.firstName,
+        email: email || latest.email,
+      });
+      return latest._id;
+    }
+
+    const id = await ctx.db.insert("analyses", {
+      anonymousId,
+      ...fields,
     });
     return id;
   },
@@ -119,7 +239,9 @@ export const listRecent = query({
       .order("desc")
       .take(limit);
 
-    return rows.map((row) => ({
+    return rows.map((row) => {
+      const timing = displayAnalysisDurationMs(row);
+      return {
       id: row._id,
       anonymousId: row.anonymousId,
       overallScore: row.overallScore,
@@ -127,10 +249,20 @@ export const listRecent = query({
       level: row.level,
       mainFocus: row.mainFocus,
       source: row.source,
+      captureMethod: row.captureMethod || "",
       firstName: row.firstName || "",
       email: row.email || "",
+      status: row.status,
+      failureReason: row.failureReason || "",
+      reportSlug: row.reportSlug || "",
+      costUsd: row.costUsd ?? null,
+      inputTokens: row.inputTokens ?? null,
+      outputTokens: row.outputTokens ?? null,
+      analysisDurationMs: timing.ms,
+      analysisDurationEstimated: timing.estimated,
       createdAt: new Date(row.createdAt).toISOString(),
-    }));
+    };
+    });
   },
 });
 
@@ -144,9 +276,13 @@ export const getStats = query({
       .order("desc")
       .take(2000);
 
-    const scored = rows.filter((r) => r.overallScore > 0);
+    const scored = rows.filter(
+      (r) => r.status !== "failed" && r.overallScore > 0,
+    );
+    const failedAttempts = rows.filter((r) => r.status === "failed").length;
     const incompleteLeads = rows.filter(
-      (r) => r.email && r.overallScore <= 0,
+      (r) =>
+        r.status !== "failed" && r.email && r.overallScore <= 0,
     ).length;
     const totalAttempts = scored.length;
     const uniqueUsers = new Set(scored.map((r) => r.anonymousId)).size;
@@ -158,6 +294,22 @@ export const getStats = query({
           );
 
     const leadsWithEmail = rows.filter((r) => r.email).length;
+    const totalCostUsd = rows.reduce(
+      (sum, r) => sum + (typeof r.costUsd === "number" ? r.costUsd : 0),
+      0,
+    );
+
+    const recent20 = rows.slice(0, 20);
+    const recent20TimingMs = recent20
+      .map((r) => displayAnalysisDurationMs(r).ms)
+      .filter((ms): ms is number => typeof ms === "number" && ms > 0);
+    const avgAnalysisDurationMs =
+      recent20TimingMs.length > 0
+        ? Math.round(
+            recent20TimingMs.reduce((sum, ms) => sum + ms, 0) /
+              recent20TimingMs.length,
+          )
+        : null;
 
     const byUser = new Map<
       string,
@@ -189,6 +341,39 @@ export const getStats = query({
       }))
       .sort((a, b) => b.attempts - a.attempts)
       .slice(0, 20);
+
+    const focusCounts = new Map<string, number>();
+    for (const r of scored) {
+      const focus = (r.mainFocus || "").trim() || "Unknown";
+      focusCounts.set(focus, (focusCounts.get(focus) || 0) + 1);
+    }
+    const mainFocusBreakdown = [...focusCounts.entries()]
+      .map(([focus, count]) => ({
+        focus,
+        count,
+        percent:
+          totalAttempts === 0
+            ? 0
+            : Math.round((count / totalAttempts) * 100),
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 15);
+
+    const levelCounts = new Map<string, number>();
+    for (const r of scored) {
+      const level = (r.level || "").trim() || "Unknown";
+      levelCounts.set(level, (levelCounts.get(level) || 0) + 1);
+    }
+    const levelBreakdown = [...levelCounts.entries()]
+      .map(([level, count]) => ({
+        level,
+        count,
+        percent:
+          totalAttempts === 0
+            ? 0
+            : Math.round((count / totalAttempts) * 100),
+      }))
+      .sort((a, b) => b.count - a.count);
 
     const dayMs = 24 * 60 * 60 * 1000;
     const todayUtc = new Date();
@@ -225,10 +410,76 @@ export const getStats = query({
       totalAttempts,
       uniqueUsers,
       avgScore,
-      leadsWithEmail,
+      failedAttempts,
       incompleteLeads,
+      leadsWithEmail,
+      totalCostUsd: Math.round(totalCostUsd * 1_000_000) / 1_000_000,
+      avgAnalysisDurationMs,
+      avgAnalysisDurationSampleCount: recent20TimingMs.length,
       days,
       topUsers,
+      mainFocusBreakdown,
+      levelBreakdown,
     };
+  },
+});
+
+/** Top X% for a score vs recent completed assessments. Null if not enough data. */
+export const scoreTopPercent = query({
+  args: { score: v.number() },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query("analyses")
+      .withIndex("by_createdAt")
+      .order("desc")
+      .take(2000);
+
+    const scored = rows
+      .filter((r) => r.status !== "failed")
+      .map((r) => r.overallScore)
+      .filter((s) => Number.isFinite(s) && s > 0);
+
+    const MIN_SAMPLES = 20;
+    if (scored.length < MIN_SAMPLES) {
+      return null;
+    }
+
+    const score = Math.round(args.score);
+    const higher = scored.filter((s) => s > score).length;
+    // Share of assessments that scored higher → "Top X%"
+    const top = Math.round((higher / scored.length) * 100);
+    return Math.max(1, Math.min(99, top === 0 ? 1 : top));
+  },
+});
+
+/** Persist estimated generation times for recent rows missing wall-clock data. */
+export const backfillAnalysisDuration = mutation({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const limit = Math.min(100, Math.max(1, args.limit ?? 20));
+    const rows = await ctx.db
+      .query("analyses")
+      .withIndex("by_createdAt")
+      .order("desc")
+      .take(Math.max(limit * 3, 60));
+
+    let patched = 0;
+    for (const row of rows) {
+      if (patched >= limit) break;
+      if (
+        typeof row.analysisDurationMs === "number" &&
+        row.analysisDurationMs > 0
+      ) {
+        continue;
+      }
+      const ms = estimateAnalysisDurationMs(row);
+      await ctx.db.patch(row._id, {
+        analysisDurationMs: ms,
+        analysisDurationEstimated: true,
+      });
+      patched += 1;
+    }
+
+    return { ok: true as const, patched };
   },
 });

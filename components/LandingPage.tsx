@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { HomepageOptIn } from "@/components/HomepageOptIn";
+import { SiteFooter } from "@/components/SiteFooter";
 import type { LeadPayload } from "@/lib/lead";
 
 type LandingPageProps = {
@@ -212,6 +213,8 @@ export function LandingPage({ onCta: _onCta, onLeadComplete }: LandingPageProps)
           </div>
         </div>
       </section>
+
+      <SiteFooter />
     </div>
   );
 }

@@ -18,6 +18,9 @@ export const maxDuration = 60;
 const bodySchema = z.object({
   email: z.string(),
   firstName: z.string().optional(),
+  shareSlug: z.string().optional(),
+  sharePath: z.string().optional(),
+  reportUrl: z.string().optional(),
   report: z.object({
     overallScore: z.number().min(0).max(100),
     level: z.string(),
@@ -76,6 +79,11 @@ export async function POST(request: Request) {
       email,
       firstName,
       report,
+      reportUrl: parsed.data.reportUrl,
+      shareSlug:
+        parsed.data.shareSlug ||
+        parsed.data.sharePath?.replace(/^\/r\//, "").trim() ||
+        undefined,
     });
 
     if (!result.ok) {
