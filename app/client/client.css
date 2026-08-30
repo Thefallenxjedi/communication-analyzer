@@ -37,6 +37,58 @@
   padding: 0.85rem 1rem 0.35rem;
 }
 
+.es-aside-brand {
+  font-size: 0.72rem;
+}
+
+.es-aside-name {
+  margin-top: 0.45rem;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--es-parchment);
+}
+
+.es-aside-email,
+.es-aside-focus {
+  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--es-parchment-dim);
+}
+
+.es-aside-focus {
+  display: none;
+}
+
+.es-nav-item {
+  flex-shrink: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: transparent;
+  padding: 0.45rem 0.15rem;
+  text-align: left;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--es-parchment-dim);
+  white-space: nowrap;
+}
+
+.es-nav-item:hover {
+  color: var(--es-parchment);
+}
+
+.es-nav-item--active,
+.es-nav-item--here {
+  color: var(--es-gold);
+}
+
+.es-nav-item--active {
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-weight: 600;
+  border-bottom-color: var(--es-gold);
+}
+
 .es-client-nav {
   display: flex;
   gap: 0.35rem;
@@ -63,6 +115,7 @@
   gap: 0.75rem;
   border-top: 1px solid var(--border);
   padding: 0.65rem 1rem;
+  font-size: 0.88rem;
 }
 
 .es-client-main {
@@ -209,6 +262,7 @@
   color: #141210;
 }
 
+.es-report .es-report-title,
 .es-report .es-summary-title,
 .es-report .es-doc-title,
 .es-report .es-summary-name,
@@ -263,8 +317,12 @@
   transform: rotate(180deg);
 }
 
+.es-report-head {
+  padding: 1.1rem 1.15rem 0;
+}
+
 .es-report-brand {
-  padding: 1rem 1.15rem 0.4rem;
+  margin: 0;
   font-family: var(--font-playfair), serif;
   font-size: 0.92rem;
   letter-spacing: 0.14em;
@@ -272,16 +330,22 @@
   color: #c9a968;
 }
 
-.es-report-bar {
-  margin: 0 1rem;
-  background: #141210;
-  padding: 0.7rem 1rem;
-  text-align: center;
-  font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: #f4efe3;
+.es-report-title {
+  margin: 0.4rem 0 0;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 1.85rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: #3a2e22;
+}
+
+.es-report-rule {
+  display: block;
+  width: 4.5rem;
+  height: 1px;
+  margin-top: 0.7rem;
+  background: #c9a968;
 }
 
 .es-report-kicker {
@@ -304,22 +368,22 @@
 
 .es-report-num {
   display: inline-flex;
-  height: 1.65rem;
-  width: 1.65rem;
+  height: 1.9rem;
+  width: 1.9rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
   background: #141210;
   color: #f4efe3;
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   font-weight: 800;
 }
 
 .es-report-step-title {
   margin: 0;
-  padding-top: 0.15rem;
-  font-size: 1.02rem;
+  padding-top: 0.2rem;
+  font-size: 1.12rem;
 }
 
 .es-report-step-body {
@@ -718,21 +782,57 @@
 
   .es-client-aside {
     display: flex;
-    width: 16rem;
+    width: 20.5rem;
     flex-direction: column;
     border-bottom: 0;
     border-right: 1px solid var(--border);
   }
 
   .es-client-identity {
-    padding: 1.5rem 1rem 0.75rem;
+    padding: 2rem 1.4rem 1.1rem;
+  }
+
+  .es-aside-brand {
+    font-size: 0.82rem;
+    letter-spacing: 0.18em;
+  }
+
+  .es-aside-name {
+    margin-top: 0.7rem;
+    font-size: 1.55rem;
+  }
+
+  .es-aside-email,
+  .es-aside-focus {
+    margin-top: 0.3rem;
+    font-size: 0.88rem;
+  }
+
+  .es-aside-focus {
+    display: block;
   }
 
   .es-client-nav {
     flex: 1;
     flex-direction: column;
-    overflow: visible;
-    padding: 0 0.75rem 1.5rem;
+    gap: 0.15rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding: 0.25rem 1.15rem 1.5rem;
+  }
+
+  .es-nav-item {
+    width: 100%;
+    border-bottom: 0;
+    border-left: 2px solid transparent;
+    padding: 0.7rem 0.85rem;
+    font-size: 1.12rem;
+    white-space: normal;
+  }
+
+  .es-nav-item--active {
+    border-left-color: var(--es-gold);
+    font-size: 1.28rem;
   }
 
   .es-client-nav::after {
@@ -741,7 +841,8 @@
 
   .es-client-tools {
     display: block;
-    padding: 1rem;
+    padding: 1.15rem 1.4rem 1.4rem;
+    font-size: 0.95rem;
   }
 
   .es-client-tools > * + * {
@@ -759,8 +860,8 @@
 
   .es-nav-meta {
     display: block;
-    margin-top: 0.2rem;
-    font-size: 0.62rem;
+    margin-top: 0.25rem;
+    font-size: 0.7rem;
     font-weight: 700;
     letter-spacing: 0.14em;
     text-transform: uppercase;
@@ -791,15 +892,16 @@
     color: #141210;
   }
 
-  .es-report-brand {
-    padding: 1.25rem 1.75rem 0.55rem;
-    font-size: 1rem;
+  .es-report-head {
+    padding: 1.6rem 1.75rem 0;
   }
 
-  .es-report-bar {
-    margin: 0 1.5rem;
-    padding: 0.85rem 1.25rem;
-    font-size: 0.82rem;
+  .es-report-brand {
+    font-size: 1.05rem;
+  }
+
+  .es-report-title {
+    font-size: 2.35rem;
   }
 
   .es-report-kicker {

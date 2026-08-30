@@ -35,11 +35,9 @@ function stageToNav(stage: string | undefined): NavId {
 }
 
 function navClass(active: boolean, here: boolean): string {
-  const base =
-    "shrink-0 rounded-lg px-3 py-2 text-left text-sm whitespace-nowrap md:w-full";
-  if (active) return `${base} bg-[var(--es-void-3)] text-[var(--es-gold)]`;
-  if (here) return `${base} text-[var(--es-gold)]`;
-  return `${base} text-[var(--es-parchment-dim)] hover:text-[var(--es-parchment)]`;
+  if (active) return "es-nav-item es-nav-item--active";
+  if (here) return "es-nav-item es-nav-item--here";
+  return "es-nav-item";
 }
 
 function sessionNavShort(sessionNumber: number): string {
@@ -563,13 +561,11 @@ export default function ClientHomePage() {
     <div className="es-client-shell">
       <aside className="es-client-aside">
         <div className="es-client-identity">
-          <p className="es-label">EliteSpeak</p>
-          <p className="mt-2 font-medium md:mt-3">{client.name}</p>
-          <p className="text-xs text-muted">{client.email}</p>
+          <p className="es-label es-aside-brand">EliteSpeak</p>
+          <p className="es-aside-name">{client.name}</p>
+          <p className="es-aside-email">{client.email}</p>
           {client.currentFocus ? (
-            <p className="mt-2 hidden text-xs text-muted md:block">
-              {client.currentFocus}
-            </p>
+            <p className="es-aside-focus">{client.currentFocus}</p>
           ) : null}
         </div>
         <nav className="es-client-nav" aria-label="Sessions">
@@ -628,17 +624,17 @@ export default function ClientHomePage() {
               href={client.meetingLink}
               target="_blank"
               rel="noreferrer"
-              className="text-sm text-[var(--es-gold)] underline"
+              className="text-[var(--es-gold)] underline"
             >
               Meeting link
             </a>
           ) : (
-            <p className="text-xs text-muted">No meeting link yet.</p>
+            <p className="text-muted">No meeting link yet.</p>
           )}
           <button
             type="button"
             onClick={() => void logout()}
-            className="text-sm text-muted underline"
+            className="text-muted underline"
           >
             Log out
           </button>

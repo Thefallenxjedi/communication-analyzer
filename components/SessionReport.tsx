@@ -18,8 +18,11 @@ export function SessionReport({
         <span>Cultivate excellence, every day</span>
       </div>
       <div className="es-report-main">
-        <p className="es-report-brand">EliteSpeak</p>
-        <div className="es-report-bar">{title}</div>
+        <header className="es-report-head">
+          <p className="es-report-brand">EliteSpeak</p>
+          <h1 className="es-report-title">{title}</h1>
+          <span className="es-report-rule" aria-hidden />
+        </header>
         {kicker ? <p className="es-report-kicker">{kicker}</p> : null}
         <div className="es-report-body">{children}</div>
       </div>
