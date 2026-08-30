@@ -365,8 +365,10 @@
 }
 
 .es-report-body {
-  padding: 1rem 1.15rem 2.5rem;
+  display: flex;
   flex: 1;
+  flex-direction: column;
+  padding: 1rem 1.15rem 2.5rem;
 }
 
 .es-report-step + .es-report-step {
@@ -1368,5 +1370,307 @@
 
   .es-roadmap-week-nav {
     margin-top: 2rem;
+  }
+}
+
+.es-wait {
+  display: flex;
+  min-height: 18rem;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1.5rem 0 2.25rem;
+}
+
+.es-wait-voice {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 7.5rem;
+  height: 7.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.es-wait-voice span {
+  display: block;
+}
+
+.es-wait-voice--ring span,
+.es-wait-voice--silence span,
+.es-wait-voice--dense span,
+.es-wait-voice--sharp span,
+.es-wait-voice--wide span,
+.es-wait-voice--still span,
+.es-wait-voice--hold span {
+  position: absolute;
+  inset: 18%;
+  border-radius: 9999px;
+  border: 1.5px solid #c9a968;
+  opacity: 0;
+}
+
+.es-wait-voice--ring span:nth-child(1),
+.es-wait-voice--silence span:nth-child(1),
+.es-wait-voice--wide span:nth-child(1),
+.es-wait-voice--still span:nth-child(1) {
+  animation: es-wait-ring 5.4s ease-out infinite;
+}
+
+.es-wait-voice--ring span:nth-child(n + 2),
+.es-wait-voice--silence span:nth-child(n + 2),
+.es-wait-voice--wide span:nth-child(n + 2),
+.es-wait-voice--still span:nth-child(n + 2),
+.es-wait-voice--hold span:nth-child(n + 2),
+.es-wait-voice--sharp span:nth-child(3) {
+  display: none;
+}
+
+.es-wait-voice--silence span:nth-child(1) {
+  animation: es-wait-silence 7.2s ease-in-out infinite;
+}
+
+.es-wait-voice--dense span:nth-child(1) {
+  animation: es-wait-ring 4.2s ease-out infinite;
+}
+
+.es-wait-voice--dense span:nth-child(2) {
+  animation: es-wait-ring 4.2s ease-out 0.7s infinite;
+}
+
+.es-wait-voice--dense span:nth-child(3) {
+  animation: es-wait-ring 4.2s ease-out 1.4s infinite;
+}
+
+.es-wait-voice--sharp span:nth-child(1),
+.es-wait-voice--sharp span:nth-child(2) {
+  animation: es-wait-sharp 1.85s cubic-bezier(0.2, 0.8, 0.2, 1) infinite;
+}
+
+.es-wait-voice--sharp span:nth-child(2) {
+  animation-delay: 0.22s;
+}
+
+.es-wait-voice--wide {
+  width: 9.5rem;
+  height: 9.5rem;
+}
+
+.es-wait-voice--wide span:nth-child(1) {
+  animation: es-wait-wide 6.8s ease-out infinite;
+}
+
+.es-wait-voice--still span:nth-child(1) {
+  inset: 28%;
+  opacity: 0.7;
+  animation: es-wait-still 8.5s ease-in-out infinite;
+}
+
+.es-wait-voice--hold span:nth-child(1) {
+  inset: 30%;
+  border-color: #c1622f;
+  background: #c1622f;
+  opacity: 0.85;
+  animation: es-wait-hold 5.6s ease-in-out infinite;
+}
+
+.es-wait-voice--metronome,
+.es-wait-voice--metronome-slow,
+.es-wait-voice--count {
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 0.45rem;
+  width: auto;
+  height: 4.4rem;
+}
+
+.es-wait-voice--metronome span,
+.es-wait-voice--metronome-slow span,
+.es-wait-voice--count span {
+  width: 0.42rem;
+  height: 38%;
+  border-radius: 9999px;
+  background: #c9a968;
+  transform-origin: bottom center;
+  animation: es-wait-bar 1.6s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 0.18s);
+}
+
+.es-wait-voice--metronome-slow span {
+  animation-duration: 2.6s;
+  animation-delay: calc(var(--i, 0) * 0.28s);
+}
+
+.es-wait-voice--count span {
+  width: 0.7rem;
+  height: 28%;
+  animation: es-wait-count 2.1s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 0.7s);
+}
+
+.es-wait-theme {
+  margin: 0;
+  color: #c9a968;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.es-wait-line {
+  margin: 0.7rem 0 0;
+  max-width: 22rem;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 1.55rem;
+  font-style: italic;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: #3a2e22;
+}
+
+.es-wait-rule {
+  display: block;
+  width: 4.5rem;
+  height: 1px;
+  margin-top: 1.15rem;
+  background: #c9a968;
+}
+
+@keyframes es-wait-ring {
+  0% {
+    transform: scale(0.55);
+    opacity: 0.7;
+  }
+  70% {
+    opacity: 0.22;
+  }
+  100% {
+    transform: scale(1.55);
+    opacity: 0;
+  }
+}
+
+@keyframes es-wait-silence {
+  0%,
+  18% {
+    transform: scale(0.72);
+    opacity: 0.55;
+  }
+  28% {
+    transform: scale(1.2);
+    opacity: 0.18;
+  }
+  40%,
+  100% {
+    transform: scale(0.72);
+    opacity: 0.08;
+  }
+}
+
+@keyframes es-wait-sharp {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.75;
+  }
+  28% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@keyframes es-wait-wide {
+  0% {
+    transform: scale(0.42);
+    opacity: 0.55;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+  }
+}
+
+@keyframes es-wait-still {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.8;
+  }
+}
+
+@keyframes es-wait-hold {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.55;
+    box-shadow: 0 0 0 0 color-mix(in srgb, #c1622f 28%, transparent);
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.95;
+    box-shadow: 0 0 0 14px transparent;
+  }
+}
+
+@keyframes es-wait-bar {
+  0%,
+  100% {
+    height: 32%;
+    opacity: 0.4;
+  }
+  40% {
+    height: 100%;
+    opacity: 1;
+  }
+}
+
+@keyframes es-wait-count {
+  0%,
+  18%,
+  100% {
+    height: 28%;
+    opacity: 0.35;
+  }
+  28%,
+  48% {
+    height: 100%;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .es-wait-voice span {
+    animation: none !important;
+    opacity: 0.7;
+  }
+
+  .es-wait-voice--ring span:nth-child(1),
+  .es-wait-voice--silence span:nth-child(1),
+  .es-wait-voice--wide span:nth-child(1),
+  .es-wait-voice--still span:nth-child(1),
+  .es-wait-voice--hold span:nth-child(1) {
+    opacity: 0.7;
+    transform: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .es-wait {
+    min-height: 24rem;
+    padding: 2.5rem 0.25rem 3rem;
+  }
+
+  .es-wait-line {
+    max-width: 28rem;
+    font-size: 2.05rem;
   }
 }

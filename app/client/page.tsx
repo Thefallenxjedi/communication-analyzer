@@ -7,6 +7,7 @@ import { HowItWorksRoadmap } from "@/components/HowItWorksRoadmap";
 import { ClipPlayer } from "@/components/ClipPlayer";
 import { IntroCallView } from "@/components/IntroCallView";
 import { SessionReport, SessionReportStep } from "@/components/SessionReport";
+import { SessionWaiting } from "@/components/SessionWaiting";
 import { TaskRecorder } from "@/components/TaskRecorder";
 import type { ClientSession } from "@/lib/client-session";
 import {
@@ -711,7 +712,9 @@ export default function ClientHomePage() {
             title={sessionLabel(nav)}
             kicker={sessionKicker()}
           >
-            {selectedTasks.length === 0 && nav !== INTRO_SESSION ? null : (
+            {selectedTasks.length === 0 && nav !== INTRO_SESSION ? (
+              <SessionWaiting sessionNumber={nav} />
+            ) : (
               selectedTasks.map((task, index) => renderTaskStep(task, index))
             )}
             {nav === INTRO_SESSION ? (
