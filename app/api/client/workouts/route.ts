@@ -7,10 +7,11 @@ import {
   needsCoachReview,
   reviseCoachingTask,
   submitCoachingTask,
+  usesVideoLink,
 } from "@/lib/coaching-tasks";
 import { readClientEmailFromCookie } from "@/lib/client-session";
 import { formatConvexError, isConvexConfigured } from "@/lib/convex-server";
-import { normalizeGoogleDriveUrl } from "@/lib/google-drive";
+import { normalizeVideoShareUrl } from "@/lib/google-drive";
 
 export const runtime = "nodejs";
 
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
     if (body.complete === true) {
       if (mine.recordingRequired || needsCoachReview(mine)) {
         return Response.json(
-          { error: "This task still needs a video link or coach review." },
+          { error: "This task still needs a recording or coach review." },
           { status: 400 },
         );
       }
@@ -109,21 +110,23 @@ export async function POST(request: Request) {
     }
 
     let driveUrl = "";
-    if (mine.recordingRequired) {
+    if (usesVideoLink(mine)) {
       try {
-        driveUrl = normalizeGoogleDriveUrl(body.driveUrl || "");
+        driveUrl = normalizeVideoShareUrl(body.driveUrl || "");
       } catch (err) {
         return Response.json(
           {
             error:
               err instanceof Error
                 ? err.message
-                : "Paste a Google Drive link for your video.",
+                : "Paste a Google Drive or YouTube link.",
           },
           { status: 400 },
         );
       }
-    } else if (!storageId) {
+    } else if (mine.recordingRequired && !storageId) {
+      return Response.json({ error: "Recording is required to submit." }, { status: 400 });
+    } else if (!mine.recordingRequired && !storageId) {
       return Response.json({ error: "Nothing to submit." }, { status: 400 });
     }
     const result = await submitCoachingTask({
@@ -186,27 +189,27 @@ export async function PATCH(request: Request) {
     }
     if (mine.status !== "submitted") {
       return Response.json(
-        { error: "Only a submitted response can be changed once." },
+        { error: "Only a submitted response can be edited once." },
         { status: 400 },
       );
     }
     if (mine.clientRevisionUsed) {
       return Response.json(
-        { error: "You already used your one change." },
+        { error: "You already used your one edit." },
         { status: 400 },
       );
     }
     let driveUrl: string | undefined;
     if (body.driveUrl != null) {
       try {
-        driveUrl = normalizeGoogleDriveUrl(body.driveUrl);
+        driveUrl = normalizeVideoShareUrl(body.driveUrl);
       } catch (err) {
         return Response.json(
           {
             error:
               err instanceof Error
                 ? err.message
-                : "Paste a Google Drive link for your video.",
+                : "Paste a Google Drive or YouTube link.",
           },
           { status: 400 },
         );

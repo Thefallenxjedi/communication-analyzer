@@ -371,8 +371,23 @@
   border-color: #141210;
 }
 
+.es-share-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding-left: 0.35rem;
+}
+
+.es-share-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  flex-shrink: 0;
+}
+
 .es-report .es-drive-link {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   font-weight: 600;
   color: #141210;
   text-decoration: underline;

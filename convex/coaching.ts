@@ -40,23 +40,29 @@ function isClientStatus(value: string): value is ClientStatus {
   return (CLIENT_STATUSES as readonly string[]).includes(value);
 }
 
-function normalizeGoogleDriveUrl(raw: string): string {
+function normalizeVideoShareUrl(raw: string): string {
   const trimmed = raw.replace(/\s+/g, " ").trim().slice(0, DRIVE_URL_MAX);
-  if (!trimmed) throw new Error("Paste a Google Drive link.");
+  if (!trimmed) throw new Error("Paste a Google Drive or YouTube link.");
   let parsed: URL;
   try {
     parsed = new URL(trimmed);
   } catch {
-    throw new Error("Paste a full Google Drive link, starting with https://");
+    throw new Error("Paste a full Google Drive or YouTube link, starting with https://");
   }
   const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
   if (parsed.protocol !== "https:") {
-    throw new Error("Use an https Google Drive link.");
+    throw new Error("Use an https link.");
   }
-  if (host !== "drive.google.com") {
-    throw new Error("Use a Google Drive share link (drive.google.com).");
+  if (host === "drive.google.com") return parsed.toString();
+  if (
+    host === "youtu.be" ||
+    host === "youtube.com" ||
+    host === "m.youtube.com" ||
+    host === "music.youtube.com"
+  ) {
+    return parsed.toString();
   }
-  return parsed.toString();
+  throw new Error("Use a Google Drive or YouTube link.");
 }
 
 function currentProgramDay(startDate: number, now: number): number {
@@ -495,11 +501,17 @@ export const submitTask = mutation({
     if (existing.status !== "open") {
       throw new Error("This task is already submitted and cannot be changed.");
     }
+    const wantsLink =
+      existing.recordingRequired &&
+      (existing.sessionNumber ?? 1) === INTRO_SESSION;
     const driveUrl = args.driveUrl
-      ? normalizeGoogleDriveUrl(args.driveUrl)
+      ? normalizeVideoShareUrl(args.driveUrl)
       : "";
-    if (existing.recordingRequired && !driveUrl && !args.storageId) {
-      throw new Error("Paste a Google Drive link for your video.");
+    if (wantsLink && !driveUrl) {
+      throw new Error("Paste a Google Drive or YouTube link.");
+    }
+    if (existing.recordingRequired && !wantsLink && !args.storageId) {
+      throw new Error("Record audio first.");
     }
     const now = Date.now();
     const needsReview = existing.reviewRequired !== false;
@@ -544,10 +556,10 @@ export const reviseTask = mutation({
     }
     const responseText = args.responseText?.trim().slice(0, RESPONSE_TEXT_MAX);
     const driveUrl = args.driveUrl
-      ? normalizeGoogleDriveUrl(args.driveUrl)
+      ? normalizeVideoShareUrl(args.driveUrl)
       : "";
     if (!args.storageId && !driveUrl && responseText == null) {
-      throw new Error("Paste a Google Drive link or update the note.");
+      throw new Error("Record a new clip or paste a new link.");
     }
 
     const now = Date.now();

@@ -27,7 +27,7 @@ export function IntroCallView({
 
       {report?.summary.trim() ? (
         <section>
-          <h4 className="font-extrabold uppercase tracking-wide">
+          <h4 className="text-xl font-extrabold uppercase tracking-wide md:text-2xl">
             Our EliteSpeak Summary
           </h4>
           <p className="mt-2 whitespace-pre-wrap leading-relaxed">{report.summary}</p>
@@ -36,7 +36,7 @@ export function IntroCallView({
 
       {report?.challenges.some((item) => item.title || item.body) ? (
         <section>
-          <h4 className="font-extrabold uppercase tracking-wide">
+          <h4 className="text-xl font-extrabold uppercase tracking-wide md:text-2xl">
             Main Challenges
           </h4>
           <ul className="mt-3 space-y-4">
@@ -56,7 +56,7 @@ export function IntroCallView({
 
       {report?.coachingSchedule.trim() ? (
         <section>
-          <h4 className="font-extrabold uppercase tracking-wide">
+          <h4 className="text-xl font-extrabold uppercase tracking-wide md:text-2xl">
             Coaching Schedule
           </h4>
           <p className="mt-2 whitespace-pre-wrap leading-relaxed">
@@ -67,7 +67,7 @@ export function IntroCallView({
 
       {report?.osItems.some((item) => item.name || item.goal || item.body) ? (
         <section>
-          <h4 className="font-extrabold uppercase tracking-wide">
+          <h4 className="text-xl font-extrabold uppercase tracking-wide md:text-2xl">
             Biggest Communication OS
           </h4>
           <ul className="mt-3 space-y-4">
@@ -90,7 +90,7 @@ export function IntroCallView({
 
       {report?.reps.some((item) => item.title || item.body) ? (
         <section>
-          <h4 className="font-extrabold uppercase tracking-wide">
+          <h4 className="text-xl font-extrabold uppercase tracking-wide md:text-2xl">
             What Reps Look Like
           </h4>
           <ol className="mt-3 list-decimal space-y-3 pl-5">

@@ -19,8 +19,10 @@ import {
   isTaskLocked,
   needsCoachReview,
   taskStatusLabel,
+  usesVideoLink,
   type CoachingTask,
 } from "@/lib/coaching-tasks";
+import { videoShareKind } from "@/lib/google-drive";
 import {
   emptyIntroCall,
   isIntroCallEmpty,
@@ -509,7 +511,11 @@ export default function AdminClientDetailPage() {
                 task.status === "open"
                   ? null
                   : taskStatusLabel(task.status, "admin"),
-                task.recordingRequired ? "video" : null,
+                usesVideoLink(task)
+                  ? "video"
+                  : task.recordingRequired
+                    ? "audio"
+                    : null,
                 needsCoachReview(task) ? "review" : null,
               ]
                 .filter(Boolean)
@@ -602,7 +608,9 @@ export default function AdminClientDetailPage() {
               rel="noreferrer"
               className={`text-sm font-semibold ${adminUi.link}`}
             >
-              Open Google Drive video
+              {videoShareKind(task.driveUrl) === "youtube"
+                ? "Open YouTube video"
+                : "Open Google Drive video"}
             </a>
           </div>
         ) : task.recordingUrl ? (
@@ -618,7 +626,11 @@ export default function AdminClientDetailPage() {
             </button>
           </div>
         ) : task.recordingRequired && task.status !== "open" ? (
-          <p className="mt-4 text-sm text-muted">No Google Drive link yet.</p>
+          <p className="mt-4 text-sm text-muted">
+            {usesVideoLink(task)
+              ? "No Drive or YouTube link yet."
+              : "No recording yet."}
+          </p>
         ) : null}
         {task.rating != null && rateId !== task.id ? (
           <div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl border border-border px-4 py-3">
@@ -748,7 +760,9 @@ export default function AdminClientDetailPage() {
                 onChange={(e) => setRecordingRequired(e.target.checked)}
                 className="accent-teal-600"
               />
-              Video — client pastes a Google Drive link
+              {sessionNumber === INTRO_SESSION
+                ? "Video — Drive or YouTube link"
+                : "Recording required (in-app audio)"}
             </label>
             <label className="flex items-center gap-2 text-sm font-semibold">
               <input

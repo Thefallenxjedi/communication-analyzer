@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Ember } from "@/components/Ember";
 import { IntroCallView } from "@/components/IntroCallView";
 import { SessionReport, SessionReportStep } from "@/components/SessionReport";
+import { TaskRecorder } from "@/components/TaskRecorder";
 import type { ClientSession } from "@/lib/client-session";
 import {
   emptySessionSlots,
@@ -18,9 +19,10 @@ import {
 } from "@/lib/coaching-program";
 import {
   needsCoachReview,
-  taskStatusLabel,
+  usesVideoLink,
   type CoachingTask,
 } from "@/lib/coaching-tasks";
+import { videoShareKind } from "@/lib/google-drive";
 import { isIntroCallEmpty, type IntroCallReport } from "@/lib/intro-call";
 
 type Milestone = "complete" | "current" | "upcoming";
@@ -78,10 +80,34 @@ function tasksForSession(tasks: CoachingTask[], sessionNumber: number) {
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
-function DriveVideoLink({ href }: { href: string }) {
+function DriveMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="es-share-icon" aria-hidden>
+      <path fill="#1a73e8" d="M8.2 3.5h7.6L22 15.2h-7.6z" />
+      <path fill="#137333" d="M8.2 3.5 2 15.2l3.8 6.3 6.2-11.7z" />
+      <path fill="#fbbc04" d="M14.4 15.2H2l3.8 6.3h12.4z" />
+    </svg>
+  );
+}
+
+function YouTubeMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="es-share-icon" aria-hidden>
+      <path
+        fill="#ff0000"
+        d="M23.5 6.2a3 3 0 0 0-2.1-2.2C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 32 32 0 0 0 0 12a32 32 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.2c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.2A32 32 0 0 0 24 12a32 32 0 0 0-.5-5.8z"
+      />
+      <path fill="#fff" d="M9.8 15.6V8.4L16 12z" />
+    </svg>
+  );
+}
+
+function VideoShareLink({ href }: { href: string }) {
+  const kind = videoShareKind(href);
   return (
     <a href={href} target="_blank" rel="noreferrer" className="es-drive-link">
-      Open Google Drive video
+      {kind === "youtube" ? <YouTubeMark /> : <DriveMark />}
+      {kind === "youtube" ? "Open YouTube video" : "Open Google Drive video"}
     </a>
   );
 }
@@ -89,36 +115,45 @@ function DriveVideoLink({ href }: { href: string }) {
 function TaskScreen({
   task,
   driveLink,
+  draft,
   busy,
   showEmber,
   revising,
   onDriveLink,
+  onDraft,
   onSubmit,
   onStartRevise,
   onCancelRevise,
 }: {
   task: CoachingTask;
   driveLink: string;
+  draft?: { file: File; durationSec: number };
   busy: boolean;
   showEmber: boolean;
   revising: boolean;
   onDriveLink: (value: string) => void;
+  onDraft: (file: File, durationSec: number) => void;
   onSubmit: (revise: boolean) => void;
   onStartRevise: () => void;
   onCancelRevise: () => void;
 }) {
-  const driveField = (
+  const videoLink = usesVideoLink(task);
+  const linkField = (
     <div className="es-report-paste-wrap">
       <p className="es-report-paste-hint">
-        Upload the video to Google Drive, share with anyone who has the link,
-        then paste it here.
+        Upload to Google Drive (anyone with the link) or YouTube, then paste
+        the link.
       </p>
       <div className="es-report-paste">
+        <span className="es-share-icons">
+          <DriveMark />
+          <YouTubeMark />
+        </span>
         <input
           type="url"
           value={driveLink}
           onChange={(e) => onDriveLink(e.target.value.slice(0, 500))}
-          placeholder="Paste Google Drive link"
+          placeholder="Paste Drive or YouTube link"
           autoComplete="off"
         />
       </div>
@@ -150,32 +185,34 @@ function TaskScreen({
         </div>
       );
     }
+    if (videoLink) {
+      return (
+        <div className="es-report-action space-y-3">
+          {showEmber ? <Ember state="play" /> : null}
+          {linkField}
+          <button
+            type="button"
+            disabled={busy || !driveLink.trim()}
+            onClick={() => onSubmit(false)}
+            className="es-btn"
+          >
+            {busy ? "Saving…" : "Submit"}
+          </button>
+        </div>
+      );
+    }
     return (
       <div className="es-report-action space-y-3">
         {showEmber ? <Ember state="play" /> : null}
-        <div className="es-report-paste-wrap">
-          <p className="es-report-paste-hint">
-            Upload the video to Google Drive, share with anyone who has the
-            link, then paste it here.
-          </p>
-          <div className="es-report-paste">
-            <input
-              type="url"
-              value={driveLink}
-              onChange={(e) => onDriveLink(e.target.value.slice(0, 500))}
-              placeholder="Paste Google Drive link"
-              autoComplete="off"
-            />
-            <button
-              type="button"
-              disabled={busy || !driveLink.trim()}
-              onClick={() => onSubmit(false)}
-              className="es-btn"
-            >
-              {busy ? "Saving…" : "Submit"}
-            </button>
-          </div>
-        </div>
+        <TaskRecorder look="client" disabled={busy} onReady={onDraft} />
+        <button
+          type="button"
+          disabled={busy || !draft}
+          onClick={() => onSubmit(false)}
+          className="es-btn"
+        >
+          {busy ? "Submitting…" : "Submit"}
+        </button>
       </div>
     );
   }
@@ -188,34 +225,30 @@ function TaskScreen({
           {showEmber ? <Ember state="review" /> : null}
           <p className="es-label">In review</p>
         </div>
-        {task.driveUrl ? <DriveVideoLink href={task.driveUrl} /> : null}
+        {task.driveUrl ? <VideoShareLink href={task.driveUrl} /> : null}
         {task.recordingUrl && !task.driveUrl ? (
           <audio controls src={task.recordingUrl} className="es-audio" />
         ) : null}
-        {task.responseText ? (
-          <p className="whitespace-pre-wrap text-sm">{task.responseText}</p>
-        ) : null}
         {canRevise && !revising ? (
-          <>
-            <p className="text-sm text-muted">
-              Submitted. You can change the Drive link or note once.
-            </p>
-            <button type="button" onClick={onStartRevise} className="es-btn">
-              Change once
-            </button>
-          </>
+          <button type="button" onClick={onStartRevise} className="es-btn">
+            Edit
+          </button>
         ) : null}
         {canRevise && revising ? (
           <>
-            {driveField}
+            {videoLink ? (
+              linkField
+            ) : (
+              <TaskRecorder look="client" disabled={busy} onReady={onDraft} />
+            )}
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                disabled={busy || !driveLink.trim()}
+                disabled={busy || (videoLink ? !driveLink.trim() : !draft)}
                 onClick={() => onSubmit(true)}
                 className="es-btn"
               >
-                {busy ? "Saving…" : "Save change"}
+                {busy ? "Saving…" : "Save"}
               </button>
               <button
                 type="button"
@@ -231,7 +264,7 @@ function TaskScreen({
         ) : null}
         {!canRevise ? (
           <p className="text-sm text-muted">
-            Your one change is used. Your coach is reviewing this.
+            Your one edit is used. Your coach is reviewing this.
           </p>
         ) : null}
       </div>
@@ -245,7 +278,7 @@ function TaskScreen({
           {showEmber ? <Ember state="done" /> : null}
           <p className="es-label">Done</p>
         </div>
-        {task.driveUrl ? <DriveVideoLink href={task.driveUrl} /> : null}
+        {task.driveUrl ? <VideoShareLink href={task.driveUrl} /> : null}
         {task.recordingUrl && !task.driveUrl ? (
           <audio controls src={task.recordingUrl} className="es-audio" />
         ) : null}
@@ -271,7 +304,7 @@ function TaskScreen({
       ) : (
         <p className="text-sm text-muted">No written comment.</p>
       )}
-      {task.driveUrl ? <DriveVideoLink href={task.driveUrl} /> : null}
+      {task.driveUrl ? <VideoShareLink href={task.driveUrl} /> : null}
       {task.recordingUrl && !task.driveUrl ? (
         <audio controls src={task.recordingUrl} className="es-audio" />
       ) : null}
@@ -290,6 +323,9 @@ export default function ClientHomePage() {
   const [intro, setIntro] = useState<IntroCallReport | null>(null);
   const [nav, setNav] = useState<NavId>(INTRO_SESSION);
   const [driveLinks, setDriveLinks] = useState<Record<string, string>>({});
+  const [drafts, setDrafts] = useState<
+    Record<string, { file: File; durationSec: number }>
+  >({});
   const [revisingId, setRevisingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -343,38 +379,77 @@ export default function ClientHomePage() {
   async function submitTask(taskId: string, revise: boolean) {
     const task = tasks.find((row) => row.id === taskId);
     const driveLink = driveLinks[taskId] ?? "";
+    const draft = drafts[taskId];
+    const videoLink = task ? usesVideoLink(task) : false;
     const clientComplete =
       !revise &&
       task &&
       !task.recordingRequired &&
       !needsCoachReview(task);
-    if (!revise && task?.recordingRequired && !driveLink.trim()) {
-      setError("Paste a Google Drive link, then submit.");
+    if (!revise && task?.recordingRequired && videoLink && !driveLink.trim()) {
+      setError("Paste a Google Drive or YouTube link, then submit.");
+      return;
+    }
+    if (!revise && task?.recordingRequired && !videoLink && !draft) {
+      setError("Record audio first, then submit.");
       return;
     }
     if (!revise && !task?.recordingRequired && !clientComplete) {
       setError("This task is not ready to submit.");
       return;
     }
-    if (revise && !driveLink.trim()) {
-      setError("Paste a Google Drive link.");
+    if (revise && videoLink && !driveLink.trim()) {
+      setError("Paste a Google Drive or YouTube link.");
+      return;
+    }
+    if (revise && !videoLink && !draft) {
+      setError("Record a new clip first.");
       return;
     }
     setBusyId(taskId);
     setError("");
     try {
+      let storageId: string | undefined;
+      if (draft && !videoLink) {
+        const urlRes = await fetch("/api/client/workouts/upload", {
+          method: "POST",
+        });
+        const urlData = (await urlRes.json()) as {
+          uploadUrl?: string;
+          error?: string;
+        };
+        if (!urlRes.ok || !urlData.uploadUrl) {
+          throw new Error(urlData.error || "Could not start upload.");
+        }
+        const uploaded = await fetch(urlData.uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": draft.file.type || "audio/webm" },
+          body: draft.file,
+        });
+        if (!uploaded.ok) throw new Error("Upload failed.");
+        const stored = (await uploaded.json()) as { storageId?: string };
+        if (!stored.storageId) throw new Error("Upload did not return a file id.");
+        storageId = stored.storageId;
+      }
       const res = await fetch("/api/client/workouts", {
         method: revise ? "PATCH" : "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           id: taskId,
-          driveUrl: driveLink.trim() || undefined,
+          driveUrl: videoLink ? driveLink.trim() || undefined : undefined,
+          storageId,
+          durationSec: draft?.durationSec,
           complete: clientComplete || undefined,
         }),
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Could not submit.");
       setDriveLinks((prev) => {
+        const next = { ...prev };
+        delete next[taskId];
+        return next;
+      });
+      setDrafts((prev) => {
         const next = { ...prev };
         delete next[taskId];
         return next;
@@ -421,12 +496,12 @@ export default function ClientHomePage() {
 
   function sessionKicker() {
     if (nav === INTRO_SESSION) {
-      return `${row.name}, upload your baseline video to Google Drive. Your coach will write the diagnosis after the call.`;
+      return `${row.name}, paste a Google Drive or YouTube link for your baseline video. Your coach will write the diagnosis after the call.`;
     }
     if (selectedTasks.length === 0) {
       return `${row.name}, your coach will assign this session soon.`;
     }
-    return `${row.name}, work through each step below. Paste your Google Drive link when the video is ready, then wait for your coach review.`;
+    return `${row.name}, work through each step below. Record audio when a task asks for it, then wait for your coach review.`;
   }
 
   function renderTaskStep(task: CoachingTask, index: number) {
@@ -436,11 +511,15 @@ export default function ClientHomePage() {
         <TaskScreen
           task={task}
           driveLink={driveLinks[task.id] ?? task.driveUrl ?? ""}
+          draft={drafts[task.id]}
           busy={busyId === task.id}
           showEmber={emberId === task.id}
           revising={revisingId === task.id}
           onDriveLink={(value) =>
             setDriveLinks((prev) => ({ ...prev, [task.id]: value }))
+          }
+          onDraft={(file, durationSec) =>
+            setDrafts((prev) => ({ ...prev, [task.id]: { file, durationSec } }))
           }
           onSubmit={(revise) => void submitTask(task.id, revise)}
           onStartRevise={() => {
@@ -453,6 +532,11 @@ export default function ClientHomePage() {
           onCancelRevise={() => {
             setRevisingId(null);
             setDriveLinks((prev) => {
+              const next = { ...prev };
+              delete next[task.id];
+              return next;
+            });
+            setDrafts((prev) => {
               const next = { ...prev };
               delete next[task.id];
               return next;

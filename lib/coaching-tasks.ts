@@ -4,6 +4,7 @@ import {
   getConvexHttpClient,
   isConvexConfigured,
 } from "@/lib/convex-server";
+import { INTRO_SESSION } from "@/lib/coaching-program";
 
 export type CoachingTaskStatus = "open" | "submitted" | "reviewed" | "done";
 
@@ -46,6 +47,13 @@ export function needsCoachReview(task: {
   reviewRequired?: boolean;
 }): boolean {
   return task.reviewRequired !== false;
+}
+
+export function usesVideoLink(task: {
+  sessionNumber?: number;
+  recordingRequired?: boolean;
+}): boolean {
+  return task.recordingRequired === true && (task.sessionNumber ?? 1) === INTRO_SESSION;
 }
 
 export function isTaskLocked(status: CoachingTaskStatus): boolean {
