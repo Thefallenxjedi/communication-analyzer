@@ -1089,11 +1089,6 @@ export default function AdminClientDetailPage() {
             <Link href="/admin/clients" className={`text-sm font-semibold ${adminUi.link}`}>
               ← Clients
             </Link>
-            <img
-              src="/brand/elitespeak-mark.png"
-              alt="EliteSpeak"
-              className="mt-3 h-16 w-16 rounded-xl object-cover"
-            />
             <p className={`mt-3 text-xs font-semibold uppercase tracking-[0.16em] ${adminUi.brand}`}>
               EliteSpeak
             </p>

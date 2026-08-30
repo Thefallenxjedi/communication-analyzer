@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Ember } from "@/components/Ember";
 import { HowItWorksRoadmap } from "@/components/HowItWorksRoadmap";
@@ -12,6 +12,7 @@ import { TaskRecorder } from "@/components/TaskRecorder";
 import type { ClientSession } from "@/lib/client-session";
 import {
   emptySessionSlots,
+  ensureSessionSlots,
   type CoachingSessionSlot,
 } from "@/lib/coaching-sessions";
 import {
@@ -372,6 +373,7 @@ export default function ClientHomePage() {
   const [revisingId, setRevisingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const sessionNavRef = useRef<HTMLElement>(null);
 
   const load = useCallback(async () => {
     const sessionRes = await fetch("/api/client/session");
@@ -395,9 +397,7 @@ export default function ClientHomePage() {
       return;
     }
     setTasks(workoutData.tasks || []);
-    setSessions(
-      workoutData.sessions?.length ? workoutData.sessions : emptySessionSlots(),
-    );
+    setSessions(ensureSessionSlots(workoutData.sessions));
 
     const introRes = await fetch("/api/client/intro-call");
     const introData = (await introRes.json()) as {
@@ -413,6 +413,13 @@ export default function ClientHomePage() {
       if (row) setNav(stageToNav(row.currentStage));
     });
   }, [load]);
+
+  useEffect(() => {
+    const root = sessionNavRef.current;
+    if (!root) return;
+    const active = root.querySelector(".es-nav-item--active, .es-nav-item--here");
+    active?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [nav]);
 
   async function logout() {
     await fetch("/api/client/session", { method: "DELETE" });
@@ -599,18 +606,16 @@ export default function ClientHomePage() {
     <div className="es-client-shell">
       <aside className="es-client-aside">
         <div className="es-client-identity">
-          <img
-            src="/brand/elitespeak-mark.png"
-            alt="EliteSpeak"
-            className="es-aside-mark"
-          />
-          <p className="es-aside-name">{client.name}</p>
-          <p className="es-aside-email">{client.email}</p>
-          {client.currentFocus ? (
-            <p className="es-aside-focus">{client.currentFocus}</p>
-          ) : null}
+          <p className="es-wordmark">EliteSpeak</p>
+          <div className="es-client-who">
+            <p className="es-aside-name">{client.name}</p>
+            <p className="es-aside-email">{client.email}</p>
+            {client.currentFocus ? (
+              <p className="es-aside-focus">{client.currentFocus}</p>
+            ) : null}
+          </div>
         </div>
-        <nav className="es-client-nav" aria-label="Sessions">
+        <nav ref={sessionNavRef} className="es-client-nav" aria-label="Sessions">
           <button
             type="button"
             onClick={() => setNav(INTRO_SESSION)}
@@ -660,40 +665,43 @@ export default function ClientHomePage() {
             );
           })}
         </nav>
-        <div className="es-client-extra">
-          <button
-            type="button"
-            onClick={() => setNav("how-it-works")}
-            className={
-              nav === "how-it-works"
-                ? "es-nav-how es-nav-how--active"
-                : "es-nav-how"
-            }
-          >
-            <CompassMark />
-            How It Works
-          </button>
-        </div>
-        <div className="es-client-tools">
-          {client.meetingLink ? (
-            <a
-              href={client.meetingLink}
-              target="_blank"
-              rel="noreferrer"
-              className="text-[var(--es-gold)] underline"
+        <div className="es-client-bar-end">
+          <div className="es-client-extra">
+            <button
+              type="button"
+              onClick={() => setNav("how-it-works")}
+              aria-label="How It Works"
+              className={
+                nav === "how-it-works"
+                  ? "es-nav-how es-nav-how--active"
+                  : "es-nav-how"
+              }
             >
-              Meeting link
-            </a>
-          ) : (
-            <p className="text-muted">No meeting link yet.</p>
-          )}
-          <button
-            type="button"
-            onClick={() => void logout()}
-            className="text-muted underline"
-          >
-            Log out
-          </button>
+              <CompassMark />
+              <span className="es-nav-how-copy">How It Works</span>
+            </button>
+          </div>
+          <div className="es-client-tools">
+            {client.meetingLink ? (
+              <a
+                href={client.meetingLink}
+                target="_blank"
+                rel="noreferrer"
+                className="es-client-meet"
+              >
+                Meeting
+              </a>
+            ) : (
+              <p className="es-client-meet-empty">No meeting link yet.</p>
+            )}
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="es-client-logout"
+            >
+              Log out
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -708,7 +716,11 @@ export default function ClientHomePage() {
           <HowItWorksRoadmap />
         ) : (
           <SessionReport
-            className="flex-1"
+            className={
+              selectedTasks.length === 0 && nav !== INTRO_SESSION
+                ? "flex-1 es-report--empty"
+                : "flex-1"
+            }
             title={sessionLabel(nav)}
             kicker={sessionKicker()}
           >

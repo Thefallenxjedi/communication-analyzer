@@ -28,32 +28,52 @@
 }
 
 .es-client-aside {
+  display: grid;
   flex-shrink: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "identity end"
+    "nav nav";
   border-bottom: 1px solid var(--border);
   background: var(--es-void-2);
 }
 
 .es-client-identity {
-  padding: 0.85rem 1rem 0.35rem;
+  grid-area: identity;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.7rem 0.3rem 0.75rem;
 }
 
-.es-aside-mark {
-  display: block;
-  width: 7.5rem;
-  border-radius: 0.55rem;
+.es-wordmark {
+  margin: 0;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--es-gold);
+  white-space: nowrap;
 }
 
-.es-login-mark {
-  display: block;
-  width: 100%;
-  max-width: 18rem;
-  border-radius: 0.85rem;
+.es-wordmark--login {
+  font-size: 1.45rem;
+  letter-spacing: 0.22em;
+}
+
+.es-client-who {
+  min-width: 0;
 }
 
 .es-aside-name {
-  margin-top: 0.45rem;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
-  font-size: 1.15rem;
+  font-size: 0.98rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   color: var(--es-parchment);
@@ -61,13 +81,10 @@
 
 .es-aside-email,
 .es-aside-focus {
+  display: none;
   margin-top: 0.2rem;
   font-size: 0.78rem;
   color: var(--es-parchment-dim);
-}
-
-.es-aside-focus {
-  display: none;
 }
 
 .es-nav-item {
@@ -75,9 +92,9 @@
   border: 0;
   border-bottom: 1px solid transparent;
   background: transparent;
-  padding: 0.45rem 0.15rem;
+  padding: 0.32rem 0.42rem;
   text-align: left;
-  font-size: 0.92rem;
+  font-size: 0.82rem;
   font-weight: 500;
   color: var(--es-parchment-dim);
   white-space: nowrap;
@@ -99,11 +116,12 @@
 }
 
 .es-client-nav {
+  grid-area: nav;
   display: flex;
-  gap: 0.35rem;
+  gap: 0.12rem;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  padding: 0.15rem 1rem 0.7rem;
+  padding: 0 0.55rem 0.45rem;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
@@ -117,14 +135,41 @@
   flex: 0 0 0.75rem;
 }
 
+.es-client-bar-end {
+  grid-area: end;
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.4rem 0.65rem 0.3rem 0;
+}
+
 .es-client-tools {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  border-top: 1px solid var(--border);
-  padding: 0.65rem 1rem;
-  font-size: 0.88rem;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  border: 0;
+  padding: 0;
+  font-size: 0.78rem;
+}
+
+.es-client-meet {
+  color: var(--es-gold);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.es-client-meet-empty {
+  display: none;
+}
+
+.es-client-logout {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: var(--es-parchment-dim);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
 }
 
 .es-client-main {
@@ -369,6 +414,36 @@
   flex: 1;
   flex-direction: column;
   padding: 1rem 1.15rem 2.5rem;
+}
+
+.es-report--empty .es-report-main {
+  justify-content: center;
+}
+
+.es-report--empty .es-report-head,
+.es-report--empty .es-report-kicker {
+  text-align: center;
+}
+
+.es-report--empty .es-report-title {
+  font-size: clamp(2rem, 8vw, 3.4rem);
+}
+
+.es-report--empty .es-report-rule {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.es-report--empty .es-report-kicker {
+  max-width: 26rem;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1.15rem;
+  padding-right: 1.15rem;
+}
+
+.es-report--empty .es-report-body {
+  justify-content: center;
 }
 
 .es-report-step + .es-report-step {
@@ -800,27 +875,27 @@
   }
 
   .es-client-identity {
+    display: block;
     padding: 2rem 1.4rem 1.1rem;
   }
 
-  .es-aside-mark {
-    width: 11.5rem;
-    border-radius: 0.7rem;
+  .es-wordmark {
+    margin-bottom: 0.85rem;
+    font-size: 1.05rem;
+    letter-spacing: 0.22em;
   }
 
   .es-aside-name {
     margin-top: 0.7rem;
     font-size: 1.55rem;
+    white-space: normal;
   }
 
   .es-aside-email,
   .es-aside-focus {
+    display: block;
     margin-top: 0.3rem;
     font-size: 0.88rem;
-  }
-
-  .es-aside-focus {
-    display: block;
   }
 
   .es-client-nav {
@@ -850,6 +925,12 @@
     display: none;
   }
 
+  .es-client-bar-end {
+    display: block;
+    flex-shrink: 0;
+    padding: 0;
+  }
+
   .es-client-tools {
     display: block;
     padding: 1.15rem 1.4rem 1.4rem;
@@ -858,6 +939,15 @@
 
   .es-client-tools > * + * {
     margin-top: 0.5rem;
+  }
+
+  .es-client-meet-empty {
+    display: block;
+    color: var(--es-parchment-dim);
+  }
+
+  .es-client-logout {
+    font-size: 0.95rem;
   }
 
   .es-client-main {
@@ -950,20 +1040,20 @@
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  border-top: 1px solid var(--border);
-  padding: 0.35rem 1rem;
+  border: 0;
+  padding: 0;
 }
 
 .es-nav-how {
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
-  width: 100%;
+  gap: 0.4rem;
+  width: auto;
   border: 0;
   background: transparent;
-  padding: 0.55rem 0.15rem;
+  padding: 0.3rem;
   color: var(--es-parchment-dim);
-  font-size: 0.92rem;
+  font-size: 0.8rem;
   font-weight: 500;
   text-align: left;
 }
@@ -983,6 +1073,10 @@
   width: 1.05rem;
   height: 1.05rem;
   flex-shrink: 0;
+}
+
+.es-nav-how-copy {
+  display: none;
 }
 
 .es-client-main--roadmap {
@@ -1305,10 +1399,13 @@
 
 @media (min-width: 768px) {
   .es-client-extra {
+    display: block;
+    border-top: 1px solid var(--border);
     padding: 0.85rem 1.15rem;
   }
 
   .es-nav-how {
+    width: 100%;
     padding: 0.7rem 0.85rem;
     font-size: 1.08rem;
     border-left: 2px solid transparent;
@@ -1317,6 +1414,10 @@
   .es-nav-how--active {
     border-left-color: var(--es-gold);
     font-size: 1.2rem;
+  }
+
+  .es-nav-how-copy {
+    display: inline;
   }
 
   .es-client-main--roadmap {
@@ -1375,12 +1476,13 @@
 
 .es-wait {
   display: flex;
-  min-height: 18rem;
+  min-height: 12rem;
   flex: 1;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: 1.5rem 0 2.25rem;
+  padding: 0.75rem 0 1.5rem;
+  text-align: center;
 }
 
 .es-wait-voice {
@@ -1390,7 +1492,7 @@
   justify-content: center;
   width: 7.5rem;
   height: 7.5rem;
-  margin-bottom: 1.5rem;
+  margin: 0 auto 1.35rem;
 }
 
 .es-wait-voice span {
@@ -1479,7 +1581,7 @@
 .es-wait-voice--metronome-slow,
 .es-wait-voice--count {
   align-items: flex-end;
-  justify-content: flex-start;
+  justify-content: center;
   gap: 0.45rem;
   width: auto;
   height: 4.4rem;
@@ -1519,13 +1621,13 @@
 }
 
 .es-wait-line {
-  margin: 0.7rem 0 0;
-  max-width: 22rem;
+  margin: 0.7rem auto 0;
+  max-width: 20rem;
   font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
-  font-size: 1.55rem;
+  font-size: clamp(1.7rem, 7vw, 2.45rem);
   font-style: italic;
   font-weight: 600;
-  line-height: 1.25;
+  line-height: 1.2;
   letter-spacing: -0.02em;
   color: #3a2e22;
 }
@@ -1534,7 +1636,7 @@
   display: block;
   width: 4.5rem;
   height: 1px;
-  margin-top: 1.15rem;
+  margin: 1.15rem auto 0;
   background: #c9a968;
 }
 
@@ -1665,12 +1767,12 @@
 
 @media (min-width: 768px) {
   .es-wait {
-    min-height: 24rem;
-    padding: 2.5rem 0.25rem 3rem;
+    min-height: 22rem;
+    padding: 2rem 0.25rem 3rem;
   }
 
   .es-wait-line {
-    max-width: 28rem;
-    font-size: 2.05rem;
+    max-width: 34rem;
+    font-size: clamp(2.1rem, 3.4vw, 3.15rem);
   }
 }

@@ -58,3 +58,12 @@ export function emptySessionSlots(): CoachingSessionSlot[] {
     taskCount: 0,
   }));
 }
+
+export function ensureSessionSlots(
+  incoming?: CoachingSessionSlot[],
+): CoachingSessionSlot[] {
+  const base = emptySessionSlots();
+  if (!incoming?.length) return base;
+  const byNumber = new Map(incoming.map((slot) => [slot.sessionNumber, slot]));
+  return base.map((slot) => byNumber.get(slot.sessionNumber) ?? slot);
+}

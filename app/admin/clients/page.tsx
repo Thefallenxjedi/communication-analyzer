@@ -240,11 +240,6 @@ export default function AdminClientsPage() {
   return (
     <div className="app-shell">
       <main className="mx-auto w-full max-w-[90rem] px-4 py-10 lg:px-8">
-        <img
-          src="/brand/elitespeak-mark.png"
-          alt="EliteSpeak"
-          className="mb-4 h-20 w-20 rounded-xl object-cover"
-        />
         <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${adminUi.brand}`}>
           EliteSpeak
         </p>
