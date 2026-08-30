@@ -3,7 +3,9 @@ import { listCoachingSessions } from "@/lib/coaching-sessions";
 import {
   completeCoachingTask,
   createCoachingTask,
+  getCoachingTask,
   listCoachingTasks,
+  needsCoachReview,
   rateCoachingTask,
   removeCoachingTask,
   updateCoachingTask,
@@ -133,6 +135,16 @@ export async function PATCH(request: Request) {
   const completing = body.complete === true;
   if (!editingCopy && !completing && typeof body.rating !== "number") {
     return Response.json({ error: "rating or title required." }, { status: 400 });
+  }
+
+  if (completing) {
+    const task = await getCoachingTask(body.id);
+    if (task && !needsCoachReview(task)) {
+      return Response.json(
+        { error: "The client marks this complete from their session." },
+        { status: 400 },
+      );
+    }
   }
 
   const result = completing

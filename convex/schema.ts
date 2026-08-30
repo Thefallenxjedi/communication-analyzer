@@ -144,6 +144,8 @@ export default defineSchema({
       v.literal("done"),
     ),
     storageId: v.optional(v.id("_storage")),
+    /** Google Drive share link for the client video. */
+    driveUrl: v.optional(v.string()),
     durationSec: v.optional(v.number()),
     submittedAt: v.optional(v.number()),
     rating: v.optional(v.number()),

@@ -1,13 +1,16 @@
 import { getCoachingClientByEmail } from "@/lib/coaching-clients";
 import { listCoachingSessions } from "@/lib/coaching-sessions";
 import {
+  completeCoachingTask,
   ensureCoachingProgram,
   listCoachingTasks,
+  needsCoachReview,
   reviseCoachingTask,
   submitCoachingTask,
 } from "@/lib/coaching-tasks";
 import { readClientEmailFromCookie } from "@/lib/client-session";
 import { formatConvexError, isConvexConfigured } from "@/lib/convex-server";
+import { normalizeGoogleDriveUrl } from "@/lib/google-drive";
 
 export const runtime = "nodejs";
 
@@ -53,8 +56,10 @@ export async function POST(request: Request) {
   let body: {
     id?: string;
     storageId?: string;
+    driveUrl?: string;
     durationSec?: number;
     responseText?: string;
+    complete?: boolean;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -64,8 +69,8 @@ export async function POST(request: Request) {
 
   const id = body.id?.trim() || "";
   const storageId = body.storageId?.trim() || "";
-  if (!id || !storageId) {
-    return Response.json({ error: "Recording is required to submit." }, { status: 400 });
+  if (!id) {
+    return Response.json({ error: "id required." }, { status: 400 });
   }
 
   try {
@@ -84,9 +89,47 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
+
+    if (body.complete === true) {
+      if (mine.recordingRequired || needsCoachReview(mine)) {
+        return Response.json(
+          { error: "This task still needs a video link or coach review." },
+          { status: 400 },
+        );
+      }
+      const result = await completeCoachingTask(id);
+      if (!result.ok) {
+        return Response.json(
+          { error: result.error || "Could not complete." },
+          { status: 400 },
+        );
+      }
+      const next = await listCoachingTasks(row.id);
+      return Response.json({ ok: true, tasks: next });
+    }
+
+    let driveUrl = "";
+    if (mine.recordingRequired) {
+      try {
+        driveUrl = normalizeGoogleDriveUrl(body.driveUrl || "");
+      } catch (err) {
+        return Response.json(
+          {
+            error:
+              err instanceof Error
+                ? err.message
+                : "Paste a Google Drive link for your video.",
+          },
+          { status: 400 },
+        );
+      }
+    } else if (!storageId) {
+      return Response.json({ error: "Nothing to submit." }, { status: 400 });
+    }
     const result = await submitCoachingTask({
       id,
-      storageId,
+      storageId: storageId || undefined,
+      driveUrl: driveUrl || undefined,
       durationSec: body.durationSec,
       responseText: body.responseText,
     });
@@ -116,6 +159,7 @@ export async function PATCH(request: Request) {
   let body: {
     id?: string;
     storageId?: string;
+    driveUrl?: string;
     durationSec?: number;
     responseText?: string;
   };
@@ -152,9 +196,26 @@ export async function PATCH(request: Request) {
         { status: 400 },
       );
     }
+    let driveUrl: string | undefined;
+    if (body.driveUrl != null) {
+      try {
+        driveUrl = normalizeGoogleDriveUrl(body.driveUrl);
+      } catch (err) {
+        return Response.json(
+          {
+            error:
+              err instanceof Error
+                ? err.message
+                : "Paste a Google Drive link for your video.",
+          },
+          { status: 400 },
+        );
+      }
+    }
     const result = await reviseCoachingTask({
       id,
       storageId: body.storageId,
+      driveUrl,
       durationSec: body.durationSec,
       responseText: body.responseText,
     });

@@ -17,6 +17,7 @@ const MEETING_LINK_MAX = 500;
 const TITLE_MAX = 160;
 const INSTRUCTIONS_MAX = 8000;
 const RESPONSE_TEXT_MAX = 4000;
+const DRIVE_URL_MAX = 500;
 const PROGRAM_DAYS = 90;
 
 const CLIENT_STATUSES = ["active", "paused", "completed"] as const;
@@ -37,6 +38,25 @@ function normalizeFocus(value: string | undefined): string | undefined {
 
 function isClientStatus(value: string): value is ClientStatus {
   return (CLIENT_STATUSES as readonly string[]).includes(value);
+}
+
+function normalizeGoogleDriveUrl(raw: string): string {
+  const trimmed = raw.replace(/\s+/g, " ").trim().slice(0, DRIVE_URL_MAX);
+  if (!trimmed) throw new Error("Paste a Google Drive link.");
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error("Paste a full Google Drive link, starting with https://");
+  }
+  const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+  if (parsed.protocol !== "https:") {
+    throw new Error("Use an https Google Drive link.");
+  }
+  if (host !== "drive.google.com") {
+    throw new Error("Use a Google Drive share link (drive.google.com).");
+  }
+  return parsed.toString();
 }
 
 function currentProgramDay(startDate: number, now: number): number {
@@ -83,12 +103,31 @@ async function seedProgramTasks(
       (task.sessionNumber ?? INTRO_SESSION) !== INTRO_SESSION,
   );
   for (const seed of PROGRAM_SEED_TASKS) {
-    const already = remaining.some(
+    const already = remaining.find(
       (task) =>
         (task.sessionNumber ?? INTRO_SESSION) === seed.sessionNumber &&
         task.title.trim().toLowerCase() === seed.title.toLowerCase(),
     );
-    if (already) continue;
+    if (already) {
+      if (already.status === "open") {
+        const patch: {
+          reviewRequired?: boolean;
+          instructions?: string;
+          updatedAt: number;
+        } = { updatedAt: now };
+        let changed = false;
+        if (already.reviewRequired !== seed.reviewRequired) {
+          patch.reviewRequired = seed.reviewRequired;
+          changed = true;
+        }
+        if (already.instructions !== seed.instructions) {
+          patch.instructions = seed.instructions;
+          changed = true;
+        }
+        if (changed) await ctx.db.patch(already._id, patch);
+      }
+      continue;
+    }
     await ctx.db.insert("tasks", {
       clientId,
       sessionNumber: seed.sessionNumber,
@@ -345,6 +384,7 @@ async function toTaskView(ctx: QueryCtx, row: Doc<"tasks">) {
     reviewRequired: row.reviewRequired !== false,
     status: row.status,
     recordingUrl,
+    driveUrl: row.driveUrl ?? "",
     durationSec: row.durationSec ?? null,
     submittedAt: row.submittedAt ? new Date(row.submittedAt).toISOString() : "",
     rating: row.rating ?? null,
@@ -444,7 +484,8 @@ export const generateUploadUrl = mutation({
 export const submitTask = mutation({
   args: {
     id: v.id("tasks"),
-    storageId: v.id("_storage"),
+    storageId: v.optional(v.id("_storage")),
+    driveUrl: v.optional(v.string()),
     durationSec: v.optional(v.number()),
     responseText: v.optional(v.string()),
   },
@@ -454,12 +495,19 @@ export const submitTask = mutation({
     if (existing.status !== "open") {
       throw new Error("This task is already submitted and cannot be changed.");
     }
+    const driveUrl = args.driveUrl
+      ? normalizeGoogleDriveUrl(args.driveUrl)
+      : "";
+    if (existing.recordingRequired && !driveUrl && !args.storageId) {
+      throw new Error("Paste a Google Drive link for your video.");
+    }
     const now = Date.now();
     const needsReview = existing.reviewRequired !== false;
     const responseText = args.responseText?.trim().slice(0, RESPONSE_TEXT_MAX);
     await ctx.db.patch(args.id, {
       status: needsReview ? "submitted" : "done",
-      storageId: args.storageId,
+      ...(args.storageId ? { storageId: args.storageId } : {}),
+      ...(driveUrl ? { driveUrl } : {}),
       durationSec:
         typeof args.durationSec === "number" && Number.isFinite(args.durationSec)
           ? Math.max(0, Math.round(args.durationSec))
@@ -481,6 +529,7 @@ export const reviseTask = mutation({
   args: {
     id: v.id("tasks"),
     storageId: v.optional(v.id("_storage")),
+    driveUrl: v.optional(v.string()),
     durationSec: v.optional(v.number()),
     responseText: v.optional(v.string()),
   },
@@ -494,13 +543,17 @@ export const reviseTask = mutation({
       throw new Error("You already used your one change.");
     }
     const responseText = args.responseText?.trim().slice(0, RESPONSE_TEXT_MAX);
-    if (!args.storageId && responseText == null) {
-      throw new Error("Record a new clip or update the note.");
+    const driveUrl = args.driveUrl
+      ? normalizeGoogleDriveUrl(args.driveUrl)
+      : "";
+    if (!args.storageId && !driveUrl && responseText == null) {
+      throw new Error("Paste a Google Drive link or update the note.");
     }
 
     const now = Date.now();
     const patch: {
       storageId?: Id<"_storage">;
+      driveUrl?: string;
       durationSec?: number;
       responseText?: string;
       clientRevisionUsed: boolean;
@@ -516,6 +569,7 @@ export const reviseTask = mutation({
         patch.durationSec = Math.max(0, Math.round(args.durationSec));
       }
     }
+    if (driveUrl) patch.driveUrl = driveUrl;
     if (responseText != null) patch.responseText = responseText;
 
     await ctx.db.patch(args.id, patch);
@@ -613,7 +667,7 @@ export const completeTask = mutation({
     const existing = await ctx.db.get(args.id);
     if (!existing) return { ok: false as const, reason: "not_found" as const };
     if (existing.recordingRequired && existing.status === "open") {
-      throw new Error("Client must record this first.");
+      throw new Error("Client must paste a Google Drive link first.");
     }
     const now = Date.now();
     await ctx.db.patch(args.id, {

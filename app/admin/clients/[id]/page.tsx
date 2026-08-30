@@ -505,44 +505,52 @@ export default function AdminClientDetailPage() {
           <div className="min-w-0">
             <h3 className="text-base font-extrabold text-slate-900">{task.title}</h3>
             <p className="mt-1 text-xs text-muted">
-              {taskStatusLabel(task.status, "admin")}
-              {task.recordingRequired ? " · recording" : ""}
-              {needsCoachReview(task) ? " · review" : ""}
+              {[
+                task.status === "open"
+                  ? null
+                  : taskStatusLabel(task.status, "admin"),
+                task.recordingRequired ? "video" : null,
+                needsCoachReview(task) ? "review" : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setEditId(task.id);
-                setEditTitle(task.title);
-                setEditInstructions(task.instructions);
-              }}
-              className={adminUi.btnGhost}
-            >
-              Edit
-            </button>
-            {task.status === "open" && !task.recordingRequired ? (
+          {needsCoachReview(task) ? (
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                disabled={busy}
-                onClick={() => void onComplete(task.id)}
-                className={adminUi.btnSolid}
+                onClick={() => {
+                  setEditId(task.id);
+                  setEditTitle(task.title);
+                  setEditInstructions(task.instructions);
+                }}
+                className={adminUi.btnGhost}
               >
-                Mark complete
+                Edit
               </button>
-            ) : null}
-            {!isTaskLocked(task.status) ? (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => void onDelete(task.id)}
-                className={adminUi.btnDanger}
-              >
-                Remove
-              </button>
-            ) : null}
-          </div>
+              {task.status === "open" && !task.recordingRequired ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void onComplete(task.id)}
+                  className={adminUi.btnSolid}
+                >
+                  Mark complete
+                </button>
+              ) : null}
+              {!isTaskLocked(task.status) ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void onDelete(task.id)}
+                  className={adminUi.btnDanger}
+                >
+                  Remove
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
         {editId === task.id ? (
           <form onSubmit={(e) => void onSaveTaskEdit(e)} className="space-y-2">
@@ -586,7 +594,18 @@ export default function AdminClientDetailPage() {
             <p className="mt-1 whitespace-pre-wrap text-sm">{task.responseText}</p>
           </div>
         ) : null}
-        {task.recordingUrl ? (
+        {task.driveUrl ? (
+          <div className="mt-4">
+            <a
+              href={task.driveUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={`text-sm font-semibold ${adminUi.link}`}
+            >
+              Open Google Drive video
+            </a>
+          </div>
+        ) : task.recordingUrl ? (
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <audio controls src={task.recordingUrl} className="min-w-[16rem] flex-1" />
             <button
@@ -599,7 +618,7 @@ export default function AdminClientDetailPage() {
             </button>
           </div>
         ) : task.recordingRequired && task.status !== "open" ? (
-          <p className="mt-4 text-sm text-muted">No recording yet.</p>
+          <p className="mt-4 text-sm text-muted">No Google Drive link yet.</p>
         ) : null}
         {task.rating != null && rateId !== task.id ? (
           <div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl border border-border px-4 py-3">
@@ -729,7 +748,7 @@ export default function AdminClientDetailPage() {
                 onChange={(e) => setRecordingRequired(e.target.checked)}
                 className="accent-teal-600"
               />
-              Recording required
+              Video — client pastes a Google Drive link
             </label>
             <label className="flex items-center gap-2 text-sm font-semibold">
               <input

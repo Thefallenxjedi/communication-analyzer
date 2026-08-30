@@ -26,7 +26,7 @@ export const PROGRAM_SEED_TASKS: SeedTask[] = [
     sessionNumber: INTRO_SESSION,
     title: "BEFORE Video",
     instructions:
-      "Record a baseline speaking sample — your before state. Speak as you would on a real call or presentation, about 60–90 seconds. This recording is used later for before/after comparison.",
+      "Record a baseline speaking sample on your phone or camera — your before state. Speak as you would on a real call or presentation, about 60–90 seconds. Upload the video to Google Drive, set sharing to anyone with the link, and paste that link below.",
     recordingRequired: true,
     reviewRequired: true,
   },
@@ -34,7 +34,7 @@ export const PROGRAM_SEED_TASKS: SeedTask[] = [
     sessionNumber: FINAL_SESSION,
     title: "AFTER Video",
     instructions:
-      "Record your after speaking sample — the same kind of clip as your BEFORE video. This is used for the before/after comparison at program completion.",
+      "Record your after speaking sample — the same kind of clip as your BEFORE video. Upload it to Google Drive, set sharing to anyone with the link, and paste that link below.",
     recordingRequired: true,
     reviewRequired: true,
   },
@@ -44,7 +44,7 @@ export const PROGRAM_SEED_TASKS: SeedTask[] = [
     instructions:
       "Joseph reviews BEFORE vs AFTER live, confirms progress, and closes the program. Coach: write completion notes here, then mark complete.",
     recordingRequired: false,
-    reviewRequired: false,
+    reviewRequired: true,
   },
 ];
 

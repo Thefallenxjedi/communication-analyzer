@@ -17,6 +17,7 @@ export type CoachingTask = {
   reviewRequired: boolean;
   status: CoachingTaskStatus;
   recordingUrl: string;
+  driveUrl: string;
   durationSec: number | null;
   submittedAt: string;
   rating: number | null;
@@ -121,7 +122,8 @@ export async function generateCoachingUploadUrl(): Promise<{
 
 export async function submitCoachingTask(input: {
   id: string;
-  storageId: string;
+  storageId?: string;
+  driveUrl?: string;
   durationSec?: number;
   responseText?: string;
 }): Promise<{ ok: boolean; error?: string }> {
@@ -132,7 +134,8 @@ export async function submitCoachingTask(input: {
   try {
     const result = (await client.mutation(coachingApi.submitTask, {
       id: input.id as never,
-      storageId: input.storageId as never,
+      ...(input.storageId ? { storageId: input.storageId as never } : {}),
+      driveUrl: input.driveUrl,
       durationSec: input.durationSec,
       responseText: input.responseText,
     })) as { ok?: boolean };
@@ -147,6 +150,7 @@ export async function submitCoachingTask(input: {
 export async function reviseCoachingTask(input: {
   id: string;
   storageId?: string;
+  driveUrl?: string;
   durationSec?: number;
   responseText?: string;
 }): Promise<{ ok: boolean; error?: string }> {
@@ -158,6 +162,7 @@ export async function reviseCoachingTask(input: {
     const result = (await client.mutation(coachingApi.reviseTask, {
       id: input.id as never,
       ...(input.storageId ? { storageId: input.storageId as never } : {}),
+      driveUrl: input.driveUrl,
       durationSec: input.durationSec,
       responseText: input.responseText,
     })) as { ok?: boolean };
