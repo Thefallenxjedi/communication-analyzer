@@ -32,7 +32,7 @@ export default function ClientLoginPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-6 py-16">
+    <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-6 py-16">
       <p className="es-label">EliteSpeak</p>
       <h1 className="mt-3 text-4xl">Client login</h1>
       <p className="mt-3 text-sm text-muted">

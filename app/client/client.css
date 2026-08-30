@@ -12,9 +12,75 @@
   --card: var(--es-void-2);
   --border: color-mix(in srgb, var(--es-gold) 22%, transparent);
   min-height: 100dvh;
+  height: 100dvh;
+  overflow-x: hidden;
   background: var(--es-void);
   color: var(--es-parchment);
   font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+.es-client-shell {
+  display: flex;
+  height: 100dvh;
+  min-height: 100dvh;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.es-client-aside {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--es-void-2);
+}
+
+.es-client-identity {
+  padding: 0.85rem 1rem 0.35rem;
+}
+
+.es-client-nav {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding: 0.15rem 1rem 0.7rem;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.es-client-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.es-client-nav::after {
+  content: "";
+  flex: 0 0 0.75rem;
+}
+
+.es-client-tools {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-top: 1px solid var(--border);
+  padding: 0.65rem 1rem;
+}
+
+.es-client-main {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.es-client-error {
+  padding: 0.65rem 1rem;
+  font-size: 0.875rem;
+}
+
+.es-nav-meta {
+  display: none;
 }
 
 .es-client h1,
@@ -113,12 +179,14 @@
 
 .es-report {
   display: flex;
-  min-height: 100%;
+  min-height: 0;
+  min-width: 0;
   width: 100%;
-  overflow: hidden;
+  flex: 1;
+  flex-direction: column;
+  overflow: auto;
   background: #f4efe3;
   color: #141210;
-  border: 1px solid color-mix(in srgb, var(--es-gold) 35%, transparent);
 }
 
 .es-report-main {
@@ -142,14 +210,16 @@
   color: #6b6250;
 }
 
-.es-report-rail {
-  display: flex;
-  width: 2.6rem;
+.es-report-rail-top {
+  display: block;
+  width: 100%;
+  height: 0.42rem;
   flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
   background: #d2c1a8;
-  color: #141210;
+}
+
+.es-report-rail {
+  display: none;
 }
 
 .es-report-rail span {
@@ -162,20 +232,20 @@
 }
 
 .es-report-brand {
-  padding: 1.25rem 1.75rem 0.55rem;
+  padding: 1rem 1.15rem 0.4rem;
   font-family: var(--font-playfair), serif;
-  font-size: 1rem;
+  font-size: 0.92rem;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #c9a968;
 }
 
 .es-report-bar {
-  margin: 0 1.5rem;
+  margin: 0 1rem;
   background: #141210;
-  padding: 0.85rem 1.25rem;
+  padding: 0.7rem 1rem;
   text-align: center;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -183,14 +253,14 @@
 }
 
 .es-report-kicker {
-  padding: 1.15rem 1.75rem 0;
-  font-size: 1rem;
+  padding: 0.9rem 1.15rem 0;
+  font-size: 0.95rem;
   line-height: 1.55;
   color: #2a261f;
 }
 
 .es-report-body {
-  padding: 1.35rem 1.75rem 2rem;
+  padding: 1rem 1.15rem 1.5rem;
   flex: 1;
 }
 
@@ -222,7 +292,7 @@
 
 .es-report-step-body {
   margin-top: 0.75rem;
-  margin-left: 2.1rem;
+  margin-left: 0;
   font-size: 0.95rem;
   line-height: 1.6;
 }
@@ -252,22 +322,24 @@
 
 .es-report-paste {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   min-height: 2.75rem;
-  border-radius: 9999px;
+  border-radius: 1rem;
   background: #e8e2d4;
-  padding: 0.3rem 0.35rem 0.3rem 1rem;
+  padding: 0.4rem;
 }
 
 .es-report-paste input {
   min-width: 0;
-  flex: 1;
+  flex: 1 1 100%;
   border: 0;
   background: transparent;
   color: #141210;
-  font-size: 0.9rem;
+  font-size: 16px;
   outline: none;
+  padding: 0.45rem 0.55rem;
 }
 
 .es-report-paste input::placeholder {
@@ -275,8 +347,8 @@
 }
 
 .es-report-paste .es-btn {
-  min-height: 2.2rem;
-  flex-shrink: 0;
+  min-height: 2.4rem;
+  flex: 1 1 100%;
   padding: 0 1.1rem;
 }
 
@@ -338,12 +410,120 @@
   font-weight: 800;
 }
 
-.es-nav-meta {
-  display: block;
-  margin-top: 0.2rem;
-  font-size: 0.62rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--es-gold);
+@media (min-width: 768px) {
+  .es-client-shell {
+    flex-direction: row;
+  }
+
+  .es-client-aside {
+    display: flex;
+    width: 16rem;
+    flex-direction: column;
+    border-bottom: 0;
+    border-right: 1px solid var(--border);
+  }
+
+  .es-client-identity {
+    padding: 1.5rem 1rem 0.75rem;
+  }
+
+  .es-client-nav {
+    flex: 1;
+    flex-direction: column;
+    overflow: visible;
+    padding: 0 0.75rem 1.5rem;
+  }
+
+  .es-client-nav::after {
+    display: none;
+  }
+
+  .es-client-tools {
+    display: block;
+    padding: 1rem;
+  }
+
+  .es-client-tools > * + * {
+    margin-top: 0.5rem;
+  }
+
+  .es-client-main {
+    padding: 1.5rem;
+    overflow-y: auto;
+  }
+
+  .es-client-error {
+    padding: 0.75rem 0 0;
+  }
+
+  .es-nav-meta {
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--es-gold);
+  }
+
+  .es-report {
+    flex-direction: row;
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--es-gold) 35%, transparent);
+  }
+
+  .es-report-rail-top {
+    display: none;
+  }
+
+  .es-report-rail {
+    display: flex;
+    width: 2.6rem;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    background: #d2c1a8;
+    color: #141210;
+  }
+
+  .es-report-brand {
+    padding: 1.25rem 1.75rem 0.55rem;
+    font-size: 1rem;
+  }
+
+  .es-report-bar {
+    margin: 0 1.5rem;
+    padding: 0.85rem 1.25rem;
+    font-size: 0.82rem;
+  }
+
+  .es-report-kicker {
+    padding: 1.15rem 1.75rem 0;
+    font-size: 1rem;
+  }
+
+  .es-report-body {
+    padding: 1.35rem 1.75rem 2rem;
+  }
+
+  .es-report-step-body {
+    margin-left: 2.1rem;
+  }
+
+  .es-report-paste {
+    flex-wrap: nowrap;
+    border-radius: 9999px;
+    padding: 0.3rem 0.35rem 0.3rem 1rem;
+  }
+
+  .es-report-paste input {
+    flex: 1 1 auto;
+    font-size: 0.9rem;
+    padding: 0;
+  }
+
+  .es-report-paste .es-btn {
+    min-height: 2.2rem;
+    flex: 0 0 auto;
+  }
 }

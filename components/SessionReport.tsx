@@ -13,6 +13,7 @@ export function SessionReport({
 }) {
   return (
     <article className={`es-report ${className}`.trim()}>
+      <div className="es-report-rail-top" aria-hidden />
       <div className="es-report-rail" aria-hidden>
         <span>Cultivate excellence, every day</span>
       </div>

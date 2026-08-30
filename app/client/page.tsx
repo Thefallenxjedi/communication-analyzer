@@ -11,6 +11,7 @@ import {
   type CoachingSessionSlot,
 } from "@/lib/coaching-sessions";
 import {
+  FINAL_SESSION,
   INTRO_SESSION,
   parseCurrentStage,
   sessionLabel,
@@ -31,10 +32,17 @@ function stageToNav(stage: string | undefined): NavId {
 }
 
 function navClass(active: boolean, here: boolean): string {
-  const base = "w-full rounded-lg px-3 py-2 text-left text-sm whitespace-nowrap";
+  const base =
+    "shrink-0 rounded-lg px-3 py-2 text-left text-sm whitespace-nowrap md:w-full";
   if (active) return `${base} bg-[var(--es-void-3)] text-[var(--es-gold)]`;
   if (here) return `${base} text-[var(--es-gold)]`;
   return `${base} text-[var(--es-parchment-dim)] hover:text-[var(--es-parchment)]`;
+}
+
+function sessionNavShort(sessionNumber: number): string {
+  if (sessionNumber === INTRO_SESSION) return "Intro";
+  if (sessionNumber === FINAL_SESSION) return "Final";
+  return String(sessionNumber);
 }
 
 function liveTaskId(tasks: CoachingTask[]): string | null {
@@ -456,17 +464,19 @@ export default function ClientHomePage() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col md:flex-row">
-      <aside className="border-b border-[var(--border)] bg-[var(--es-void-2)] md:w-64 md:shrink-0 md:border-b-0 md:border-r">
-        <div className="px-4 py-6">
+    <div className="es-client-shell">
+      <aside className="es-client-aside">
+        <div className="es-client-identity">
           <p className="es-label">EliteSpeak</p>
-          <p className="mt-3 font-medium">{client.name}</p>
+          <p className="mt-2 font-medium md:mt-3">{client.name}</p>
           <p className="text-xs text-muted">{client.email}</p>
           {client.currentFocus ? (
-            <p className="mt-3 text-xs text-muted">{client.currentFocus}</p>
+            <p className="mt-2 hidden text-xs text-muted md:block">
+              {client.currentFocus}
+            </p>
           ) : null}
         </div>
-        <nav className="flex gap-2 overflow-x-auto px-3 pb-3 md:flex-col md:overflow-visible md:px-3 md:pb-6">
+        <nav className="es-client-nav" aria-label="Sessions">
           <button
             type="button"
             onClick={() => setNav(INTRO_SESSION)}
@@ -476,7 +486,8 @@ export default function ClientHomePage() {
               {introMilestone === "complete" ? (
                 <span className="es-nav-tick">✓</span>
               ) : null}
-              Intro Call
+              <span className="md:hidden">{sessionNavShort(INTRO_SESSION)}</span>
+              <span className="hidden md:inline">Intro Call</span>
             </span>
             {introMilestone === "current" ? (
               <span className="es-nav-meta">Current session</span>
@@ -490,13 +501,21 @@ export default function ClientHomePage() {
                 key={slot.sessionNumber}
                 type="button"
                 onClick={() => setNav(slot.sessionNumber)}
-                className={navClass(nav === slot.sessionNumber, milestone === "current")}
+                className={navClass(
+                  nav === slot.sessionNumber,
+                  milestone === "current",
+                )}
               >
                 <span className="flex items-center gap-2">
                   {milestone === "complete" ? (
                     <span className="es-nav-tick">✓</span>
                   ) : null}
-                  {sessionLabel(slot.sessionNumber)}
+                  <span className="md:hidden">
+                    {sessionNavShort(slot.sessionNumber)}
+                  </span>
+                  <span className="hidden md:inline">
+                    {sessionLabel(slot.sessionNumber)}
+                  </span>
                 </span>
                 {milestone === "current" ? (
                   <span className="es-nav-meta">
@@ -507,13 +526,13 @@ export default function ClientHomePage() {
             );
           })}
         </nav>
-        <div className="space-y-2 border-t border-[var(--border)] px-4 py-4">
+        <div className="es-client-tools">
           {client.meetingLink ? (
             <a
               href={client.meetingLink}
               target="_blank"
               rel="noreferrer"
-              className="block text-sm text-[var(--es-gold)] underline"
+              className="text-sm text-[var(--es-gold)] underline"
             >
               Meeting link
             </a>
@@ -530,33 +549,29 @@ export default function ClientHomePage() {
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 overflow-y-auto">
-        <div className="flex min-h-full flex-col p-4 md:p-6">
-          <SessionReport
-            className="flex-1"
-            title={sessionLabel(nav)}
-            kicker={sessionKicker()}
-          >
-            {selectedTasks.length === 0 && nav !== INTRO_SESSION ? (
-              <p className="text-muted">Your coach will assign this soon.</p>
-            ) : (
-              selectedTasks.map((task, index) => renderTaskStep(task, index))
-            )}
-            {nav === INTRO_SESSION ? (
-              <SessionReportStep
-                n={selectedTasks.length + 1}
-                title="Intro Diagnosis"
-              >
-                <IntroCallView clientName={client.name} report={intro} />
-              </SessionReportStep>
-            ) : null}
-          </SessionReport>
-          {error ? (
-            <p className="mt-4 text-sm" style={{ color: "var(--es-ember)" }}>
-              {error}
-            </p>
+      <main className="es-client-main">
+        <SessionReport
+          className="flex-1"
+          title={sessionLabel(nav)}
+          kicker={sessionKicker()}
+        >
+          {selectedTasks.length === 0 && nav !== INTRO_SESSION ? null : (
+            selectedTasks.map((task, index) => renderTaskStep(task, index))
+          )}
+          {nav === INTRO_SESSION ? (
+            <SessionReportStep
+              n={selectedTasks.length + 1}
+              title="Intro Diagnosis"
+            >
+              <IntroCallView clientName={client.name} report={intro} />
+            </SessionReportStep>
           ) : null}
-        </div>
+        </SessionReport>
+        {error ? (
+          <p className="es-client-error" style={{ color: "var(--es-ember)" }}>
+            {error}
+          </p>
+        ) : null}
       </main>
     </div>
   );
