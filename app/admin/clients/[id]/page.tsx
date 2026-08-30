@@ -18,9 +18,11 @@ import type { CoachingSessionSlot } from "@/lib/coaching-sessions";
 import {
   isTaskLocked,
   needsCoachReview,
+  taskResponseKind,
   taskStatusLabel,
   usesVideoLink,
   type CoachingTask,
+  type TaskResponseKind,
 } from "@/lib/coaching-tasks";
 import { videoShareKind } from "@/lib/google-drive";
 import {
@@ -28,6 +30,55 @@ import {
   isIntroCallEmpty,
   type IntroCallReport,
 } from "@/lib/intro-call";
+
+function ResponseTypeField({
+  kind,
+  onChange,
+  video,
+}: {
+  kind: TaskResponseKind;
+  onChange: (kind: TaskResponseKind) => void;
+  video: boolean;
+}) {
+  const audioName = video ? "Video" : "Audio";
+  const audioHint = video
+    ? "Client pastes a Drive or YouTube link."
+    : "Client records in the app. No coach rating.";
+  const reviewHint = video
+    ? "Client pastes a link. You write the review."
+    : "Client records. You rate the take.";
+  const selected =
+    "rounded-xl border-2 border-slate-900 bg-slate-50 px-3 py-2.5 text-left";
+  const idle =
+    "rounded-xl border border-border bg-white px-3 py-2.5 text-left hover:bg-slate-50";
+  return (
+    <fieldset>
+      <legend className="text-sm font-semibold">Response type</legend>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => onChange("audio")}
+          className={kind === "audio" ? selected : idle}
+        >
+          <span className="block text-sm font-extrabold">{audioName}</span>
+          <span className="mt-0.5 block text-xs font-normal text-muted">
+            {audioHint}
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange("review")}
+          className={kind === "review" ? selected : idle}
+        >
+          <span className="block text-sm font-extrabold">Review</span>
+          <span className="mt-0.5 block text-xs font-normal text-muted">
+            {reviewHint}
+          </span>
+        </button>
+      </div>
+    </fieldset>
+  );
+}
 
 function navRowClass(
   open: boolean,
@@ -116,8 +167,7 @@ export default function AdminClientDetailPage() {
 
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [recordingRequired, setRecordingRequired] = useState(true);
-  const [reviewRequired, setReviewRequired] = useState(true);
+  const [responseKind, setResponseKind] = useState<TaskResponseKind>("audio");
 
   const [rateId, setRateId] = useState<string | null>(null);
   const [rating, setRating] = useState("8");
@@ -125,6 +175,7 @@ export default function AdminClientDetailPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editInstructions, setEditInstructions] = useState("");
+  const [editKind, setEditKind] = useState<TaskResponseKind>("audio");
 
   const load = useCallback(
     async (pwd: string) => {
@@ -262,8 +313,8 @@ export default function AdminClientDetailPage() {
           sessionNumber: assignSession ?? 1,
           title: title.trim(),
           instructions: instructions.trim(),
-          recordingRequired,
-          reviewRequired,
+          recordingRequired: true,
+          reviewRequired: responseKind === "review",
         }),
       });
       const data = (await res.json()) as {
@@ -335,6 +386,8 @@ export default function AdminClientDetailPage() {
           clientId,
           title: editTitle.trim(),
           instructions: editInstructions.trim(),
+          recordingRequired: true,
+          reviewRequired: editKind === "review",
         }),
       });
       const data = (await res.json()) as {
@@ -511,12 +564,7 @@ export default function AdminClientDetailPage() {
                 task.status === "open"
                   ? null
                   : taskStatusLabel(task.status, "admin"),
-                usesVideoLink(task)
-                  ? "video"
-                  : task.recordingRequired
-                    ? "audio"
-                    : null,
-                needsCoachReview(task) ? "review" : null,
+                taskResponseKind(task) === "review" ? "Review" : usesVideoLink(task) ? "Video" : "Audio",
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -530,6 +578,7 @@ export default function AdminClientDetailPage() {
                   setEditId(task.id);
                   setEditTitle(task.title);
                   setEditInstructions(task.instructions);
+                  setEditKind(taskResponseKind(task));
                 }}
                 className={adminUi.btnGhost}
               >
@@ -575,6 +624,11 @@ export default function AdminClientDetailPage() {
               rows={4}
               className={`w-full rounded-xl border border-border px-3 py-2 text-sm outline-none ${adminUi.focus}`}
               required
+            />
+            <ResponseTypeField
+              kind={editKind}
+              onChange={setEditKind}
+              video={usesVideoLink(task)}
             />
             <div className="flex gap-2">
               <button type="submit" disabled={busy} className={adminUi.btnSolid}>
@@ -708,7 +762,7 @@ export default function AdminClientDetailPage() {
     return (
       <article
         key={sessionNumber}
-        className="space-y-3 rounded-2xl border border-border bg-white p-5"
+        className="space-y-4 rounded-2xl border border-border bg-white p-5"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
@@ -729,6 +783,10 @@ export default function AdminClientDetailPage() {
               } else {
                 setAssignSession(sessionNumber);
                 setTitle(`Task ${sessionTasks.length + 1}`);
+                setInstructions("");
+                setResponseKind(
+                  sessionNumber === INTRO_SESSION ? "review" : "audio",
+                );
               }
             }}
             className={adminUi.btnGhost}
@@ -755,26 +813,11 @@ export default function AdminClientDetailPage() {
               className={`w-full rounded-xl border border-border px-3 py-2 text-sm outline-none ${adminUi.focus}`}
               required
             />
-            <label className="flex items-center gap-2 text-sm font-semibold">
-              <input
-                type="checkbox"
-                checked={recordingRequired}
-                onChange={(e) => setRecordingRequired(e.target.checked)}
-                className="accent-teal-600"
-              />
-              {sessionNumber === INTRO_SESSION
-                ? "Video — Drive or YouTube link"
-                : "Recording required (in-app audio)"}
-            </label>
-            <label className="flex items-center gap-2 text-sm font-semibold">
-              <input
-                type="checkbox"
-                checked={reviewRequired}
-                onChange={(e) => setReviewRequired(e.target.checked)}
-                className="accent-teal-600"
-              />
-              Coach review required
-            </label>
+            <ResponseTypeField
+              kind={responseKind}
+              onChange={setResponseKind}
+              video={sessionNumber === INTRO_SESSION}
+            />
             <button type="submit" disabled={busy} className={adminUi.primaryBtn}>
               {busy ? "Saving…" : "Add task"}
             </button>

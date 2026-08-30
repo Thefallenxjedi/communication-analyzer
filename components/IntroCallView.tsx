@@ -1,4 +1,51 @@
+import type { CSSProperties } from "react";
 import { isIntroCallEmpty, type IntroCallReport } from "@/lib/intro-call";
+
+const serif: CSSProperties = {
+  fontFamily: 'var(--font-playfair), Georgia, "Times New Roman", serif',
+};
+
+function formatReportDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function splitSummary(raw: string): { body: string; callout: string } {
+  const parts = raw
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length >= 2) {
+    return {
+      body: parts.slice(0, -1).join("\n\n"),
+      callout: parts[parts.length - 1] ?? "",
+    };
+  }
+  const sentences = raw.trim().match(/[^.!?]+[.!?]+|[^.!?]+$/g);
+  if (sentences && sentences.length >= 2) {
+    return {
+      body: sentences.slice(0, -1).join("").trim(),
+      callout: sentences[sentences.length - 1]?.trim() ?? "",
+    };
+  }
+  return { body: raw.trim(), callout: "" };
+}
+
+function DocHeading({ children }: { children: string }) {
+  return (
+    <div className="es-doc-head mb-3">
+      <h4 className="es-doc-title text-2xl leading-snug" style={serif}>
+        {children}
+      </h4>
+      <span className="es-doc-rule mt-2 block h-px w-16 bg-[#c9a968]" aria-hidden />
+    </div>
+  );
+}
 
 export function IntroCallView({
   clientName,
@@ -15,36 +62,53 @@ export function IntroCallView({
     );
   }
 
-  return (
-    <div className="space-y-8 text-sm">
-      <div>
-        <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
-          The EliteSpeak Guide
-        </p>
-        <h3 className="mt-1 text-lg font-extrabold">Intro Call Overview</h3>
-        <p className="mt-1 text-muted">Prepared for {clientName}</p>
-      </div>
+  const summary = report?.summary.trim() ?? "";
+  const { body, callout } = summary ? splitSummary(summary) : { body: "", callout: "" };
+  const dated = report?.updatedAt ? formatReportDate(report.updatedAt) : "";
 
-      {report?.summary.trim() ? (
-        <section>
-          <h4 className="text-xl font-extrabold uppercase tracking-wide md:text-2xl">
+  return (
+    <div className="es-doc space-y-9">
+      {summary ? (
+        <section className="es-summary">
+          <h3 className="es-summary-title text-3xl leading-tight" style={serif}>
             Our EliteSpeak Summary
-          </h4>
-          <p className="mt-2 whitespace-pre-wrap leading-relaxed">{report.summary}</p>
+          </h3>
+          <span className="es-doc-rule mt-2 mb-3 block h-px w-16 bg-[#c9a968]" aria-hidden />
+          <p className="es-summary-name text-lg" style={serif}>
+            {clientName}
+          </p>
+          {dated ? (
+            <p className="es-summary-date mt-1 text-sm text-[#7a6f5d]">{dated}</p>
+          ) : null}
+          {body ? (
+            <p className="es-summary-body mt-5 text-base leading-relaxed" style={serif}>
+              {body}
+            </p>
+          ) : null}
+          {callout ? (
+            <p
+              className="es-summary-callout mt-6 border border-[#c9a968] px-5 py-4 text-center text-base leading-relaxed italic"
+              style={serif}
+            >
+              {callout}
+            </p>
+          ) : null}
         </section>
       ) : null}
 
       {report?.challenges.some((item) => item.title || item.body) ? (
         <section>
-          <h4 className="text-xl font-extrabold uppercase tracking-wide md:text-2xl">
-            Main Challenges
-          </h4>
-          <ul className="mt-3 space-y-4">
+          <DocHeading>Main Challenges</DocHeading>
+          <ul className="es-doc-list">
             {report.challenges.map((item, i) => (
               <li key={`${item.title}-${i}`}>
-                {item.title ? <p className="font-bold">{item.title}</p> : null}
+                {item.title ? (
+                  <p className="es-doc-item-title" style={serif}>
+                    {item.title}
+                  </p>
+                ) : null}
                 {item.body ? (
-                  <p className="mt-1 whitespace-pre-wrap leading-relaxed">
+                  <p className="es-doc-copy" style={serif}>
                     {item.body}
                   </p>
                 ) : null}
@@ -56,10 +120,8 @@ export function IntroCallView({
 
       {report?.coachingSchedule.trim() ? (
         <section>
-          <h4 className="text-xl font-extrabold uppercase tracking-wide md:text-2xl">
-            Coaching Schedule
-          </h4>
-          <p className="mt-2 whitespace-pre-wrap leading-relaxed">
+          <DocHeading>Coaching Schedule</DocHeading>
+          <p className="es-doc-copy" style={serif}>
             {report.coachingSchedule}
           </p>
         </section>
@@ -67,18 +129,16 @@ export function IntroCallView({
 
       {report?.osItems.some((item) => item.name || item.goal || item.body) ? (
         <section>
-          <h4 className="text-xl font-extrabold uppercase tracking-wide md:text-2xl">
-            Biggest Communication OS
-          </h4>
-          <ul className="mt-3 space-y-4">
+          <DocHeading>Biggest Communication OS</DocHeading>
+          <ul className="es-doc-list">
             {report.osItems.map((item, i) => (
               <li key={`${item.name}-${i}`}>
-                <p className="font-bold">
+                <p className="es-doc-item-title" style={serif}>
                   {item.name}
                   {item.goal ? ` → ${item.goal}` : ""}
                 </p>
                 {item.body ? (
-                  <p className="mt-1 whitespace-pre-wrap leading-relaxed">
+                  <p className="es-doc-copy" style={serif}>
                     {item.body}
                   </p>
                 ) : null}
@@ -90,15 +150,17 @@ export function IntroCallView({
 
       {report?.reps.some((item) => item.title || item.body) ? (
         <section>
-          <h4 className="text-xl font-extrabold uppercase tracking-wide md:text-2xl">
-            What Reps Look Like
-          </h4>
-          <ol className="mt-3 list-decimal space-y-3 pl-5">
+          <DocHeading>What Reps Look Like</DocHeading>
+          <ol className="es-doc-list es-doc-ol">
             {report.reps.map((item, i) => (
               <li key={`${item.title}-${i}`}>
-                {item.title ? <p className="font-bold">{item.title}</p> : null}
+                {item.title ? (
+                  <p className="es-doc-item-title" style={serif}>
+                    {item.title}
+                  </p>
+                ) : null}
                 {item.body ? (
-                  <p className="mt-1 whitespace-pre-wrap leading-relaxed">
+                  <p className="es-doc-copy" style={serif}>
                     {item.body}
                   </p>
                 ) : null}

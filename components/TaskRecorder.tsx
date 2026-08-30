@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ClipPlayer } from "@/components/ClipPlayer";
 
 function pickMimeType(): string {
   const candidates = [
@@ -146,9 +147,7 @@ export function TaskRecorder({
     return (
       <div className="es-recorder">
         {recordBtn}
-        {previewUrl ? (
-          <audio controls src={previewUrl} className="es-audio" />
-        ) : null}
+        {previewUrl ? <ClipPlayer src={previewUrl} /> : null}
         {error ? (
           <p className="text-sm" style={{ color: "var(--es-ember)" }}>
             {error}

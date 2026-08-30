@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Ember } from "@/components/Ember";
+import { ClipPlayer } from "@/components/ClipPlayer";
 import { IntroCallView } from "@/components/IntroCallView";
 import { SessionReport, SessionReportStep } from "@/components/SessionReport";
 import { TaskRecorder } from "@/components/TaskRecorder";
@@ -164,9 +165,8 @@ function TaskScreen({
     if (!task.recordingRequired) {
       if (!needsCoachReview(task)) {
         return (
-          <div className="es-report-action">
+          <div className="es-task-well">
             <div className="es-task-controls">
-              {showEmber ? <Ember state="play" /> : null}
               <button
                 type="button"
                 disabled={busy}
@@ -180,8 +180,8 @@ function TaskScreen({
         );
       }
       return (
-        <div className="es-report-action">
-          <p className="text-sm text-muted">
+        <div className="es-task-well">
+          <p className="es-task-hint">
             Your coach is working on this. You do not need to record.
           </p>
         </div>
@@ -189,10 +189,9 @@ function TaskScreen({
     }
     if (videoLink) {
       return (
-        <div className="es-report-action">
+        <div className="es-task-well">
           {linkField}
           <div className="es-task-controls">
-            {showEmber ? <Ember state="play" /> : null}
             <button
               type="button"
               disabled={busy || !driveLink.trim()}
@@ -206,9 +205,9 @@ function TaskScreen({
       );
     }
     return (
-      <div className="es-report-action">
+      <div className="es-task-well">
+        <p className="es-label">Your take</p>
         <div className="es-task-controls">
-          {showEmber ? <Ember state="play" /> : null}
           <TaskRecorder look="client" disabled={busy} onReady={onDraft} />
           <button
             type="button"
@@ -226,7 +225,7 @@ function TaskScreen({
   if (task.status === "submitted") {
     const canRevise = !task.clientRevisionUsed;
     return (
-      <div className="es-report-action">
+      <div className="es-task-well">
         <div className="es-task-status">
           <div className="es-task-status-label">
             {showEmber ? <Ember state="review" /> : null}
@@ -240,7 +239,7 @@ function TaskScreen({
         </div>
         {task.driveUrl ? <VideoShareLink href={task.driveUrl} /> : null}
         {task.recordingUrl && !task.driveUrl ? (
-          <audio controls src={task.recordingUrl} className="es-audio" />
+          <ClipPlayer src={task.recordingUrl} />
         ) : null}
         {canRevise && revising ? (
           <>
@@ -272,7 +271,7 @@ function TaskScreen({
           </>
         ) : null}
         {!canRevise ? (
-          <p className="text-sm text-muted">
+          <p className="es-task-hint">
             Your one edit is used. Your coach is reviewing this.
           </p>
         ) : null}
@@ -282,7 +281,7 @@ function TaskScreen({
 
   if (!needsCoachReview(task) || task.rating == null) {
     return (
-      <div className="es-report-action">
+      <div className="es-task-well">
         <div className="es-task-status">
           <div className="es-task-status-label">
             {showEmber ? <Ember state="done" /> : null}
@@ -291,7 +290,7 @@ function TaskScreen({
         </div>
         {task.driveUrl ? <VideoShareLink href={task.driveUrl} /> : null}
         {task.recordingUrl && !task.driveUrl ? (
-          <audio controls src={task.recordingUrl} className="es-audio" />
+          <ClipPlayer src={task.recordingUrl} />
         ) : null}
         {task.responseText ? (
           <p className="whitespace-pre-wrap text-sm">{task.responseText}</p>
@@ -301,7 +300,7 @@ function TaskScreen({
   }
 
   return (
-    <div className="es-report-action">
+    <div className="es-task-well">
       <div className="es-task-status">
         <div className="es-task-status-label">
           {showEmber ? <Ember state="done" /> : null}
@@ -315,11 +314,11 @@ function TaskScreen({
       {task.ratingComment ? (
         <p className="whitespace-pre-wrap leading-relaxed">{task.ratingComment}</p>
       ) : (
-        <p className="text-sm text-muted">No written comment.</p>
+        <p className="es-task-hint">No written comment.</p>
       )}
       {task.driveUrl ? <VideoShareLink href={task.driveUrl} /> : null}
       {task.recordingUrl && !task.driveUrl ? (
-        <audio controls src={task.recordingUrl} className="es-audio" />
+        <ClipPlayer src={task.recordingUrl} />
       ) : null}
       {task.responseText ? (
         <p className="whitespace-pre-wrap text-sm">{task.responseText}</p>
