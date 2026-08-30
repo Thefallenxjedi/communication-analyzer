@@ -164,21 +164,23 @@ function TaskScreen({
     if (!task.recordingRequired) {
       if (!needsCoachReview(task)) {
         return (
-          <div className="es-report-action space-y-3">
-            {showEmber ? <Ember state="play" /> : null}
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => onSubmit(false)}
-              className="es-btn"
-            >
-              {busy ? "Saving…" : "Mark complete"}
-            </button>
+          <div className="es-report-action">
+            <div className="es-task-controls">
+              {showEmber ? <Ember state="play" /> : null}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onSubmit(false)}
+                className="es-btn"
+              >
+                {busy ? "Saving…" : "Mark complete"}
+              </button>
+            </div>
           </div>
         );
       }
       return (
-        <div className="es-report-action space-y-3">
+        <div className="es-report-action">
           <p className="text-sm text-muted">
             Your coach is working on this. You do not need to record.
           </p>
@@ -187,32 +189,36 @@ function TaskScreen({
     }
     if (videoLink) {
       return (
-        <div className="es-report-action space-y-3">
-          {showEmber ? <Ember state="play" /> : null}
+        <div className="es-report-action">
           {linkField}
-          <button
-            type="button"
-            disabled={busy || !driveLink.trim()}
-            onClick={() => onSubmit(false)}
-            className="es-btn"
-          >
-            {busy ? "Saving…" : "Submit"}
-          </button>
+          <div className="es-task-controls">
+            {showEmber ? <Ember state="play" /> : null}
+            <button
+              type="button"
+              disabled={busy || !driveLink.trim()}
+              onClick={() => onSubmit(false)}
+              className="es-btn"
+            >
+              {busy ? "Saving…" : "Submit"}
+            </button>
+          </div>
         </div>
       );
     }
     return (
-      <div className="es-report-action space-y-3">
-        {showEmber ? <Ember state="play" /> : null}
-        <TaskRecorder look="client" disabled={busy} onReady={onDraft} />
-        <button
-          type="button"
-          disabled={busy || !draft}
-          onClick={() => onSubmit(false)}
-          className="es-btn"
-        >
-          {busy ? "Submitting…" : "Submit"}
-        </button>
+      <div className="es-report-action">
+        <div className="es-task-controls">
+          {showEmber ? <Ember state="play" /> : null}
+          <TaskRecorder look="client" disabled={busy} onReady={onDraft} />
+          <button
+            type="button"
+            disabled={busy || !draft}
+            onClick={() => onSubmit(false)}
+            className="es-btn"
+          >
+            {busy ? "Submitting…" : "Submit"}
+          </button>
+        </div>
       </div>
     );
   }
@@ -220,28 +226,32 @@ function TaskScreen({
   if (task.status === "submitted") {
     const canRevise = !task.clientRevisionUsed;
     return (
-      <div className="es-report-action space-y-3">
-        <div className="flex items-center gap-3">
-          {showEmber ? <Ember state="review" /> : null}
-          <p className="es-label">In review</p>
+      <div className="es-report-action">
+        <div className="es-task-status">
+          <div className="es-task-status-label">
+            {showEmber ? <Ember state="review" /> : null}
+            <p className="es-label">In review</p>
+          </div>
+          {canRevise && !revising ? (
+            <button type="button" onClick={onStartRevise} className="es-btn">
+              Edit
+            </button>
+          ) : null}
         </div>
         {task.driveUrl ? <VideoShareLink href={task.driveUrl} /> : null}
         {task.recordingUrl && !task.driveUrl ? (
           <audio controls src={task.recordingUrl} className="es-audio" />
-        ) : null}
-        {canRevise && !revising ? (
-          <button type="button" onClick={onStartRevise} className="es-btn">
-            Edit
-          </button>
         ) : null}
         {canRevise && revising ? (
           <>
             {videoLink ? (
               linkField
             ) : (
-              <TaskRecorder look="client" disabled={busy} onReady={onDraft} />
+              <div className="es-task-controls">
+                <TaskRecorder look="client" disabled={busy} onReady={onDraft} />
+              </div>
             )}
-            <div className="flex flex-wrap gap-2">
+            <div className="es-task-controls">
               <button
                 type="button"
                 disabled={busy || (videoLink ? !driveLink.trim() : !draft)}
@@ -254,8 +264,7 @@ function TaskScreen({
                 type="button"
                 disabled={busy}
                 onClick={onCancelRevise}
-                className="text-sm underline"
-                style={{ color: "var(--es-parchment-dim)" }}
+                className="es-link-btn"
               >
                 Cancel
               </button>
@@ -273,10 +282,12 @@ function TaskScreen({
 
   if (!needsCoachReview(task) || task.rating == null) {
     return (
-      <div className="es-report-action space-y-3">
-        <div className="flex items-center gap-3">
-          {showEmber ? <Ember state="done" /> : null}
-          <p className="es-label">Done</p>
+      <div className="es-report-action">
+        <div className="es-task-status">
+          <div className="es-task-status-label">
+            {showEmber ? <Ember state="done" /> : null}
+            <p className="es-label">Done</p>
+          </div>
         </div>
         {task.driveUrl ? <VideoShareLink href={task.driveUrl} /> : null}
         {task.recordingUrl && !task.driveUrl ? (
@@ -290,10 +301,12 @@ function TaskScreen({
   }
 
   return (
-    <div className="es-report-action space-y-4">
-      <div className="flex items-center gap-3">
-        {showEmber ? <Ember state="done" /> : null}
-        <p className="es-label">Coach review</p>
+    <div className="es-report-action">
+      <div className="es-task-status">
+        <div className="es-task-status-label">
+          {showEmber ? <Ember state="done" /> : null}
+          <p className="es-label">Coach review</p>
+        </div>
       </div>
       <p className="es-mono text-5xl tabular-nums leading-none">
         {task.rating ?? "—"}

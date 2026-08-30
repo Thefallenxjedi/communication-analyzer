@@ -115,53 +115,54 @@ export function TaskRecorder({
     }
   }, [cleanupStream, previewUrl]);
 
+  const recordBtn = recording ? (
+    <button
+      type="button"
+      onClick={stopRecording}
+      className={
+        look === "client"
+          ? "es-btn"
+          : "rounded-full bg-rose-600 px-4 py-2 text-sm font-bold text-white"
+      }
+    >
+      Stop · {elapsed}s
+    </button>
+  ) : (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => void startRecording()}
+      className={
+        look === "client"
+          ? "es-btn"
+          : "rounded-full bg-teal-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-55"
+      }
+    >
+      {previewUrl ? "Re-record" : "Record"}
+    </button>
+  );
+
+  if (look === "client") {
+    return (
+      <div className="es-recorder">
+        {recordBtn}
+        {previewUrl ? (
+          <audio controls src={previewUrl} className="es-audio" />
+        ) : null}
+        {error ? (
+          <p className="text-sm" style={{ color: "var(--es-ember)" }}>
+            {error}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
-        {recording ? (
-          <button
-            type="button"
-            onClick={stopRecording}
-            className={
-              look === "client"
-                ? "es-btn"
-                : "rounded-full bg-rose-600 px-4 py-2 text-sm font-bold text-white"
-            }
-          >
-            Stop · {elapsed}s
-          </button>
-        ) : (
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => void startRecording()}
-            className={
-              look === "client"
-                ? "es-btn"
-                : "rounded-full bg-teal-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-55"
-            }
-          >
-            {previewUrl ? "Re-record" : "Record"}
-          </button>
-        )}
-      </div>
-      {previewUrl ? (
-        <audio
-          controls
-          src={previewUrl}
-          className={look === "client" ? "es-audio" : "w-full"}
-        />
-      ) : null}
-      {error ? (
-        <p
-          className={
-            look === "client" ? "text-sm" : "text-sm text-rose-600"
-          }
-          style={look === "client" ? { color: "var(--es-ember)" } : undefined}
-        >
-          {error}
-        </p>
-      ) : null}
+      <div className="flex flex-wrap gap-2">{recordBtn}</div>
+      {previewUrl ? <audio controls src={previewUrl} className="w-full" /> : null}
+      {error ? <p className="text-sm text-rose-600">{error}</p> : null}
     </div>
   );
 }

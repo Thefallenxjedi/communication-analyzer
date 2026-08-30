@@ -503,8 +503,8 @@ export default function AdminClientDetailPage() {
   function renderTask(task: CoachingTask) {
     return (
       <article key={task.id} className="rounded-2xl border border-border bg-white p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
             <h3 className="text-base font-extrabold text-slate-900">{task.title}</h3>
             <p className="mt-1 text-xs text-muted">
               {[
@@ -522,8 +522,8 @@ export default function AdminClientDetailPage() {
                 .join(" · ")}
             </p>
           </div>
-          {needsCoachReview(task) ? (
-            <div className="flex flex-wrap gap-2">
+          {editId === task.id ? null : (
+            <div className="flex shrink-0 flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -535,7 +535,9 @@ export default function AdminClientDetailPage() {
               >
                 Edit
               </button>
-              {task.status === "open" && !task.recordingRequired ? (
+              {needsCoachReview(task) &&
+              task.status === "open" &&
+              !task.recordingRequired ? (
                 <button
                   type="button"
                   disabled={busy}
@@ -556,10 +558,10 @@ export default function AdminClientDetailPage() {
                 </button>
               ) : null}
             </div>
-          ) : null}
+          )}
         </div>
         {editId === task.id ? (
-          <form onSubmit={(e) => void onSaveTaskEdit(e)} className="space-y-2">
+          <form onSubmit={(e) => void onSaveTaskEdit(e)} className="mt-3 space-y-3">
             <input
               type="text"
               value={editTitle}
@@ -570,7 +572,7 @@ export default function AdminClientDetailPage() {
             <textarea
               value={editInstructions}
               onChange={(e) => setEditInstructions(e.target.value.slice(0, 8000))}
-              rows={5}
+              rows={4}
               className={`w-full rounded-xl border border-border px-3 py-2 text-sm outline-none ${adminUi.focus}`}
               required
             />
@@ -706,7 +708,7 @@ export default function AdminClientDetailPage() {
     return (
       <article
         key={sessionNumber}
-        className="space-y-5 rounded-2xl border border-border bg-white p-6"
+        className="space-y-3 rounded-2xl border border-border bg-white p-5"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>

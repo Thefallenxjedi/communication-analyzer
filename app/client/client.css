@@ -265,8 +265,8 @@
 }
 
 .es-report-step + .es-report-step {
-  margin-top: 1.75rem;
-  padding-top: 1.5rem;
+  margin-top: 1.05rem;
+  padding-top: 1rem;
   border-top: 1px solid #e0d6c0;
 }
 
@@ -291,20 +291,66 @@
 }
 
 .es-report-step-body {
-  margin-top: 0.75rem;
+  margin-top: 0.4rem;
   margin-left: 0;
   font-size: 0.95rem;
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .es-report-step-body p {
+  margin: 0;
   white-space: pre-wrap;
 }
 
 .es-report-action {
-  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.7rem;
   border-top: 1px solid #e0d6c0;
-  padding-top: 1rem;
+  padding-top: 0.7rem;
+}
+
+.es-task-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.es-task-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.es-task-status-label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.es-recorder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.es-recorder .es-audio,
+.es-recorder p {
+  flex: 1 1 100%;
+}
+
+.es-link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 0.875rem;
+  text-decoration: underline;
+  color: #6b6250;
 }
 
 .es-report-paste-wrap {
@@ -359,6 +405,10 @@
 .es-report .es-btn {
   background: #141210;
   color: #f4efe3;
+  min-height: 2.35rem;
+  width: auto;
+  flex: 0 0 auto;
+  padding: 0 1.1rem;
 }
 
 .es-report .es-input {
@@ -385,13 +435,16 @@
 }
 
 .es-report .es-drive-link {
-  display: inline-flex;
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: 0.45rem;
   font-weight: 600;
   color: #141210;
   text-decoration: underline;
   text-underline-offset: 0.15em;
+  overflow-wrap: anywhere;
 }
 
 .es-report .es-audio {
