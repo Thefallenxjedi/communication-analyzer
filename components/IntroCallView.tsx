@@ -15,27 +15,6 @@ function formatReportDate(iso: string): string {
   });
 }
 
-function splitSummary(raw: string): { body: string; callout: string } {
-  const parts = raw
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  if (parts.length >= 2) {
-    return {
-      body: parts.slice(0, -1).join("\n\n"),
-      callout: parts[parts.length - 1] ?? "",
-    };
-  }
-  const sentences = raw.trim().match(/[^.!?]+[.!?]+|[^.!?]+$/g);
-  if (sentences && sentences.length >= 2) {
-    return {
-      body: sentences.slice(0, -1).join("").trim(),
-      callout: sentences[sentences.length - 1]?.trim() ?? "",
-    };
-  }
-  return { body: raw.trim(), callout: "" };
-}
-
 function DocHeading({ children }: { children: string }) {
   return (
     <div className="es-doc-head mb-3">
@@ -63,7 +42,6 @@ export function IntroCallView({
   }
 
   const summary = report?.summary.trim() ?? "";
-  const { body, callout } = summary ? splitSummary(summary) : { body: "", callout: "" };
   const dated = report?.updatedAt ? formatReportDate(report.updatedAt) : "";
 
   return (
@@ -80,19 +58,9 @@ export function IntroCallView({
           {dated ? (
             <p className="es-summary-date mt-1 text-sm text-[#7a6f5d]">{dated}</p>
           ) : null}
-          {body ? (
-            <p className="es-summary-body mt-5 text-base leading-relaxed" style={serif}>
-              {body}
-            </p>
-          ) : null}
-          {callout ? (
-            <p
-              className="es-summary-callout mt-6 border border-[#c9a968] px-5 py-4 text-center text-base leading-relaxed italic"
-              style={serif}
-            >
-              {callout}
-            </p>
-          ) : null}
+          <p className="es-summary-body mt-5 text-base leading-relaxed" style={serif}>
+            {summary}
+          </p>
         </section>
       ) : null}
 

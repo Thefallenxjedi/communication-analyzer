@@ -56,12 +56,12 @@ export function usesVideoLink(task: {
   return task.recordingRequired === true && (task.sessionNumber ?? 1) === INTRO_SESSION;
 }
 
-export type TaskResponseKind = "audio" | "review";
+export type TaskResponseKind = "record" | "lesson";
 
 export function taskResponseKind(task: {
-  reviewRequired?: boolean;
+  recordingRequired?: boolean;
 }): TaskResponseKind {
-  return task.reviewRequired === false ? "audio" : "review";
+  return task.recordingRequired === true ? "record" : "lesson";
 }
 
 export function isTaskLocked(status: CoachingTaskStatus): boolean {

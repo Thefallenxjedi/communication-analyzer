@@ -184,16 +184,19 @@
   width: 100%;
   flex: 1;
   flex-direction: column;
-  overflow: auto;
+  overflow: hidden;
   background: #f4efe3;
   color: #141210;
 }
 
 .es-report-main {
   min-width: 0;
+  min-height: 0;
   flex: 1;
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .es-report h1,
@@ -289,7 +292,7 @@
 }
 
 .es-report-body {
-  padding: 1rem 1.15rem 1.5rem;
+  padding: 1rem 1.15rem 2.5rem;
   flex: 1;
 }
 
@@ -344,10 +347,18 @@
   display: flex;
   flex-direction: column;
   gap: 0.7rem;
-  margin-top: 0.85rem;
+  margin-top: 0.55rem;
   padding: 0.9rem;
   border-radius: 1.15rem;
   background: #ebe4d4;
+}
+
+.es-review-comment {
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.65;
+  color: #1a1612;
+  white-space: pre-wrap;
 }
 
 .es-task-hint {
@@ -446,7 +457,7 @@
   display: block;
   min-width: 0;
   flex: 1;
-  height: 4px;
+  height: 6px;
   padding: 0;
   border: 0;
   border-radius: 9999px;
@@ -460,6 +471,18 @@
   border-radius: inherit;
   background: #141210;
   pointer-events: none;
+}
+
+.es-clip-fill::after {
+  content: "";
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #141210;
+  transform: translateY(-50%);
 }
 
 .es-link-btn {
@@ -727,7 +750,7 @@
 
   .es-client-main {
     padding: 1.5rem;
-    overflow-y: auto;
+    overflow: hidden;
   }
 
   .es-client-error {
@@ -748,6 +771,10 @@
     flex-direction: row;
     overflow: hidden;
     border: 1px solid color-mix(in srgb, var(--es-gold) 35%, transparent);
+  }
+
+  .es-report-main {
+    overflow-y: auto;
   }
 
   .es-report-rail-top {
@@ -781,7 +808,7 @@
   }
 
   .es-report-body {
-    padding: 1.35rem 1.75rem 2rem;
+    padding: 1.35rem 1.75rem 3rem;
   }
 
   .es-report-step-body {

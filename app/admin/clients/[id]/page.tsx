@@ -40,39 +40,35 @@ function ResponseTypeField({
   onChange: (kind: TaskResponseKind) => void;
   video: boolean;
 }) {
-  const audioName = video ? "Video" : "Audio";
-  const audioHint = video
+  const recordHint = video
     ? "Client pastes a Drive or YouTube link."
-    : "Client records in the app. No coach rating.";
-  const reviewHint = video
-    ? "Client pastes a link. You write the review."
-    : "Client records. You rate the take.";
+    : "Client records audio in the app.";
   const selected =
     "rounded-xl border-2 border-slate-900 bg-slate-50 px-3 py-2.5 text-left";
   const idle =
     "rounded-xl border border-border bg-white px-3 py-2.5 text-left hover:bg-slate-50";
   return (
     <fieldset>
-      <legend className="text-sm font-semibold">Response type</legend>
+      <legend className="text-sm font-semibold">Task type</legend>
       <div className="mt-2 grid grid-cols-2 gap-2">
         <button
           type="button"
-          onClick={() => onChange("audio")}
-          className={kind === "audio" ? selected : idle}
+          onClick={() => onChange("record")}
+          className={kind === "record" ? selected : idle}
         >
-          <span className="block text-sm font-extrabold">{audioName}</span>
+          <span className="block text-sm font-extrabold">Record audio</span>
           <span className="mt-0.5 block text-xs font-normal text-muted">
-            {audioHint}
+            {recordHint}
           </span>
         </button>
         <button
           type="button"
-          onClick={() => onChange("review")}
-          className={kind === "review" ? selected : idle}
+          onClick={() => onChange("lesson")}
+          className={kind === "lesson" ? selected : idle}
         >
-          <span className="block text-sm font-extrabold">Review</span>
+          <span className="block text-sm font-extrabold">Self lesson</span>
           <span className="mt-0.5 block text-xs font-normal text-muted">
-            {reviewHint}
+            Written work. Client marks complete. No recording.
           </span>
         </button>
       </div>
@@ -167,7 +163,7 @@ export default function AdminClientDetailPage() {
 
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [responseKind, setResponseKind] = useState<TaskResponseKind>("audio");
+  const [responseKind, setResponseKind] = useState<TaskResponseKind>("record");
 
   const [rateId, setRateId] = useState<string | null>(null);
   const [rating, setRating] = useState("8");
@@ -175,7 +171,7 @@ export default function AdminClientDetailPage() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editInstructions, setEditInstructions] = useState("");
-  const [editKind, setEditKind] = useState<TaskResponseKind>("audio");
+  const [editKind, setEditKind] = useState<TaskResponseKind>("record");
 
   const load = useCallback(
     async (pwd: string) => {
@@ -313,8 +309,8 @@ export default function AdminClientDetailPage() {
           sessionNumber: assignSession ?? 1,
           title: title.trim(),
           instructions: instructions.trim(),
-          recordingRequired: true,
-          reviewRequired: responseKind === "review",
+          recordingRequired: responseKind === "record",
+          reviewRequired: responseKind === "record",
         }),
       });
       const data = (await res.json()) as {
@@ -386,8 +382,8 @@ export default function AdminClientDetailPage() {
           clientId,
           title: editTitle.trim(),
           instructions: editInstructions.trim(),
-          recordingRequired: true,
-          reviewRequired: editKind === "review",
+          recordingRequired: editKind === "record",
+          reviewRequired: editKind === "record",
         }),
       });
       const data = (await res.json()) as {
@@ -564,7 +560,11 @@ export default function AdminClientDetailPage() {
                 task.status === "open"
                   ? null
                   : taskStatusLabel(task.status, "admin"),
-                taskResponseKind(task) === "review" ? "Review" : usesVideoLink(task) ? "Video" : "Audio",
+                taskResponseKind(task) === "record"
+                  ? usesVideoLink(task)
+                    ? "Record video"
+                    : "Record audio"
+                  : "Self lesson",
               ]
                 .filter(Boolean)
                 .join(" · ")}
@@ -784,9 +784,7 @@ export default function AdminClientDetailPage() {
                 setAssignSession(sessionNumber);
                 setTitle(`Task ${sessionTasks.length + 1}`);
                 setInstructions("");
-                setResponseKind(
-                  sessionNumber === INTRO_SESSION ? "review" : "audio",
-                );
+                setResponseKind("record");
               }
             }}
             className={adminUi.btnGhost}

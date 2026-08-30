@@ -239,7 +239,7 @@ function TaskScreen({
         </div>
         {task.driveUrl ? <VideoShareLink href={task.driveUrl} /> : null}
         {task.recordingUrl && !task.driveUrl ? (
-          <ClipPlayer src={task.recordingUrl} />
+          <ClipPlayer src={task.recordingUrl} durationSec={task.durationSec} />
         ) : null}
         {canRevise && revising ? (
           <>
@@ -290,7 +290,7 @@ function TaskScreen({
         </div>
         {task.driveUrl ? <VideoShareLink href={task.driveUrl} /> : null}
         {task.recordingUrl && !task.driveUrl ? (
-          <ClipPlayer src={task.recordingUrl} />
+          <ClipPlayer src={task.recordingUrl} durationSec={task.durationSec} />
         ) : null}
         {task.responseText ? (
           <p className="whitespace-pre-wrap text-sm">{task.responseText}</p>
@@ -312,13 +312,13 @@ function TaskScreen({
         <span className="text-lg text-muted"> / 10</span>
       </p>
       {task.ratingComment ? (
-        <p className="whitespace-pre-wrap leading-relaxed">{task.ratingComment}</p>
+        <p className="es-review-comment">{task.ratingComment}</p>
       ) : (
         <p className="es-task-hint">No written comment.</p>
       )}
       {task.driveUrl ? <VideoShareLink href={task.driveUrl} /> : null}
       {task.recordingUrl && !task.driveUrl ? (
-        <ClipPlayer src={task.recordingUrl} />
+        <ClipPlayer src={task.recordingUrl} durationSec={task.durationSec} />
       ) : null}
       {task.responseText ? (
         <p className="whitespace-pre-wrap text-sm">{task.responseText}</p>
