@@ -68,6 +68,10 @@ export function isTaskLocked(status: CoachingTaskStatus): boolean {
   return status !== "open";
 }
 
+export function isTaskFinished(status: CoachingTaskStatus): boolean {
+  return status === "reviewed" || status === "done";
+}
+
 export async function listCoachingTasks(
   clientId: string,
 ): Promise<CoachingTask[]> {

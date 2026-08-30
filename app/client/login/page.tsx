@@ -33,8 +33,12 @@ export default function ClientLoginPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-6 py-16">
-      <p className="es-label">EliteSpeak</p>
-      <h1 className="mt-3 text-4xl">Client login</h1>
+      <img
+        src="/brand/elitespeak-mark.png"
+        alt="EliteSpeak"
+        className="es-login-mark"
+      />
+      <h1 className="mt-6 text-3xl">Client login</h1>
       <p className="mt-3 text-sm text-muted">
         Temporary login while we build. Use the email from EliteSpeak Clients.
       </p>

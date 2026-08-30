@@ -17,6 +17,7 @@ import {
 import type { CoachingSessionSlot } from "@/lib/coaching-sessions";
 import {
   isTaskLocked,
+  isTaskFinished,
   needsCoachReview,
   taskResponseKind,
   taskStatusLabel,
@@ -549,28 +550,41 @@ export default function AdminClientDetailPage() {
   const row = client;
   const here = parseCurrentStage(row.currentStage);
 
-  function renderTask(task: CoachingTask) {
+  function renderTask(task: CoachingTask, sessionLocked: boolean) {
+    const lesson = taskResponseKind(task) === "lesson";
+    const finished = isTaskFinished(task.status);
+    const kindLabel =
+      lesson
+        ? "Self lesson"
+        : usesVideoLink(task)
+          ? "Record video"
+          : "Record audio";
+    const progressLabel = lesson
+      ? finished
+        ? "Completed"
+        : "Not completed"
+      : task.status === "open"
+        ? "Not started"
+        : taskStatusLabel(task.status, "admin");
     return (
       <article key={task.id} className="rounded-2xl border border-border bg-white p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h3 className="text-base font-extrabold text-slate-900">{task.title}</h3>
-            <p className="mt-1 text-xs text-muted">
-              {[
-                task.status === "open"
-                  ? null
-                  : taskStatusLabel(task.status, "admin"),
-                taskResponseKind(task) === "record"
-                  ? usesVideoLink(task)
-                    ? "Record video"
-                    : "Record audio"
-                  : "Self lesson",
-              ]
-                .filter(Boolean)
-                .join(" · ")}
+            <p className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-muted">{kindLabel}</span>
+              <span
+                className={
+                  finished
+                    ? "rounded-full bg-slate-900 px-2.5 py-0.5 font-bold text-white"
+                    : "rounded-full bg-amber-50 px-2.5 py-0.5 font-bold text-amber-800"
+                }
+              >
+                {progressLabel}
+              </span>
             </p>
           </div>
-          {editId === task.id ? null : (
+          {sessionLocked || finished || editId === task.id ? null : (
             <div className="flex shrink-0 flex-wrap gap-2">
               <button
                 type="button"
@@ -609,7 +623,12 @@ export default function AdminClientDetailPage() {
             </div>
           )}
         </div>
-        {editId === task.id ? (
+        {finished ? (
+          <p className="mt-3 text-sm font-semibold text-slate-700">
+            This task has been completed.
+          </p>
+        ) : null}
+        {editId === task.id && !finished && !sessionLocked ? (
           <form onSubmit={(e) => void onSaveTaskEdit(e)} className="mt-3 space-y-3">
             <input
               type="text"
@@ -700,6 +719,7 @@ export default function AdminClientDetailPage() {
           </div>
         ) : null}
         {needsCoachReview(task) &&
+        !sessionLocked &&
         (task.status === "submitted" ||
           task.status === "reviewed" ||
           task.status === "done") ? (
@@ -759,6 +779,10 @@ export default function AdminClientDetailPage() {
   function renderWorkspace(sessionNumber: number) {
     const sessionTasks = tasksForSession(tasks, sessionNumber);
     const adding = assignSession === sessionNumber;
+    const sessionLocked =
+      sessionTasks.length > 0 &&
+      sessionTasks.every((task) => isTaskFinished(task.status)) &&
+      (sessionNumber !== INTRO_SESSION || !isIntroCallEmpty(introSaved));
     return (
       <article
         key={sessionNumber}
@@ -769,12 +793,17 @@ export default function AdminClientDetailPage() {
             <h2 className="text-lg font-extrabold tracking-tight">
               {sessionHeadline(sessionNumber)}
             </h2>
-            {sessionMilestoneLine(sessionNumber) ? (
+            {sessionLocked ? (
+              <p className="mt-1 text-sm font-semibold text-slate-700">
+                This session has been completed.
+              </p>
+            ) : sessionMilestoneLine(sessionNumber) ? (
               <p className="mt-1 text-sm text-muted">
                 {sessionMilestoneLine(sessionNumber)}
               </p>
             ) : null}
           </div>
+          {sessionLocked ? null : (
           <button
             type="button"
             onClick={() => {
@@ -791,9 +820,10 @@ export default function AdminClientDetailPage() {
           >
             {adding ? "Cancel" : "+ Task"}
           </button>
+          )}
         </div>
 
-        {adding ? (
+        {adding && !sessionLocked ? (
           <form onSubmit={(e) => void onAssign(e)} className="space-y-3 border-t border-border pt-3">
             <input
               type="text"
@@ -825,7 +855,7 @@ export default function AdminClientDetailPage() {
         {sessionTasks.length === 0 && !adding ? (
           <p className="text-sm text-muted">No tasks yet. Use + Task.</p>
         ) : (
-          sessionTasks.map((task) => renderTask(task))
+          sessionTasks.map((task) => renderTask(task, sessionLocked))
         )}
 
         {sessionNumber === INTRO_SESSION ? (
@@ -840,7 +870,7 @@ export default function AdminClientDetailPage() {
                   the top breakdowns, and sets focus areas.
                 </p>
               </div>
-              {editingIntro ? (
+              {sessionLocked ? null : editingIntro ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -1059,6 +1089,11 @@ export default function AdminClientDetailPage() {
             <Link href="/admin/clients" className={`text-sm font-semibold ${adminUi.link}`}>
               ← Clients
             </Link>
+            <img
+              src="/brand/elitespeak-mark.png"
+              alt="EliteSpeak"
+              className="mt-3 h-16 w-16 rounded-xl object-cover"
+            />
             <p className={`mt-3 text-xs font-semibold uppercase tracking-[0.16em] ${adminUi.brand}`}>
               EliteSpeak
             </p>

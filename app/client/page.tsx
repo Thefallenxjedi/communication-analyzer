@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ember } from "@/components/Ember";
+import { HowItWorksRoadmap } from "@/components/HowItWorksRoadmap";
 import { ClipPlayer } from "@/components/ClipPlayer";
 import { IntroCallView } from "@/components/IntroCallView";
 import { SessionReport, SessionReportStep } from "@/components/SessionReport";
@@ -28,7 +28,7 @@ import { isIntroCallEmpty, type IntroCallReport } from "@/lib/intro-call";
 
 type Milestone = "complete" | "current" | "upcoming";
 
-type NavId = number;
+type NavId = number | "how-it-works";
 
 function stageToNav(stage: string | undefined): NavId {
   return parseCurrentStage(stage);
@@ -79,6 +79,35 @@ function tasksForSession(tasks: CoachingTask[], sessionNumber: number) {
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
+function isSessionNav(nav: NavId): nav is number {
+  return nav !== "how-it-works";
+}
+
+function CompassMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="es-nav-how-icon" aria-hidden>
+      <circle
+        cx="12"
+        cy="12"
+        r="8.25"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+      />
+      <path
+        d="M12 3.6v1.6M12 18.8v1.6M3.6 12h1.6M18.8 12h1.6"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+      <path
+        fill="currentColor"
+        d="M12.7 7.4 14.8 14l-2.1-.9-.9-2.1-2.1.9 2.1-6.5z"
+      />
+    </svg>
+  );
+}
+
 function DriveMark() {
   return (
     <svg viewBox="0 0 24 24" className="es-share-icon" aria-hidden>
@@ -117,6 +146,7 @@ function TaskScreen({
   draft,
   busy,
   showEmber,
+  sessionComplete,
   revising,
   onDriveLink,
   onDraft,
@@ -129,6 +159,7 @@ function TaskScreen({
   draft?: { file: File; durationSec: number };
   busy: boolean;
   showEmber: boolean;
+  sessionComplete: boolean;
   revising: boolean;
   onDriveLink: (value: string) => void;
   onDraft: (file: File, durationSec: number) => void;
@@ -221,7 +252,7 @@ function TaskScreen({
   }
 
   if (task.status === "submitted") {
-    const canRevise = !task.clientRevisionUsed;
+    const canRevise = !sessionComplete && !task.clientRevisionUsed;
     return (
       <div className="es-task-well">
         <div className="es-task-status">
@@ -268,7 +299,7 @@ function TaskScreen({
             </div>
           </>
         ) : null}
-        {!canRevise ? (
+        {!canRevise && !sessionComplete ? (
           <p className="es-task-hint">
             Your one edit is used. Your coach is reviewing this.
           </p>
@@ -283,7 +314,7 @@ function TaskScreen({
         <div className="es-task-status">
           <div className="es-task-status-label">
             {showEmber ? <Ember state="done" /> : null}
-            <p className="es-label">Done</p>
+            <p className="es-label">This task has been completed</p>
           </div>
         </div>
         {task.driveUrl ? <VideoShareLink href={task.driveUrl} /> : null}
@@ -302,7 +333,7 @@ function TaskScreen({
       <div className="es-task-status">
         <div className="es-task-status-label">
           {showEmber ? <Ember state="done" /> : null}
-          <p className="es-label">Coach review</p>
+          <p className="es-label">This task has been completed</p>
         </div>
       </div>
       <p className="es-mono text-5xl tabular-nums leading-none">
@@ -483,7 +514,8 @@ export default function ClientHomePage() {
 
   const row = client;
   const here = stageToNav(row.currentStage);
-  const selectedTasks = tasksForSession(tasks, nav);
+  const selectedTasks = isSessionNav(nav) ? tasksForSession(tasks, nav) : [];
+  const sessionComplete = isSessionComplete(selectedTasks);
   const emberId = liveTaskId(
     selectedTasks.filter((task) => task.recordingRequired),
   );
@@ -500,11 +532,14 @@ export default function ClientHomePage() {
 
   function stepTitle(task: CoachingTask, index: number) {
     const raw = task.title.trim();
-    if (/^task\s+\d+/i.test(raw) || nav === INTRO_SESSION) return raw;
+    if (/^task\s+\d+/i.test(raw) || (isSessionNav(nav) && nav === INTRO_SESSION)) return raw;
     return `Task ${index + 1}`;
   }
 
   function sessionKicker() {
+    if (sessionComplete) {
+      return `${row.name}, this session has been completed.`;
+    }
     if (nav === INTRO_SESSION) {
       return `${row.name}, paste a Google Drive or YouTube link for your baseline video. Your coach will write the diagnosis after the call.`;
     }
@@ -524,6 +559,7 @@ export default function ClientHomePage() {
           draft={drafts[task.id]}
           busy={busyId === task.id}
           showEmber={emberId === task.id}
+          sessionComplete={sessionComplete}
           revising={revisingId === task.id}
           onDriveLink={(value) =>
             setDriveLinks((prev) => ({ ...prev, [task.id]: value }))
@@ -561,7 +597,11 @@ export default function ClientHomePage() {
     <div className="es-client-shell">
       <aside className="es-client-aside">
         <div className="es-client-identity">
-          <p className="es-label es-aside-brand">EliteSpeak</p>
+          <img
+            src="/brand/elitespeak-mark.png"
+            alt="EliteSpeak"
+            className="es-aside-mark"
+          />
           <p className="es-aside-name">{client.name}</p>
           <p className="es-aside-email">{client.email}</p>
           {client.currentFocus ? (
@@ -618,6 +658,20 @@ export default function ClientHomePage() {
             );
           })}
         </nav>
+        <div className="es-client-extra">
+          <button
+            type="button"
+            onClick={() => setNav("how-it-works")}
+            className={
+              nav === "how-it-works"
+                ? "es-nav-how es-nav-how--active"
+                : "es-nav-how"
+            }
+          >
+            <CompassMark />
+            How It Works
+          </button>
+        </div>
         <div className="es-client-tools">
           {client.meetingLink ? (
             <a
@@ -641,24 +695,34 @@ export default function ClientHomePage() {
         </div>
       </aside>
 
-      <main className="es-client-main">
-        <SessionReport
-          className="flex-1"
-          title={sessionLabel(nav)}
-          kicker={sessionKicker()}
-        >
-          {selectedTasks.length === 0 && nav !== INTRO_SESSION ? null : (
-            selectedTasks.map((task, index) => renderTaskStep(task, index))
-          )}
-          {nav === INTRO_SESSION ? (
-            <SessionReportStep
-              n={selectedTasks.length + 1}
-              title="Intro Diagnosis"
-            >
-              <IntroCallView clientName={client.name} report={intro} />
-            </SessionReportStep>
-          ) : null}
-        </SessionReport>
+      <main
+        className={
+          nav === "how-it-works"
+            ? "es-client-main es-client-main--roadmap"
+            : "es-client-main"
+        }
+      >
+        {nav === "how-it-works" ? (
+          <HowItWorksRoadmap />
+        ) : (
+          <SessionReport
+            className="flex-1"
+            title={sessionLabel(nav)}
+            kicker={sessionKicker()}
+          >
+            {selectedTasks.length === 0 && nav !== INTRO_SESSION ? null : (
+              selectedTasks.map((task, index) => renderTaskStep(task, index))
+            )}
+            {nav === INTRO_SESSION ? (
+              <SessionReportStep
+                n={selectedTasks.length + 1}
+                title="Intro Diagnosis"
+              >
+                <IntroCallView clientName={client.name} report={intro} />
+              </SessionReportStep>
+            ) : null}
+          </SessionReport>
+        )}
         {error ? (
           <p className="es-client-error" style={{ color: "var(--es-ember)" }}>
             {error}
