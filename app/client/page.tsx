@@ -747,12 +747,10 @@ export default function ClientHomePage() {
           <HowItWorksRoadmap />
         ) : nav === "linkedin" ? (
           <SessionReport
-            className="flex-1"
+            className="flex-1 es-report--linkedin"
             title="LinkedIn"
             kicker={
-              row.onboardingComplete
-                ? `${row.name}, this is submitted.`
-                : `${row.name}, send your LinkedIn profile.`
+              row.onboardingComplete ? undefined : "Send your LinkedIn PDF."
             }
           >
             <LinkedInUpload

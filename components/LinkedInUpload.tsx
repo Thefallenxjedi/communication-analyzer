@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 
 const STEPS = [
   "Open your profile",
@@ -29,15 +29,16 @@ export function LinkedInUpload({
   done: boolean;
   onSaved: () => Promise<void> | void;
 }) {
+  const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (done) return;
+    if (done || busy) return;
     if (!file) {
-      setError("Choose the LinkedIn PDF first.");
+      inputRef.current?.click();
       return;
     }
     if (file.type && file.type !== "application/pdf") {
@@ -97,9 +98,8 @@ export function LinkedInUpload({
     <div className="es-li">
       <LinkedInMark className="es-li-logo" />
       <p className="es-li-why">
-        Your coach wants to help you where it actually matters — what could be
-        better, what you already do, and what to improve. That is why we ask
-        for LinkedIn.
+        Your coach uses this to see where you already stand — and what to
+        improve.
       </p>
       <ol className="es-li-steps">
         {STEPS.map((step, i) => (
@@ -117,17 +117,39 @@ export function LinkedInUpload({
         />
       </figure>
       <form onSubmit={(e) => void onSubmit(e)} className="es-li-form">
-        <label className="es-li-file">
-          <span>{file ? file.name : "Choose PDF"}</span>
-          <input
-            type="file"
-            accept="application/pdf,.pdf"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-        </label>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="application/pdf,.pdf"
+          onChange={(e) => {
+            setFile(e.target.files?.[0] ?? null);
+            setError("");
+          }}
+        />
+        {file ? (
+          <button
+            type="button"
+            className="es-li-file-name"
+            onClick={() => inputRef.current?.click()}
+          >
+            {file.name}
+          </button>
+        ) : null}
         {error ? <p className="es-li-error">{error}</p> : null}
-        <button type="submit" disabled={busy || !file} className="es-btn es-li-submit">
-          {busy ? "Saving…" : "Send to your coach"}
+        <button
+          type={file ? "submit" : "button"}
+          disabled={busy}
+          className="es-btn es-li-submit"
+          onClick={
+            file
+              ? undefined
+              : () => {
+                  setError("");
+                  inputRef.current?.click();
+                }
+          }
+        >
+          {busy ? "Saving…" : file ? "Send to your coach" : "Upload PDF"}
         </button>
       </form>
     </div>
