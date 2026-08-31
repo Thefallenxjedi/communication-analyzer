@@ -13,6 +13,7 @@ import type * as coaching from "../coaching.js";
 import type * as coachingProgram from "../coachingProgram.js";
 import type * as coachingSessions from "../coachingSessions.js";
 import type * as crons from "../crons.js";
+import type * as demoSeed from "../demoSeed.js";
 import type * as diagnosisCorePrompt from "../diagnosisCorePrompt.js";
 import type * as estimateAnalysisDuration from "../estimateAnalysisDuration.js";
 import type * as introCall from "../introCall.js";
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   coachingProgram: typeof coachingProgram;
   coachingSessions: typeof coachingSessions;
   crons: typeof crons;
+  demoSeed: typeof demoSeed;
   diagnosisCorePrompt: typeof diagnosisCorePrompt;
   estimateAnalysisDuration: typeof estimateAnalysisDuration;
   introCall: typeof introCall;
