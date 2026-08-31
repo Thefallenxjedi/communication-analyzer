@@ -1,6 +1,6 @@
 import { v } from "convex/values";
+import { anyApi } from "convex/server";
 import { action, internalMutation } from "./_generated/server";
-import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { INTRO_SESSION } from "./coachingProgram";
 
@@ -120,7 +120,7 @@ export const seedSampleClient = action({
     const pdfId = await ctx.storage.store(asBlob(dummyPdf(), "application/pdf"));
     const clipA = await ctx.storage.store(asBlob(toneWav(), "audio/wav"));
     const clipB = await ctx.storage.store(asBlob(toneWav(2, 330), "audio/wav"));
-    return await ctx.runMutation(internal.demoSeed.applySampleClient, {
+    return await ctx.runMutation(anyApi.demoSeed.applySampleClient, {
       pdfId,
       clipA,
       clipB,
