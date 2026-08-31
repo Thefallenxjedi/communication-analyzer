@@ -168,9 +168,9 @@ export async function getCoachingStorageUrl(
 
 export async function saveClientOnboarding(input: {
   clientId: string;
-  role: string;
+  role?: string;
   company?: string;
-  goal: string;
+  goal?: string;
   linkedinStorageId: string;
   linkedinText: string;
   linkedinProfileJson: string;
@@ -188,20 +188,14 @@ export async function saveClientOnboarding(input: {
       linkedinStorageId: input.linkedinStorageId as never,
       linkedinText: input.linkedinText,
       linkedinProfileJson: input.linkedinProfileJson,
-    })) as { ok?: boolean; reason?: string };
+    })) as { ok?: boolean };
     if (!result?.ok) {
-      return {
-        ok: false,
-        error:
-          result?.reason === "already_complete"
-            ? "Onboarding is already complete."
-            : "Could not save onboarding.",
-      };
+      return { ok: false, error: "Could not save LinkedIn profile." };
     }
     return { ok: true };
   } catch (err) {
     const error = formatConvexError(err);
-    console.error("[coaching] onboarding failed", error, err);
+    console.error("[coaching] linkedin save failed", error, err);
     return { ok: false, error };
   }
 }

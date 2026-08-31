@@ -23,26 +23,14 @@ export async function POST(request: Request) {
     return Response.json({ error: "Not signed in." }, { status: 401 });
   }
 
-  let body: {
-    role?: string;
-    company?: string;
-    goal?: string;
-    storageId?: string;
-  };
+  let body: { storageId?: string };
   try {
     body = (await request.json()) as typeof body;
   } catch {
     return Response.json({ error: "Invalid JSON." }, { status: 400 });
   }
 
-  const role = body.role?.replace(/\s+/g, " ").trim() || "";
-  const company = body.company?.replace(/\s+/g, " ").trim() || "";
-  const goal = body.goal?.replace(/\s+/g, " ").trim() || "";
   const storageId = body.storageId?.trim() || "";
-  if (!role) return Response.json({ error: "Tell us your role." }, { status: 400 });
-  if (!goal) {
-    return Response.json({ error: "Tell us what you want from the program." }, { status: 400 });
-  }
   if (!storageId) {
     return Response.json({ error: "Upload your LinkedIn PDF." }, { status: 400 });
   }
@@ -51,9 +39,6 @@ export async function POST(request: Request) {
     const row = await getCoachingClientByEmail(email);
     if (!row) {
       return Response.json({ error: "Not enrolled." }, { status: 401 });
-    }
-    if (row.onboardingComplete) {
-      return Response.json({ ok: true, alreadyComplete: true });
     }
 
     const fileUrl = await getCoachingStorageUrl(storageId);
@@ -74,23 +59,20 @@ export async function POST(request: Request) {
       bytes: buffer,
       text,
       name: row.name,
-      role,
-      company,
-      goal,
+      role: row.onboardingRole || "",
+      company: row.onboardingCompany || "",
+      goal: row.onboardingGoal || "",
     });
 
     const saved = await saveClientOnboarding({
       clientId: row.id,
-      role,
-      company: company || undefined,
-      goal,
       linkedinStorageId: storageId,
       linkedinText: text,
       linkedinProfileJson: JSON.stringify(profile),
     });
     if (!saved.ok) {
       return Response.json(
-        { error: saved.error || "Could not save onboarding." },
+        { error: saved.error || "Could not save LinkedIn profile." },
         { status: 400 },
       );
     }

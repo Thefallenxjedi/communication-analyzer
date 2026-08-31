@@ -479,7 +479,7 @@ export default function AdminClientsPage() {
                             ) : null}
                             {!row.onboardingComplete ? (
                               <p className="mt-1.5 text-sm font-semibold text-slate-500">
-                                Onboarding pending
+                                LinkedIn pending
                               </p>
                             ) : null}
                           </td>

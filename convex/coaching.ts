@@ -505,9 +505,9 @@ const LINKEDIN_TEXT_MAX = 80_000;
 export const saveOnboarding = mutation({
   args: {
     clientId: v.id("clients"),
-    role: v.string(),
+    role: v.optional(v.string()),
     company: v.optional(v.string()),
-    goal: v.string(),
+    goal: v.optional(v.string()),
     linkedinStorageId: v.id("_storage"),
     linkedinText: v.string(),
     linkedinProfileJson: v.string(),
@@ -515,15 +515,10 @@ export const saveOnboarding = mutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.clientId);
     if (!existing) return { ok: false as const, reason: "not_found" as const };
-    if (existing.onboardingComplete === true) {
-      return { ok: false as const, reason: "already_complete" as const };
-    }
 
-    const role = args.role.replace(/\s+/g, " ").trim().slice(0, ROLE_MAX);
+    const role = (args.role ?? "").replace(/\s+/g, " ").trim().slice(0, ROLE_MAX);
     const company = (args.company ?? "").replace(/\s+/g, " ").trim().slice(0, COMPANY_MAX);
-    const goal = args.goal.replace(/\s+/g, " ").trim().slice(0, GOAL_MAX);
-    if (!role) throw new Error("role required");
-    if (!goal) throw new Error("goal required");
+    const goal = (args.goal ?? "").replace(/\s+/g, " ").trim().slice(0, GOAL_MAX);
 
     const now = Date.now();
     if (existing.linkedinStorageId && existing.linkedinStorageId !== args.linkedinStorageId) {
@@ -532,9 +527,9 @@ export const saveOnboarding = mutation({
 
     await ctx.db.patch(args.clientId, {
       onboardingComplete: true,
-      onboardingRole: role,
+      ...(role ? { onboardingRole: role } : {}),
       ...(company ? { onboardingCompany: company } : {}),
-      onboardingGoal: goal,
+      ...(goal ? { onboardingGoal: goal } : {}),
       linkedinStorageId: args.linkedinStorageId,
       linkedinText: args.linkedinText.slice(0, LINKEDIN_TEXT_MAX),
       linkedinProfileJson: args.linkedinProfileJson.slice(0, PROFILE_JSON_MAX),

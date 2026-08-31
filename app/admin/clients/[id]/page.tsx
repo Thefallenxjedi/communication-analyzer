@@ -39,7 +39,7 @@ function AdminLinkedInCard({ client }: { client: CoachingClient }) {
   if (!client.onboardingComplete) {
     return (
       <p className="mt-4 text-base font-semibold text-amber-800">
-        Client has not finished first-login onboarding yet.
+        LinkedIn PDF not uploaded yet.
       </p>
     );
   }

@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ClientOnboarding } from "@/components/ClientOnboarding";
 import { Ember } from "@/components/Ember";
 import { HowItWorksRoadmap } from "@/components/HowItWorksRoadmap";
+import { LinkedInMark, LinkedInUpload } from "@/components/LinkedInUpload";
 import { ClipPlayer } from "@/components/ClipPlayer";
 import { IntroCallView } from "@/components/IntroCallView";
 import { SessionReport, SessionReportStep } from "@/components/SessionReport";
@@ -34,7 +34,7 @@ import { isIntroCallEmpty, type IntroCallReport } from "@/lib/intro-call";
 
 type Milestone = "complete" | "current" | "upcoming";
 
-type NavId = number | "how-it-works";
+type NavId = number | "how-it-works" | "linkedin";
 
 function stageToNav(stage: string | undefined): NavId {
   return parseCurrentStage(stage);
@@ -87,7 +87,7 @@ function tasksForSession(tasks: CoachingTask[], sessionNumber: number) {
 }
 
 function isSessionNav(nav: NavId): nav is number {
-  return nav !== "how-it-works";
+  return typeof nav === "number";
 }
 
 function CompassMark() {
@@ -528,16 +528,6 @@ export default function ClientHomePage() {
     );
   }
 
-  if (!client.onboardingComplete) {
-    return (
-      <ClientOnboarding
-        name={client.name}
-        onDone={() => void load()}
-        onLogout={() => void logout()}
-      />
-    );
-  }
-
   const row = client;
   const here = stageToNav(row.currentStage);
   const sessionLocked =
@@ -700,6 +690,28 @@ export default function ClientHomePage() {
           <div className="es-client-extra">
             <button
               type="button"
+              onClick={() => setNav("linkedin")}
+              aria-label={
+                client.onboardingComplete ? "LinkedIn" : "Action required"
+              }
+              className={
+                nav === "linkedin"
+                  ? "es-nav-how es-nav-how--active"
+                  : client.onboardingComplete
+                    ? "es-nav-how"
+                    : "es-nav-how es-nav-how--need"
+              }
+            >
+              <LinkedInMark className="es-nav-how-icon" />
+              <span className="es-nav-how-copy">
+                {client.onboardingComplete ? "LinkedIn" : "Action required"}
+              </span>
+              {client.onboardingComplete ? (
+                <span className="es-nav-tick">✓</span>
+              ) : null}
+            </button>
+            <button
+              type="button"
               onClick={() => setNav("how-it-works")}
               aria-label="How It Works"
               className={
@@ -733,6 +745,18 @@ export default function ClientHomePage() {
       >
         {nav === "how-it-works" ? (
           <HowItWorksRoadmap />
+        ) : nav === "linkedin" ? (
+          <SessionReport
+            className="flex-1"
+            title="LinkedIn"
+            kicker={`${row.name}, send your LinkedIn profile.`}
+          >
+            <LinkedInUpload
+              name={row.name}
+              done={row.onboardingComplete}
+              onSaved={() => void load()}
+            />
+          </SessionReport>
         ) : (
           <SessionReport
             className={
