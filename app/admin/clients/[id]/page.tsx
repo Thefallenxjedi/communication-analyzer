@@ -8,6 +8,7 @@ import type { CoachingClient } from "@/lib/coaching-clients";
 import {
   parseLinkedInProfile,
 } from "@/lib/linkedin-profile";
+import { formatLinkedInPdfText } from "@/lib/pdf-text";
 import {
   FINAL_SESSION,
   INTRO_SESSION,
@@ -127,13 +128,24 @@ function AdminLinkedInCard({ client }: { client: CoachingClient }) {
         </div>
       ) : null}
       {text ? (
-        <div>
+        <div className="space-y-4">
           <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
-            Extracted PDF text
+            From the PDF
           </p>
-          <pre className="mt-1.5 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-sm leading-relaxed text-slate-800">
-            {text}
-          </pre>
+          {formatLinkedInPdfText(text).map((block) => (
+            <div key={block.heading}>
+              <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
+                {block.heading}
+              </p>
+              <div className="mt-1.5 space-y-2">
+                {block.paragraphs.map((para, i) => (
+                  <p key={`${block.heading}-${i}`} className="text-base leading-relaxed text-slate-800">
+                    {para}
+                  </p>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       ) : !profile ? (
         <p className="text-base text-muted">
