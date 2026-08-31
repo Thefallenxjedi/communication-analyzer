@@ -123,9 +123,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.15rem;
+  gap: 1.25rem;
   width: 100%;
-  max-width: 36rem;
+  max-width: 40rem;
   margin-inline: auto;
   padding: 0.25rem 0 1.75rem;
   text-align: center;
@@ -133,22 +133,22 @@
 
 .es-li-logo {
   display: block;
-  width: 3.25rem;
-  height: 3.25rem;
+  width: 3.5rem;
+  height: 3.5rem;
 }
 
 .es-li-why {
   margin: 0;
-  max-width: 28rem;
-  font-size: 1.05rem;
-  line-height: 1.55;
+  max-width: 32rem;
+  font-size: 1.2rem;
+  line-height: 1.5;
   color: #6b6250;
 }
 
 .es-li-lead {
   margin: 0;
-  max-width: 26rem;
-  font-size: 1.05rem;
+  max-width: 28rem;
+  font-size: 1.2rem;
   line-height: 1.45;
   color: #6b6250;
 }
@@ -180,10 +180,9 @@
 }
 
 .es-li-steps {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.55rem 1.25rem;
+  display: grid;
+  justify-items: center;
+  gap: 0.55rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -192,17 +191,20 @@
 .es-li-steps li {
   display: flex;
   align-items: baseline;
-  gap: 0.4rem;
-  font-size: 0.92rem;
+  justify-content: center;
+  gap: 0.55rem;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: clamp(1.35rem, 3.6vw, 1.7rem);
   font-weight: 600;
-  line-height: 1.3;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
   color: #3a2e22;
 }
 
 .es-li-steps span {
-  font-family: var(--font-plex), ui-monospace, monospace;
-  font-size: 0.8rem;
-  font-weight: 500;
+  font-family: var(--font-playfair), Georgia, serif;
+  font-size: 0.9em;
+  font-weight: 600;
   color: #c9a968;
 }
 
@@ -210,9 +212,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.7rem;
+  gap: 0.75rem;
   width: 100%;
-  max-width: 22rem;
+  max-width: 24rem;
 }
 
 .es-li-form input[type="file"] {
@@ -243,12 +245,20 @@
 .es-li-submit,
 .es-report .es-li-submit {
   width: 100%;
-  min-height: 3.4rem;
+  min-height: 3.6rem;
   padding: 0 1.5rem;
   background: #c9a968;
   color: #141210;
-  font-size: 1.08rem;
+  font-size: 1.18rem;
   font-weight: 800;
+}
+
+.es-report--linkedin .es-report-title {
+  font-size: clamp(2.1rem, 5vw, 2.85rem);
+}
+
+.es-report--linkedin .es-report-kicker {
+  font-size: 1.15rem;
 }
 
 .es-report--linkedin .es-report-head,
@@ -278,24 +288,32 @@
 
 @media (min-width: 768px) {
   .es-li {
-    padding-top: 0.35rem;
-    gap: 1.35rem;
+    padding-top: 0.5rem;
+    gap: 1.5rem;
   }
 
   .es-li-logo {
-    width: 3.75rem;
-    height: 3.75rem;
+    width: 4rem;
+    height: 4rem;
   }
 
   .es-li-why,
   .es-li-lead {
-    font-size: 1.12rem;
+    font-size: 1.32rem;
+  }
+
+  .es-li-steps li {
+    font-size: 1.7rem;
   }
 
   .es-li-submit,
   .es-report .es-li-submit {
-    min-height: 3.55rem;
-    font-size: 1.12rem;
+    min-height: 3.85rem;
+    font-size: 1.28rem;
+  }
+
+  .es-report--linkedin .es-report-kicker {
+    font-size: 1.22rem;
   }
 }
 
@@ -1126,11 +1144,11 @@
 
 .es-report .es-li-submit {
   width: 100%;
-  min-height: 3.4rem;
-  padding: 0 1.5rem;
+  min-height: 3.85rem;
+  padding: 0 1.6rem;
   background: #c9a968;
   color: #141210;
-  font-size: 1.08rem;
+  font-size: 1.28rem;
   font-weight: 800;
 }
 
@@ -1208,7 +1226,7 @@
 
   .es-client-aside {
     display: flex;
-    width: 20.5rem;
+    width: 18rem;
     flex-direction: column;
     border-bottom: 0;
     border-right: 1px solid var(--border);
