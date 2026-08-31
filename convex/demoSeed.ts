@@ -393,29 +393,29 @@ export const applySampleClient = internalMutation({
       .unique();
     const introFields = {
       summary:
-        "Sample thinks faster than he speaks. On the intro call he circled the point twice before landing it. The work is pace and a cleaner open — not vocabulary.",
+        "Sample thinks faster than he speaks. On the intro call he circled the point twice before landing it. The work is pace and a cleaner open — not vocabulary.\n\nHe has real presence when he is in flow. The gap is making that state available on command, not only on good days.",
       challenges: [
         {
           title: "Slow open",
-          body: "The first 15 seconds are throat-clearing. Investors wait. We cut the runway.",
+          body: "The first 15 seconds are throat-clearing. Investors wait.\n\n---\nLand the point in one sentence, then prove it.",
         },
         {
           title: "Hedging",
-          body: "I think / maybe / sort of show up when the room gets senior. We replace them with a short claim.",
+          body: "I think / maybe / sort of show up when the room gets senior.\n\n---\nReplace them with a short claim and hold the pause after it.",
         },
       ],
       coachingSchedule:
-        "Tuesday workout. Thursday review. One live call every other week.",
+        "Tuesday workout. Thursday review. One live call every other week.\n\n---\nPerspective first, practice second — we show you the sharper version, then train you to reach it every time.",
       osItems: [
         {
           name: "Point first",
           goal: "Lead with the sentence that would go on the slide title.",
-          body: "Say the answer, then the proof. Not the other way around.",
+          body: "Say the answer, then the proof. Not the other way around.\n\n---\nYou do not need more slides. You need one sentence that earns the rest.",
         },
         {
           name: "Hold the pause",
           goal: "One beat after the claim. Do not fill it.",
-          body: "Silence is how the room catches up. Sample currently talks through it.",
+          body: "Silence is how the room catches up. Sample currently talks through it.\n\n---\nThe pause is part of the message.",
         },
       ],
       reps: [

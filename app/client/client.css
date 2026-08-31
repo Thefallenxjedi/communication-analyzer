@@ -518,14 +518,18 @@
   color: #141210;
 }
 
-.es-report .es-report-title,
 .es-report .es-summary-title,
 .es-report .es-doc-title,
 .es-report .es-summary-name,
 .es-report .es-summary-body,
 .es-report .es-summary-callout,
 .es-report .es-doc-copy,
-.es-report .es-doc-item-title {
+.es-report .es-doc-item-title,
+.es-report .es-doc-masthead-title,
+.es-report .es-doc-challenge-head,
+.es-report .es-doc-os-goal,
+.es-report .es-doc-rep-title,
+.es-report .es-doc-emphasis {
   font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -535,7 +539,8 @@
 
 .es-report .es-summary-body,
 .es-report .es-summary-callout,
-.es-report .es-doc-copy {
+.es-report .es-doc-copy,
+.es-report .es-doc-emphasis {
   font-weight: 400;
 }
 
@@ -880,6 +885,196 @@
   flex-direction: column;
   gap: 2.25rem;
   color: #2a2218;
+}
+
+/* Intro Call Overview — premium document (PDF-style) */
+.es-intro-doc {
+  max-width: 42rem;
+  margin: 0 auto;
+  width: 100%;
+  color: #2a2218;
+}
+
+.es-intro-empty {
+  color: #6b6250;
+}
+
+.es-admin-intro-preview {
+  margin-top: 1rem;
+  overflow: hidden;
+  border-radius: 0.35rem;
+  border: 1px solid #d2c1a8;
+  background: #f4efe3;
+}
+
+.es-admin-intro-preview .es-intro-doc {
+  padding: 1.35rem 1.25rem 1.75rem;
+}
+
+.es-doc-masthead {
+  margin-bottom: 0.5rem;
+  padding-bottom: 1.75rem;
+  border-bottom: 1px solid color-mix(in srgb, #c9a968 35%, transparent);
+}
+
+.es-doc-masthead-guide {
+  margin: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: #8a7d68;
+}
+
+.es-doc-masthead-title {
+  margin: 0.65rem 0 0;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: clamp(1.65rem, 4vw, 2.05rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: #3a2e22;
+}
+
+.es-doc-masthead-prepared {
+  margin: 0.85rem 0 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #7a6f5d;
+}
+
+.es-doc-masthead-prepared span {
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: #3a2e22;
+}
+
+.es-doc-section {
+  padding-top: 0.25rem;
+}
+
+.es-doc-section + .es-doc-section {
+  margin-top: 2.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid color-mix(in srgb, #c9a968 22%, transparent);
+}
+
+.es-doc-footer {
+  margin: 1.75rem 0 0;
+  font-family: var(--font-plex), ui-monospace, monospace;
+  font-size: 0.58rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #a3957d;
+}
+
+.es-doc-challenges {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1.85rem;
+}
+
+.es-doc-challenge-head {
+  margin: 0;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 1.08rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #3a2e22;
+}
+
+.es-doc-emphasis {
+  margin: 1rem 0 0;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 1.02rem;
+  font-style: italic;
+  line-height: 1.65;
+  color: #4a3d30;
+}
+
+.es-doc-os-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.es-doc-os-label {
+  margin: 0 0 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.es-doc-os-name {
+  font-family: var(--font-plex), ui-monospace, monospace;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6b6250;
+}
+
+.es-doc-os-goal {
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 1.12rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #3a2e22;
+}
+
+.es-doc-reps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+}
+
+.es-doc-rep {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.es-doc-rep-num {
+  flex-shrink: 0;
+  font-family: var(--font-plex), ui-monospace, monospace;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #c9a968;
+  line-height: 1.5;
+}
+
+.es-doc-rep-body {
+  min-width: 0;
+  flex: 1;
+}
+
+.es-doc-rep-title {
+  margin: 0;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.45;
+  color: #3a2e22;
+}
+
+.es-doc-copy--rep {
+  margin-top: 0.35rem;
 }
 
 .es-doc-head {

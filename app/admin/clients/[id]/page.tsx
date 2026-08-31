@@ -1124,6 +1124,10 @@ export default function AdminClientDetailPage() {
                 rows={8}
                 className={`mt-1.5 ${adminUi.field} bg-white ${adminUi.focus}`}
               />
+              <p className="mt-1 text-xs text-muted">
+                Optional closing callout: add a line with only{" "}
+                <code className="text-[11px]">---</code> then the callout text.
+              </p>
             </label>
             <div>
               <p className="text-base font-semibold">Main Challenges</p>
@@ -1154,6 +1158,12 @@ export default function AdminClientDetailPage() {
                     rows={3}
                     className={`${adminUi.field} bg-white ${adminUi.focus}`}
                   />
+                  <p className="text-xs text-muted">
+                    After{" "}
+                    <code className="text-[11px]">---</code> on its own line =
+                    italic emphasis line; use again for a boxed callout in
+                    schedule / OS fields.
+                  </p>
                 </div>
               ))}
               <button
@@ -1288,7 +1298,9 @@ export default function AdminClientDetailPage() {
             </button>
           </form>
             ) : (
-              <IntroCallView clientName={row.name} report={introSaved} />
+              <div className="es-admin-intro-preview">
+                <IntroCallView clientName={row.name} report={introSaved} />
+              </div>
             )}
           </div>
         ) : null}
