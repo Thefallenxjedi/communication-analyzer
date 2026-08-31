@@ -749,7 +749,11 @@ export default function ClientHomePage() {
           <SessionReport
             className="flex-1"
             title="LinkedIn"
-            kicker={`${row.name}, send your LinkedIn profile.`}
+            kicker={
+              row.onboardingComplete
+                ? `${row.name}, this is submitted.`
+                : `${row.name}, send your LinkedIn profile.`
+            }
           >
             <LinkedInUpload
               name={row.name}

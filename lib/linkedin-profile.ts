@@ -44,11 +44,43 @@ const EMPTY_PROFILE: LinkedInProfile = {
 
 export function parseLinkedInProfile(raw: string | undefined | null): LinkedInProfile | null {
   if (!raw?.trim()) return null;
+  let data: unknown;
   try {
-    return linkedInProfileSchema.parse(JSON.parse(raw));
+    data = JSON.parse(raw);
   } catch {
     return null;
   }
+  const parsed = linkedInProfileSchema.safeParse(data);
+  if (parsed.success) return parsed.data;
+  if (!data || typeof data !== "object") return null;
+  const o = data as Record<string, unknown>;
+  const jobs = Array.isArray(o.experience) ? o.experience : [];
+  const schools = Array.isArray(o.education) ? o.education : [];
+  const skills = Array.isArray(o.skills)
+    ? o.skills.map((s) => String(s ?? "").trim()).filter(Boolean)
+    : [];
+  return {
+    fullName: String(o.fullName ?? "").trim(),
+    headline: String(o.headline ?? "").trim(),
+    location: String(o.location ?? "").trim(),
+    about: String(o.about ?? "").trim(),
+    experience: jobs
+      .filter((job): job is Record<string, unknown> => !!job && typeof job === "object")
+      .map((job) => ({
+        title: String(job.title ?? "").trim(),
+        company: String(job.company ?? "").trim(),
+        dates: String(job.dates ?? "").trim(),
+        description: String(job.description ?? "").trim(),
+      })),
+    education: schools
+      .filter((row): row is Record<string, unknown> => !!row && typeof row === "object")
+      .map((row) => ({
+        school: String(row.school ?? "").trim(),
+        degree: String(row.degree ?? "").trim(),
+        dates: String(row.dates ?? "").trim(),
+      })),
+    skills,
+  };
 }
 
 export function stubLinkedInProfile(input: {

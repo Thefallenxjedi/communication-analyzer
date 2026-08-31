@@ -169,6 +169,7 @@ async function toClientView(
   ctx: QueryCtx,
   row: Doc<"clients">,
   now: number,
+  detail = false,
 ) {
   const user = await ctx.db.get(row.userId);
   const tasks = await ctx.db
@@ -205,6 +206,7 @@ async function toClientView(
     onboardingCompany: row.onboardingCompany ?? "",
     onboardingGoal: row.onboardingGoal ?? "",
     linkedinProfileJson: row.linkedinProfileJson ?? "",
+    linkedinText: detail ? (row.linkedinText ?? "") : "",
   };
 }
 
@@ -251,7 +253,7 @@ export const getClient = query({
   handler: async (ctx, args) => {
     const row = await ctx.db.get(args.id);
     if (!row) return null;
-    return toClientView(ctx, row, Date.now());
+    return toClientView(ctx, row, Date.now(), true);
   },
 });
 
@@ -515,6 +517,9 @@ export const saveOnboarding = mutation({
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.clientId);
     if (!existing) return { ok: false as const, reason: "not_found" as const };
+    if (existing.onboardingComplete === true) {
+      return { ok: false as const, reason: "already_complete" as const };
+    }
 
     const role = (args.role ?? "").replace(/\s+/g, " ").trim().slice(0, ROLE_MAX);
     const company = (args.company ?? "").replace(/\s+/g, " ").trim().slice(0, COMPANY_MAX);

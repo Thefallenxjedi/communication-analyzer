@@ -40,6 +40,9 @@ export async function POST(request: Request) {
     if (!row) {
       return Response.json({ error: "Not enrolled." }, { status: 401 });
     }
+    if (row.onboardingComplete) {
+      return Response.json({ error: "LinkedIn is already submitted." }, { status: 400 });
+    }
 
     const fileUrl = await getCoachingStorageUrl(storageId);
     if (!fileUrl) {

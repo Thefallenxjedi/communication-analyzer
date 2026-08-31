@@ -3,9 +3,9 @@
 import { useState, type FormEvent } from "react";
 
 const STEPS = [
-  "Open LinkedIn on a computer",
-  "Resources → Save to PDF",
-  "Upload that file here",
+  "Open your profile",
+  "Open the 3 dots menu",
+  "Click Save to PDF",
 ];
 
 export function LinkedInMark({ className = "es-li-mark" }: { className?: string }) {
@@ -35,6 +35,7 @@ export function LinkedInUpload({
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    if (done) return;
     if (!file) {
       setError("Choose the LinkedIn PDF first.");
       return;
@@ -79,17 +80,27 @@ export function LinkedInUpload({
     }
   }
 
+  if (done) {
+    return (
+      <div className="es-li es-li--done">
+        <LinkedInMark className="es-li-logo" />
+        <p className="es-li-submitted">
+          <span className="es-task-done-mark">✓</span>
+          Submitted
+        </p>
+        <p className="es-li-lead">{name}, your coach has this profile.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="es-li">
       <LinkedInMark className="es-li-logo" />
-      {done ? (
-        <p className="es-li-done">
-          <span className="es-task-done-mark">✓</span>
-          {name}, your coach has this profile.
-        </p>
-      ) : (
-        <p className="es-li-lead">{name}, one PDF from LinkedIn.</p>
-      )}
+      <p className="es-li-why">
+        Your coach wants to help you where it actually matters — what could be
+        better, what you already do, and what to improve. That is why we ask
+        for LinkedIn.
+      </p>
       <ol className="es-li-steps">
         {STEPS.map((step, i) => (
           <li key={step}>
@@ -98,6 +109,13 @@ export function LinkedInUpload({
           </li>
         ))}
       </ol>
+      <figure className="es-li-guide">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/client/linkedin-save-guide.jpg"
+          alt="How to save your LinkedIn profile as a PDF: open your profile, open the 3 dots menu, click Save to PDF."
+        />
+      </figure>
       <form onSubmit={(e) => void onSubmit(e)} className="es-li-form">
         <label className="es-li-file">
           <span>{file ? file.name : "Choose PDF"}</span>
@@ -109,7 +127,7 @@ export function LinkedInUpload({
         </label>
         {error ? <p className="es-li-error">{error}</p> : null}
         <button type="submit" disabled={busy || !file} className="es-btn es-li-submit">
-          {busy ? "Saving…" : done ? "Replace PDF" : "Send to your coach"}
+          {busy ? "Saving…" : "Send to your coach"}
         </button>
       </form>
     </div>

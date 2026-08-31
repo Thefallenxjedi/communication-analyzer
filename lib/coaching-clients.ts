@@ -28,6 +28,7 @@ export type CoachingClient = {
   onboardingCompany: string;
   onboardingGoal: string;
   linkedinProfileJson: string;
+  linkedinText: string;
 };
 
 export async function getCoachingClientByEmail(
@@ -188,9 +189,15 @@ export async function saveClientOnboarding(input: {
       linkedinStorageId: input.linkedinStorageId as never,
       linkedinText: input.linkedinText,
       linkedinProfileJson: input.linkedinProfileJson,
-    })) as { ok?: boolean };
+    })) as { ok?: boolean; reason?: string };
     if (!result?.ok) {
-      return { ok: false, error: "Could not save LinkedIn profile." };
+      return {
+        ok: false,
+        error:
+          result?.reason === "already_complete"
+            ? "LinkedIn is already submitted."
+            : "Could not save LinkedIn profile.",
+      };
     }
     return { ok: true };
   } catch (err) {

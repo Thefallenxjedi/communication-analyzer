@@ -131,19 +131,44 @@
   height: 3.25rem;
 }
 
-.es-li-lead,
-.es-li-done {
+.es-li-why {
+  margin: 0;
+  max-width: 36rem;
+  font-size: 1.12rem;
+  line-height: 1.55;
+  color: #3a2e22;
+}
+
+.es-li-lead {
   margin: 0;
   font-size: 1.15rem;
   line-height: 1.45;
   color: #6b6250;
 }
 
-.es-li-done {
+.es-li-submitted {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.6rem;
+  margin: 0;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: clamp(1.85rem, 5vw, 2.5rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
   color: #3a2e22;
+}
+
+.es-li-guide {
+  margin: 0;
+  max-width: 42rem;
+}
+
+.es-li-guide img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 0.85rem;
+  box-shadow: 0 0 0 1px #ddd3bd;
 }
 
 .es-li-steps {
@@ -222,8 +247,8 @@
   }
 
   .es-li-lead,
-  .es-li-done {
-    font-size: 1.15rem;
+  .es-li-why {
+    font-size: 1.2rem;
   }
 }
 

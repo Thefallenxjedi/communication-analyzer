@@ -44,45 +44,102 @@ function AdminLinkedInCard({ client }: { client: CoachingClient }) {
     );
   }
   const profile = parseLinkedInProfile(client.linkedinProfileJson);
+  const text = client.linkedinText?.trim() || "";
   return (
-    <section className="mt-5 max-w-3xl rounded-2xl border border-border bg-white p-5">
+    <section className="mt-5 max-w-3xl space-y-4 rounded-2xl border border-border bg-white p-5">
       <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
-        Client profile
+        LinkedIn profile
       </p>
-      <p className="mt-2 text-lg font-extrabold">
-        {profile?.fullName || client.name}
+      <div>
+        <p className="text-lg font-extrabold">
+          {profile?.fullName || client.name}
+        </p>
         {profile?.headline ? (
-          <span className="ml-2 text-base font-semibold text-muted">
+          <p className="mt-1 text-base font-semibold text-slate-700">
             {profile.headline}
-          </span>
+          </p>
         ) : null}
-      </p>
-      {client.onboardingRole ? (
-        <p className="mt-1 text-base">
-          {client.onboardingRole}
-          {client.onboardingCompany ? ` · ${client.onboardingCompany}` : ""}
-        </p>
-      ) : null}
-      {client.onboardingGoal ? (
-        <p className="mt-2 text-base text-slate-700">{client.onboardingGoal}</p>
-      ) : null}
+        {profile?.location ? (
+          <p className="mt-1 text-sm text-muted">{profile.location}</p>
+        ) : null}
+      </div>
       {profile?.about ? (
-        <p className="mt-3 whitespace-pre-wrap text-base leading-relaxed text-slate-800">
-          {profile.about}
-        </p>
+        <div>
+          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
+            About
+          </p>
+          <p className="mt-1.5 whitespace-pre-wrap text-base leading-relaxed text-slate-800">
+            {profile.about}
+          </p>
+        </div>
       ) : null}
       {profile && profile.experience.length > 0 ? (
-        <ul className="mt-3 space-y-2">
-          {profile.experience.slice(0, 4).map((job, i) => (
-            <li key={`${job.company}-${i}`} className="text-base">
-              <span className="font-bold">{job.title}</span>
-              {job.company ? ` · ${job.company}` : ""}
-              {job.dates ? (
-                <span className="text-muted"> · {job.dates}</span>
-              ) : null}
-            </li>
-          ))}
-        </ul>
+        <div>
+          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
+            Experience
+          </p>
+          <ul className="mt-2 space-y-3">
+            {profile.experience.map((job, i) => (
+              <li key={`${job.company}-${job.title}-${i}`} className="text-base">
+                <p className="font-bold">
+                  {job.title || "Role"}
+                  {job.company ? ` · ${job.company}` : ""}
+                </p>
+                {job.dates ? (
+                  <p className="text-sm text-muted">{job.dates}</p>
+                ) : null}
+                {job.description ? (
+                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+                    {job.description}
+                  </p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {profile && profile.education.length > 0 ? (
+        <div>
+          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
+            Education
+          </p>
+          <ul className="mt-2 space-y-2">
+            {profile.education.map((row, i) => (
+              <li key={`${row.school}-${i}`} className="text-base">
+                <span className="font-bold">{row.school || "School"}</span>
+                {row.degree ? ` · ${row.degree}` : ""}
+                {row.dates ? (
+                  <span className="text-muted"> · {row.dates}</span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {profile && profile.skills.length > 0 ? (
+        <div>
+          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
+            Skills
+          </p>
+          <p className="mt-1.5 text-base text-slate-800">
+            {profile.skills.join(" · ")}
+          </p>
+        </div>
+      ) : null}
+      {text ? (
+        <div>
+          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
+            Extracted PDF text
+          </p>
+          <pre className="mt-1.5 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-sm leading-relaxed text-slate-800">
+            {text}
+          </pre>
+        </div>
+      ) : !profile ? (
+        <p className="text-base text-muted">
+          PDF is saved. The parsed profile is empty — check that Gemini ran on
+          upload.
+        </p>
       ) : null}
     </section>
   );
