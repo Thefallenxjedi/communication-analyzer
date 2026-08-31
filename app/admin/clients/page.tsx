@@ -58,7 +58,6 @@ export default function AdminClientsPage() {
   const [email, setEmail] = useState("");
   const [startDate, setStartDate] = useState(todayInputValue);
   const [currentFocus, setCurrentFocus] = useState("");
-  const [meetingLink, setMeetingLink] = useState("");
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState("");
 
@@ -144,7 +143,6 @@ export default function AdminClientsPage() {
           email: email.trim(),
           startDate,
           currentFocus: currentFocus.trim(),
-          meetingLink: meetingLink.trim(),
         }),
       });
       const data = (await res.json()) as {
@@ -159,7 +157,6 @@ export default function AdminClientsPage() {
       setEmail("");
       setStartDate(todayInputValue());
       setCurrentFocus("");
-      setMeetingLink("");
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Create failed.");
     } finally {
@@ -383,21 +380,6 @@ export default function AdminClientsPage() {
                     className={`mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none ${adminUi.focus}`}
                   />
                 </label>
-                <label className="block text-sm font-semibold sm:col-span-2">
-                  Meeting link{" "}
-                  <span className="font-medium text-muted">
-                    (one link for every call)
-                  </span>
-                  <input
-                    type="url"
-                    value={meetingLink}
-                    onChange={(e) =>
-                      setMeetingLink(e.target.value.slice(0, 500))
-                    }
-                    placeholder="https://meet.google.com/…"
-                    className={`mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none ${adminUi.focus}`}
-                  />
-                </label>
               </div>
               {createError ? (
                 <p className={`text-sm ${adminUi.dangerText}`}>{createError}</p>
@@ -445,29 +427,7 @@ export default function AdminClientsPage() {
                         >
                           <td className="px-3 py-3">
                             <p className="font-bold">{row.name}</p>
-                            <p className="text-xs text-muted">{row.email}</p>
-                            {editing ? (
-                              <input
-                                type="url"
-                                value={editMeetingLink}
-                                onChange={(e) =>
-                                  setEditMeetingLink(e.target.value.slice(0, 500))
-                                }
-                                placeholder="https://meet.google.com/…"
-                                className={`mt-2 w-full min-w-[12rem] rounded-lg border border-border bg-background px-2 py-1 text-xs outline-none ${adminUi.focus}`}
-                              />
-                            ) : row.meetingLink ? (
-                              <a
-                                href={row.meetingLink}
-                                target="_blank"
-                                rel="noreferrer"
-                                className={`mt-1 block text-xs font-semibold ${adminUi.link} break-all`}
-                              >
-                                Meeting link
-                              </a>
-                            ) : (
-                              <p className="mt-1 text-xs text-muted">No meeting link</p>
-                            )}
+                            <p className="mt-0.5 text-xs text-muted">{row.email}</p>
                           </td>
                           <td className="px-3 py-3">
                             {editing ? (
@@ -509,11 +469,11 @@ export default function AdminClientsPage() {
                             )}
                           </td>
                           <td className="px-3 py-3">
-                            <p className="font-semibold">
+                            <span className="inline-flex rounded-full bg-slate-900 px-2.5 py-1 text-xs font-bold text-white">
                               {row.currentStage || "Intro Call"}
-                            </p>
+                            </span>
                             {row.reviewRequired ? (
-                              <p className="mt-1 text-xs font-bold uppercase tracking-wide text-amber-800">
+                              <p className="mt-1.5 text-[11px] font-extrabold uppercase tracking-wide text-amber-800">
                                 Review required
                               </p>
                             ) : null}
@@ -522,14 +482,14 @@ export default function AdminClientsPage() {
                             {formatWhen(row.lastActivityAt)}
                           </td>
                           <td className="px-3 py-3 text-right">
-                            <div className="flex flex-wrap justify-end gap-2">
+                            <div className="flex flex-wrap items-center justify-end gap-3">
                               {editing ? (
                                 <>
                                   <button
                                     type="button"
                                     disabled={rowBusy}
                                     onClick={() => void onSaveEdit(row.id)}
-                                    className={`text-sm font-semibold ${adminUi.link}`}
+                                    className="inline-flex min-h-9 items-center rounded-full bg-teal-600 px-4 text-sm font-bold text-white hover:bg-teal-700 disabled:opacity-55"
                                   >
                                     {rowBusy ? "Saving…" : "Save"}
                                   </button>
@@ -546,7 +506,7 @@ export default function AdminClientsPage() {
                                 <>
                                   <Link
                                     href={`/admin/clients/${row.id}`}
-                                    className={`text-sm font-semibold ${adminUi.link}`}
+                                    className="inline-flex min-h-9 items-center rounded-full bg-teal-600 px-4 text-sm font-bold text-white no-underline hover:bg-teal-700"
                                   >
                                     Open
                                   </Link>
@@ -554,7 +514,7 @@ export default function AdminClientsPage() {
                                     type="button"
                                     disabled={rowBusy}
                                     onClick={() => startEdit(row)}
-                                    className={`text-sm font-semibold ${adminUi.link}`}
+                                    className="text-sm font-semibold text-slate-600 hover:text-slate-900"
                                   >
                                     Edit
                                   </button>
@@ -564,7 +524,7 @@ export default function AdminClientsPage() {
                                 type="button"
                                 disabled={rowBusy}
                                 onClick={() => void onDelete(row.id, row.name)}
-                                className={`text-sm font-semibold ${adminUi.dangerBtn}`}
+                                className={`ml-1 text-sm font-semibold ${adminUi.dangerBtn}`}
                               >
                                 Remove
                               </button>

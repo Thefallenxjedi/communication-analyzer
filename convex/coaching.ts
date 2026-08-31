@@ -5,6 +5,8 @@ import {
   INTRO_SESSION,
   PROGRAM_SEED_TASKS,
   REMOVED_SEED_TITLES,
+  UNUSED_FINAL_SEEDS,
+  attentionSessionNumber,
   isValidSessionNumber,
   stageLabel,
 } from "./coachingProgram";
@@ -95,19 +97,34 @@ async function seedProgramTasks(
     .withIndex("by_clientId_createdAt", (q) => q.eq("clientId", clientId))
     .take(200);
   for (const task of existing) {
-    if (
-      REMOVED_SEED_TITLES.includes(task.title.trim().toLowerCase()) &&
-      (task.sessionNumber ?? INTRO_SESSION) === INTRO_SESSION
-    ) {
+    const title = task.title.trim().toLowerCase();
+    const session = task.sessionNumber ?? INTRO_SESSION;
+    const dropSpeechmap =
+      REMOVED_SEED_TITLES.includes(title) && session === INTRO_SESSION;
+    const dropUnusedFinal =
+      session === FINAL_SESSION &&
+      UNUSED_FINAL_SEEDS.includes(title) &&
+      task.status === "open";
+    if (dropSpeechmap || dropUnusedFinal) {
       if (task.storageId) await ctx.storage.delete(task.storageId);
       await ctx.db.delete(task._id);
     }
   }
-  const remaining = existing.filter(
-    (task) =>
-      !REMOVED_SEED_TITLES.includes(task.title.trim().toLowerCase()) ||
-      (task.sessionNumber ?? INTRO_SESSION) !== INTRO_SESSION,
-  );
+  const remaining = existing.filter((task) => {
+    const title = task.title.trim().toLowerCase();
+    const session = task.sessionNumber ?? INTRO_SESSION;
+    if (REMOVED_SEED_TITLES.includes(title) && session === INTRO_SESSION) {
+      return false;
+    }
+    if (
+      session === FINAL_SESSION &&
+      UNUSED_FINAL_SEEDS.includes(title) &&
+      task.status === "open"
+    ) {
+      return false;
+    }
+    return true;
+  });
   for (const seed of PROGRAM_SEED_TASKS) {
     const already = remaining.find(
       (task) =>
@@ -165,25 +182,7 @@ async function toClientView(
       (task) => task.status === "submitted" && task.reviewRequired !== false,
     )
     .sort(bySession);
-  const openTasks = tasks.filter((task) => task.status === "open").sort(bySession);
-  const attentionTask = pendingReviews[0] ?? openTasks[0];
-  let attentionSession = attentionTask
-    ? (attentionTask.sessionNumber ?? INTRO_SESSION)
-    : INTRO_SESSION;
-  if (!attentionTask && tasks.length) {
-    const maxSession = Math.max(
-      ...tasks.map((task) => task.sessionNumber ?? INTRO_SESSION),
-    );
-    const maxTasks = tasks.filter(
-      (task) => (task.sessionNumber ?? INTRO_SESSION) === maxSession,
-    );
-    const maxComplete = maxTasks.every(
-      (task) => task.status === "reviewed" || task.status === "done",
-    );
-    attentionSession =
-      maxComplete && maxSession < FINAL_SESSION ? maxSession + 1 : maxSession;
-  }
-  const currentStage = stageLabel(attentionSession);
+  const currentStage = stageLabel(attentionSessionNumber(tasks));
 
   return {
     id: row._id,

@@ -136,9 +136,14 @@ function YouTubeMark() {
 function VideoShareLink({ href }: { href: string }) {
   const kind = videoShareKind(href);
   return (
-    <a href={href} target="_blank" rel="noreferrer" className="es-drive-link">
+    <a href={href} target="_blank" rel="noreferrer" className="es-share-card">
       {kind === "youtube" ? <YouTubeMark /> : <DriveMark />}
-      {kind === "youtube" ? "Open YouTube video" : "Open Google Drive video"}
+      <span className="es-share-card-copy">
+        <span className="es-share-card-kind">
+          {kind === "youtube" ? "YouTube" : "Google Drive"}
+        </span>
+        <span className="es-share-card-action">Open video →</span>
+      </span>
     </a>
   );
 }
@@ -172,23 +177,39 @@ function TaskScreen({
 }) {
   const videoLink = usesVideoLink(task);
   const linkField = (
-    <div className="es-report-paste-wrap">
-      <p className="es-report-paste-hint">
-        Upload to Google Drive (anyone with the link) or YouTube, then paste
-        the link.
+    <div className="es-link-panel">
+      <p className="es-link-kicker">Your recording</p>
+      <p className="es-link-title">Paste a Drive or YouTube link</p>
+      <p className="es-link-hint">
+        Upload a 60–90 second clip. Anyone with the link must be able to view
+        it.
       </p>
-      <div className="es-report-paste">
-        <span className="es-share-icons">
-          <DriveMark />
-          <YouTubeMark />
+      <div className="es-link-chips">
+        <span>
+          <DriveMark /> Google Drive
         </span>
+        <span>
+          <YouTubeMark /> YouTube
+        </span>
+      </div>
+      <div className="es-link-row">
         <input
           type="url"
           value={driveLink}
           onChange={(e) => onDriveLink(e.target.value.slice(0, 500))}
-          placeholder="Paste Drive or YouTube link"
+          placeholder="https://…"
           autoComplete="off"
         />
+        {task.status === "open" ? (
+          <button
+            type="button"
+            disabled={busy || !driveLink.trim()}
+            onClick={() => onSubmit(false)}
+            className="es-btn"
+          >
+            {busy ? "Saving…" : "Submit"}
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -220,21 +241,7 @@ function TaskScreen({
       );
     }
     if (videoLink) {
-      return (
-        <div className="es-task-well">
-          {linkField}
-          <div className="es-task-controls">
-            <button
-              type="button"
-              disabled={busy || !driveLink.trim()}
-              onClick={() => onSubmit(false)}
-              className="es-btn"
-            >
-              {busy ? "Saving…" : "Submit"}
-            </button>
-          </div>
-        </div>
-      );
+      return <div className="es-task-well">{linkField}</div>;
     }
     return (
       <div className="es-task-well">
@@ -313,13 +320,11 @@ function TaskScreen({
 
   if (!needsCoachReview(task) || task.rating == null) {
     return (
-      <div className="es-task-well">
-        <div className="es-task-status">
-          <div className="es-task-status-label">
-            {showEmber ? <Ember state="done" /> : null}
-            <p className="es-label">This task has been completed</p>
-          </div>
-        </div>
+      <div className="es-task-well es-task-well--done">
+        <p className="es-task-done">
+          <span className="es-task-done-mark">✓</span>
+          Completed
+        </p>
         {task.driveUrl ? <VideoShareLink href={task.driveUrl} /> : null}
         {task.recordingUrl && !task.driveUrl ? (
           <ClipPlayer src={task.recordingUrl} durationSec={task.durationSec} />
@@ -332,13 +337,11 @@ function TaskScreen({
   }
 
   return (
-    <div className="es-task-well">
-      <div className="es-task-status">
-        <div className="es-task-status-label">
-          {showEmber ? <Ember state="done" /> : null}
-          <p className="es-label">This task has been completed</p>
-        </div>
-      </div>
+    <div className="es-task-well es-task-well--done">
+      <p className="es-task-done">
+        <span className="es-task-done-mark">✓</span>
+        Completed
+      </p>
       <p className="es-mono text-5xl tabular-nums leading-none">
         {task.rating ?? "—"}
         <span className="text-lg text-muted"> / 10</span>
@@ -682,18 +685,6 @@ export default function ClientHomePage() {
             </button>
           </div>
           <div className="es-client-tools">
-            {client.meetingLink ? (
-              <a
-                href={client.meetingLink}
-                target="_blank"
-                rel="noreferrer"
-                className="es-client-meet"
-              >
-                Meeting
-              </a>
-            ) : (
-              <p className="es-client-meet-empty">No meeting link yet.</p>
-            )}
             <button
               type="button"
               onClick={() => void logout()}

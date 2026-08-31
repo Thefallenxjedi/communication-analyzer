@@ -30,22 +30,37 @@ export const PROGRAM_SEED_TASKS: SeedTask[] = [
     recordingRequired: true,
     reviewRequired: true,
   },
-  {
-    sessionNumber: FINAL_SESSION,
-    title: "AFTER Video",
-    instructions:
-      "Record your after speaking sample — the same kind of clip as your BEFORE. Speak as you would on a real call or presentation, about 60–90 seconds.",
-    recordingRequired: true,
-    reviewRequired: true,
-  },
-  {
-    sessionNumber: FINAL_SESSION,
-    title: "Completion Review",
-    instructions:
-      "Joseph reviews BEFORE vs AFTER live, confirms progress, and closes the program. Coach: write completion notes here, then mark complete.",
-    recordingRequired: false,
-    reviewRequired: true,
-  },
 ];
 
 export const REMOVED_SEED_TITLES = ["speechmap report"];
+
+export const UNUSED_FINAL_SEEDS = ["after video", "completion review"];
+
+export function attentionSessionNumber(
+  tasks: {
+    sessionNumber?: number;
+    status: string;
+    reviewRequired?: boolean;
+  }[],
+): number {
+  for (let n = INTRO_SESSION; n <= FINAL_SESSION; n++) {
+    const list = tasks.filter((task) => (task.sessionNumber ?? INTRO_SESSION) === n);
+    if (
+      list.some(
+        (task) => task.status === "submitted" && task.reviewRequired !== false,
+      )
+    ) {
+      return n;
+    }
+    if (list.some((task) => task.status === "open")) return n;
+    if (
+      list.some(
+        (task) => task.status !== "reviewed" && task.status !== "done",
+      )
+    ) {
+      return n;
+    }
+    if (list.length === 0) return n;
+  }
+  return FINAL_SESSION;
+}

@@ -82,13 +82,20 @@ function navRowClass(
   kind: "current" | "review" | "complete" | "idle",
 ): string {
   const base =
-    "w-full rounded-lg border border-border bg-white px-3 py-2.5 text-left border-l-4";
+    "w-full rounded-xl border px-3 py-3 text-left border-l-4 transition";
   if (open) {
-    return `${base} border-l-teal-700 bg-slate-50`;
+    return `${base} border-slate-200 border-l-teal-700 bg-slate-50`;
   }
-  if (kind === "review") return `${base} border-l-amber-500 hover:bg-slate-50`;
-  if (kind === "current") return `${base} border-l-teal-600 hover:bg-slate-50`;
-  return `${base} border-l-transparent hover:bg-slate-50`;
+  if (kind === "review") {
+    return `${base} border-amber-200 border-l-amber-500 bg-amber-50`;
+  }
+  if (kind === "current") {
+    return `${base} border-teal-200 border-l-teal-600 bg-teal-50/70`;
+  }
+  if (kind === "complete") {
+    return `${base} border-border border-l-slate-300`;
+  }
+  return `${base} border-border border-l-transparent text-slate-500`;
 }
 
 const ADMIN_SESSION_KEY = "ca_admin_password";
@@ -758,6 +765,26 @@ export default function AdminClientDetailPage() {
                 </button>
               </div>
             </form>
+          ) : task.status === "submitted" && task.rating == null ? (
+            <div className="mt-4 rounded-2xl border-2 border-amber-400 bg-amber-50 px-5 py-5">
+              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-amber-800">
+                Review required
+              </p>
+              <p className="mt-1 text-xl font-extrabold text-slate-900">
+                Score this submission
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setRateId(task.id);
+                  setRating(task.rating != null ? String(task.rating) : "8");
+                  setComment(task.ratingComment);
+                }}
+                className={`mt-4 min-h-12 px-6 text-base ${adminUi.btnSolid}`}
+              >
+                Add rating
+              </button>
+            </div>
           ) : (
             <button
               type="button"
@@ -1101,20 +1128,12 @@ export default function AdminClientDetailPage() {
           <div className="text-sm">
             <p className="font-semibold">
               Now: {client.currentStage || "Intro Call"}
-              {client.reviewRequired ? " · Review required" : ""}
             </p>
-            {client.meetingLink ? (
-              <a
-                href={client.meetingLink}
-                target="_blank"
-                rel="noreferrer"
-                className={`mt-2 inline-block font-semibold ${adminUi.link}`}
-              >
-                Meeting link
-              </a>
-            ) : (
-              <p className="mt-2 text-muted">No meeting link</p>
-            )}
+            {client.reviewRequired ? (
+              <p className="mt-2 inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-extrabold uppercase tracking-wide text-amber-800">
+                Review required
+              </p>
+            ) : null}
           </div>
         </div>
         {error ? <p className={`mt-4 text-sm ${adminUi.dangerText}`}>{error}</p> : null}
@@ -1154,15 +1173,23 @@ export default function AdminClientDetailPage() {
                   onClick={() => toggleSession(n)}
                   className={navRowClass(open, tone)}
                 >
-                  <span className="block text-sm font-bold">
-                    {sessionLabel(n)}
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-bold">{sessionLabel(n)}</span>
                     {here === n ? (
-                      <span className="ml-2 text-xs font-semibold text-muted">
+                      <span className="rounded-full bg-teal-700 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
                         Now
                       </span>
+                    ) : tone === "complete" ? (
+                      <span className="text-xs font-bold text-slate-500">✓</span>
                     ) : null}
                   </span>
-                  <span className="mt-0.5 block text-xs text-muted">
+                  <span
+                    className={
+                      tone === "review"
+                        ? "mt-1 block text-xs font-extrabold uppercase tracking-wide text-amber-800"
+                        : "mt-0.5 block text-xs text-muted"
+                    }
+                  >
                     {tone === "review"
                       ? "Review required"
                       : tone === "complete"
