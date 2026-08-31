@@ -114,16 +114,127 @@ function asBlob(bytes: Uint8Array, type: string): Blob {
   return new Blob([copy], { type });
 }
 
+type SessionPlan = {
+  recordTitle: string;
+  recordInstructions: string;
+  lessonTitle: string;
+  lessonInstructions: string;
+  lessonNote: string;
+  rating: number;
+  comment: string;
+};
+
+const SESSION_PLAN: SessionPlan[] = [
+  {
+    recordTitle: "Pace the first 20 seconds",
+    recordInstructions:
+      "Record a 20-second open for an investor update. One claim, one number, stop. No throat-clearing.",
+    lessonTitle: "Mark your fillers",
+    lessonInstructions: "Write the three filler phrases you used on calls this week. One line each.",
+    lessonNote:
+      "1. I think we should\n2. kind of\n3. does that make sense?\nCaught myself on the Tuesday exec review.",
+    rating: 7,
+    comment:
+      "Better pace. Keep the last line. Cut the breath before you start — the clip should open on the claim.",
+  },
+  {
+    recordTitle: "Comfort with silence",
+    recordInstructions:
+      "Record 45 seconds. Make one claim, then hold a full pause before the proof. Do not fill the gap.",
+    lessonTitle: "Pre-speaking ritual",
+    lessonInstructions: "Write the 3-step ritual you will use before a senior call.",
+    lessonNote:
+      "1. Stand up\n2. One slow exhale\n3. Say the title sentence out loud once, then join.",
+    rating: 6,
+    comment: "The pause is there. You still rush the sentence after it. Let the room land.",
+  },
+  {
+    recordTitle: "One sharp sentence",
+    recordInstructions:
+      "Record one thought in a single sentence, then a second sentence that proves it. Sixty seconds max.",
+    lessonTitle: "Word mine",
+    lessonInstructions: "List five words you actually use at work that sound like you — not brochure English.",
+    lessonNote: "runway · merchant · float · settle · board pack",
+    rating: 8,
+    comment: "The first sentence is a title. That is the skill. Do it on the live call this week.",
+  },
+  {
+    recordTitle: "Surprise and sharpen",
+    recordInstructions:
+      "Retell a customer story. End on a short, sharp line. No summary paragraph after it.",
+    lessonTitle: "Quote you would actually say",
+    lessonInstructions: "Write one line you could drop in a board update without sounding written.",
+    lessonNote: "We did not miss the quarter. We missed the sentence that would have saved it.",
+    rating: 7,
+    comment: "Ending is clean. The middle still lists. Cut two facts. Keep the line.",
+  },
+  {
+    recordTitle: "Daily open, take 1",
+    recordInstructions:
+      "Same 20-second investor open as Session 1. Standing. One take.",
+    lessonTitle: "What you heard back",
+    lessonInstructions: "After you played the clip, write what a skeptical VP would still not believe.",
+    lessonNote: "They would ask why net retention moved. I did not put the number in the open.",
+    rating: 7,
+    comment: "Repeatable now. Number belongs in sentence one, not three.",
+  },
+  {
+    recordTitle: "Daily open, take 2",
+    recordInstructions:
+      "Same open, sitting in the chair you use for board calls. Do not look at notes.",
+    lessonTitle: "Two hedges you still use",
+    lessonInstructions: "Name them. Write the replacement sentence.",
+    lessonNote:
+      "I think we should → We should.\nDoes that make sense? → Here is the ask.",
+    rating: 8,
+    comment: "Chair version is calmer. Keep this one as the house open.",
+  },
+  {
+    recordTitle: "Hostile question",
+    recordInstructions:
+      "Someone says the metric is wrong. Record a 40-second reply: claim, one number, one next step. No apology loop.",
+    lessonTitle: "The question you fear",
+    lessonInstructions: "Write the question. Write your first sentence only.",
+    lessonNote:
+      "Q: Why did sales slip in APAC?\nA: APAC slipped because we paused the partner motion in March. We restart it Monday.",
+    rating: 6,
+    comment: "You still soften the first line. Start on the cause. The room already knows it slipped.",
+  },
+  {
+    recordTitle: "Capstone: 90-second update",
+    recordInstructions:
+      "Full fake board update. 90 seconds. Point first, two proofs, one ask. Stop talking.",
+    lessonTitle: "What you will not say",
+    lessonInstructions: "Three phrases you are retiring after this program.",
+    lessonNote: "kind of · I think maybe · at the end of the day",
+    rating: 8,
+    comment: "This is the after. Compare it to the BEFORE video. The open is a different person.",
+  },
+  {
+    recordTitle: "Live ask",
+    recordInstructions:
+      "Record the ask you will make on the next real exec call. Twenty seconds. Then stop.",
+    lessonTitle: "Next call, one line",
+    lessonInstructions: "Write the first sentence you will say when the Zoom window opens.",
+    lessonNote: "We need a yes on the APAC restart today, not a follow-up.",
+    rating: 7,
+    comment: "Ask is clear. Do not explain why you are asking. You already did.",
+  },
+];
+
 export const seedSampleClient = action({
   args: {},
   handler: async (ctx) => {
     const pdfId = await ctx.storage.store(asBlob(dummyPdf(), "application/pdf"));
-    const clipA = await ctx.storage.store(asBlob(toneWav(), "audio/wav"));
-    const clipB = await ctx.storage.store(asBlob(toneWav(2, 330), "audio/wav"));
+    const clips: Id<"_storage">[] = [];
+    for (let i = 0; i < 10; i++) {
+      clips.push(
+        await ctx.storage.store(asBlob(toneWav(2, 280 + i * 40), "audio/wav")),
+      );
+    }
     return await ctx.runMutation(anyApi.demoSeed.applySampleClient, {
       pdfId,
-      clipA,
-      clipB,
+      clips,
     });
   },
 });
@@ -131,12 +242,12 @@ export const seedSampleClient = action({
 export const applySampleClient = internalMutation({
   args: {
     pdfId: v.id("_storage"),
-    clipA: v.id("_storage"),
-    clipB: v.id("_storage"),
+    clips: v.array(v.id("_storage")),
   },
   handler: async (ctx, args) => {
+    if (args.clips.length < 10) throw new Error("Need 10 audio clips");
     const now = Date.now();
-    const startDate = now - 21 * 86_400_000;
+    const startDate = now - 70 * 86_400_000;
 
     const existingUser = await ctx.db
       .query("users")
@@ -277,77 +388,72 @@ export const applySampleClient = internalMutation({
       status: "reviewed",
       driveUrl: YOUTUBE_DEMO,
       durationSec: 19,
-      submittedAt: daysAgo(18),
+      submittedAt: daysAgo(68),
       rating: 6,
       ratingComment:
         "Clear thinking. The first 10 seconds wander — land the point sooner. This is the before we will beat.",
-      createdAt: daysAgo(20),
-      updatedAt: daysAgo(17),
+      createdAt: daysAgo(69),
+      updatedAt: daysAgo(67),
     });
 
-    await ctx.db.insert("tasks", {
-      clientId,
-      sessionNumber: 1,
-      title: "Pace the first 20 seconds",
-      instructions:
-        "Record a 20-second open for an investor update. One claim, one number, stop. No throat-clearing.",
-      recordingRequired: true,
-      reviewRequired: true,
-      status: "reviewed",
-      storageId: args.clipA,
-      durationSec: 2,
-      submittedAt: daysAgo(4),
-      rating: 7,
-      ratingComment:
-        "Better pace. Keep the last line. Cut the breath before you start — the clip should open on the claim.",
-      createdAt: daysAgo(6),
-      updatedAt: daysAgo(3),
-    });
+    for (let i = 0; i < SESSION_PLAN.length; i++) {
+      const sessionNumber = i + 1;
+      const plan = SESSION_PLAN[i];
+      const clip = args.clips[i];
+      if (!plan || !clip) continue;
+      const weekAgo = 60 - i * 6;
+      const inReview = sessionNumber === 9;
+      await ctx.db.insert("tasks", {
+        clientId,
+        sessionNumber,
+        title: plan.recordTitle,
+        instructions: plan.recordInstructions,
+        recordingRequired: true,
+        reviewRequired: true,
+        status: inReview ? "submitted" : "reviewed",
+        storageId: clip,
+        durationSec: 2,
+        submittedAt: daysAgo(weekAgo - 1),
+        ...(inReview
+          ? {}
+          : { rating: plan.rating, ratingComment: plan.comment }),
+        createdAt: daysAgo(weekAgo + 1),
+        updatedAt: daysAgo(weekAgo - 1),
+      });
+      await ctx.db.insert("tasks", {
+        clientId,
+        sessionNumber,
+        title: plan.lessonTitle,
+        instructions: plan.lessonInstructions,
+        recordingRequired: false,
+        reviewRequired: false,
+        status: "done",
+        responseText: plan.lessonNote,
+        submittedAt: daysAgo(weekAgo),
+        completedAt: daysAgo(weekAgo),
+        createdAt: daysAgo(weekAgo + 1),
+        updatedAt: daysAgo(weekAgo),
+      });
+    }
 
+    const lastClip = args.clips[9];
+    if (!lastClip) throw new Error("missing clip");
     await ctx.db.insert("tasks", {
       clientId,
-      sessionNumber: 1,
+      sessionNumber: 9,
       title: "Tell yesterday in 60 seconds",
       instructions:
         "Retell yesterday’s most important meeting in 60 seconds. No I think, maybe, or kind of.",
       recordingRequired: true,
       reviewRequired: true,
-      status: "submitted",
-      storageId: args.clipB,
+      status: "reviewed",
+      storageId: lastClip,
       durationSec: 2,
-      submittedAt: daysAgo(1),
-      responseText: "Tried this after the leadership sync. Still slipped in one maybe.",
-      createdAt: daysAgo(6),
-      updatedAt: daysAgo(1),
-    });
-
-    await ctx.db.insert("tasks", {
-      clientId,
-      sessionNumber: 1,
-      title: "Mark your fillers",
-      instructions:
-        "Write the three filler phrases you used on calls this week. One line each.",
-      recordingRequired: false,
-      reviewRequired: false,
-      status: "done",
-      responseText:
-        "1. I think we should\n2. kind of\n3. does that make sense?\nCaught myself on the Tuesday exec review.",
-      submittedAt: daysAgo(5),
-      completedAt: daysAgo(5),
-      createdAt: daysAgo(6),
-      updatedAt: daysAgo(5),
-    });
-
-    await ctx.db.insert("tasks", {
-      clientId,
-      sessionNumber: 2,
-      title: "Warm-up: 60 seconds",
-      instructions:
-        "Assigned ahead. Opens after Session 1 is complete. Same 20-second open, this time sitting in the chair you take for board calls.",
-      recordingRequired: true,
-      reviewRequired: true,
-      status: "open",
-      createdAt: daysAgo(2),
+      submittedAt: daysAgo(2),
+      rating: 7,
+      ratingComment:
+        "Tried this after the leadership sync. One maybe slipped. The rest is clean.",
+      createdAt: daysAgo(3),
       updatedAt: daysAgo(2),
     });
 
