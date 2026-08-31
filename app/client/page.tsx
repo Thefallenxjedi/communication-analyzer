@@ -553,9 +553,7 @@ export default function ClientHomePage() {
         : "upcoming";
 
   function stepTitle(task: CoachingTask, index: number) {
-    const raw = task.title.trim();
-    if (/^task\s+\d+/i.test(raw) || (isSessionNav(nav) && nav === INTRO_SESSION)) return raw;
-    return `Task ${index + 1}`;
+    return task.title.trim() || `Task ${index + 1}`;
   }
 
   function sessionKicker() {

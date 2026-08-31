@@ -124,101 +124,165 @@ type SessionPlan = {
   comment: string;
 };
 
+function campfireInstructions(weekNote: string): string {
+  return `Sample, you shared a lot with me this last call which I greatly appreciate. The verbal workout routine below will be developed over the next few weeks as I learn more about your unique communication style. Our goal is to make this practice routine between 3-5 mins. Begin by setting a timer for 5 minutes and working through each step below. Use questions you were asked recently at work.
+
+${weekNote}
+
+(2 mins) Light the Campfire/Beacon
+Purpose: Prevent rambling. Set your beacon before you speak. Say the compression “campfire” sentence up front.
+
+Instructions:
+1. Ask yourself: “If I had to communicate this in one sentence, what would I say?” Answer one of these questions or use a question that’s surfaced from your last week. If you have any that come up, save these for next session to practice with!
+
+2. Say the “campfire” in one sentence. You’ll notice your pace slowing. No commas. Say it in a single breath. Examples:
+→ “Leadership is about clarity not certainty.”
+→ “Risk is the rent you pay for growth.”
+→ “Self-doubt is a signal.”
+
+3. This is your campfire. The campfire is a single sentence that aims to capture 50% of your first idea. This is your verbal home base. Now speak freely for 60 seconds. Wander, explain, explore. But always know where home is. When you lose your way, return to the campfire (repeat a word or words from your campfire).
+
+Record that 60 seconds.`;
+}
+
+function preSpeakInstructions(isNew: boolean): string {
+  const heading = isNew
+    ? "NEW! (90 secs) Pre-Speaking Routine"
+    : "(90 secs) Pre-Speaking Routine";
+  return `${heading}
+
+Purpose: Before an important meeting, take 90 seconds to prepare:
+
+Obviously Achievable Outcome (OAO) — 30 sec
+Choose one simple, measurable thing you will accomplish. Example: “I will share the comparison quote.”
+
+Breathing — 60 sec
+Choose one:
+Box Breathing: Inhale (nose) 4 sec → hold 4 → exhale (mouth) 4 → hold 4.
+OR Lion’s Breathing: 2 sharp (nose) inhales → 1 long (mouth) exhale.
+
+The goal is to enter the meeting clear, intentional, and regulated. Right now, you find a lot of security in the content and preparation. We need to work towards getting you as a person more aligned with how you will show up regardless of what you “know”.
+
+Write the OAO you will use this week, and which breath you chose.`;
+}
+
 const SESSION_PLAN: SessionPlan[] = [
   {
-    recordTitle: "Pace the first 20 seconds",
-    recordInstructions:
-      "Record a 20-second open for an investor update. One claim, one number, stop. No throat-clearing.",
-    lessonTitle: "Mark your fillers",
-    lessonInstructions: "Write the three filler phrases you used on calls this week. One line each.",
+    recordTitle: "Daily Routine (4 mins) — Light the Campfire/Beacon",
+    recordInstructions: campfireInstructions(
+      "Week 1. Stay with one work question only. Do not stack topics.",
+    ),
+    lessonTitle: "Pre-Speaking Routine (90 secs)",
+    lessonInstructions: preSpeakInstructions(false),
     lessonNote:
-      "1. I think we should\n2. kind of\n3. does that make sense?\nCaught myself on the Tuesday exec review.",
+      "OAO: I will share the APAC restart ask.\nBreath: Box 4-4-4-4.\nStill wanted to open the deck first. Did the breath standing.",
     rating: 7,
     comment:
-      "Better pace. Keep the last line. Cut the breath before you start — the clip should open on the claim.",
+      "Campfire landed. You left home in the last 20 seconds — repeat one word from the sentence and come back.",
   },
   {
-    recordTitle: "Comfort with silence",
-    recordInstructions:
-      "Record 45 seconds. Make one claim, then hold a full pause before the proof. Do not fill the gap.",
-    lessonTitle: "Pre-speaking ritual",
-    lessonInstructions: "Write the 3-step ritual you will use before a senior call.",
+    recordTitle: "Daily Routine (4 mins) — Light the Campfire/Beacon",
+    recordInstructions: campfireInstructions(
+      "Week 2. Same campfire. This week we add the 90-second pre-speak before you record.",
+    ),
+    lessonTitle: "NEW! Pre-Speaking Routine (90 secs)",
+    lessonInstructions: preSpeakInstructions(true),
     lessonNote:
-      "1. Stand up\n2. One slow exhale\n3. Say the title sentence out loud once, then join.",
+      "OAO: I will say the comparison quote out loud before the metric.\nBreath: Lion’s — two sharp in, one long out.",
     rating: 6,
-    comment: "The pause is there. You still rush the sentence after it. Let the room land.",
+    comment:
+      "Pre-speak is the work. You still rush the first sentence after the breath. Let the pause exist.",
   },
   {
-    recordTitle: "One sharp sentence",
-    recordInstructions:
-      "Record one thought in a single sentence, then a second sentence that proves it. Sixty seconds max.",
-    lessonTitle: "Word mine",
-    lessonInstructions: "List five words you actually use at work that sound like you — not brochure English.",
-    lessonNote: "runway · merchant · float · settle · board pack",
-    rating: 8,
-    comment: "The first sentence is a title. That is the skill. Do it on the live call this week.",
-  },
-  {
-    recordTitle: "Surprise and sharpen",
-    recordInstructions:
-      "Retell a customer story. End on a short, sharp line. No summary paragraph after it.",
-    lessonTitle: "Quote you would actually say",
-    lessonInstructions: "Write one line you could drop in a board update without sounding written.",
-    lessonNote: "We did not miss the quarter. We missed the sentence that would have saved it.",
-    rating: 7,
-    comment: "Ending is clean. The middle still lists. Cut two facts. Keep the line.",
-  },
-  {
-    recordTitle: "Daily open, take 1",
-    recordInstructions:
-      "Same 20-second investor open as Session 1. Standing. One take.",
-    lessonTitle: "What you heard back",
-    lessonInstructions: "After you played the clip, write what a skeptical VP would still not believe.",
-    lessonNote: "They would ask why net retention moved. I did not put the number in the open.",
-    rating: 7,
-    comment: "Repeatable now. Number belongs in sentence one, not three.",
-  },
-  {
-    recordTitle: "Daily open, take 2",
-    recordInstructions:
-      "Same open, sitting in the chair you use for board calls. Do not look at notes.",
-    lessonTitle: "Two hedges you still use",
-    lessonInstructions: "Name them. Write the replacement sentence.",
+    recordTitle: "Daily Routine (4 mins) — Light the Campfire/Beacon",
+    recordInstructions: campfireInstructions(
+      "Week 3. Campfire from a customer question you were asked this week. Texture, not a new structure.",
+    ),
+    lessonTitle: "Pre-Speaking Routine (90 secs)",
+    lessonInstructions: preSpeakInstructions(false),
     lessonNote:
-      "I think we should → We should.\nDoes that make sense? → Here is the ask.",
+      "OAO: I will name the merchant drop in one sentence.\nBreath: Box.\nCampfire I used: Risk is the rent you pay for growth.",
     rating: 8,
-    comment: "Chair version is calmer. Keep this one as the house open.",
+    comment:
+      "That campfire is a title. Keep it. Do not explain it after you say it — go to the 60 seconds.",
   },
   {
-    recordTitle: "Hostile question",
-    recordInstructions:
-      "Someone says the metric is wrong. Record a 40-second reply: claim, one number, one next step. No apology loop.",
-    lessonTitle: "The question you fear",
-    lessonInstructions: "Write the question. Write your first sentence only.",
+    recordTitle: "Daily Routine (4 mins) — Light the Campfire/Beacon",
+    recordInstructions: campfireInstructions(
+      "Week 4. End the 60 seconds on a short line. No summary paragraph after the campfire.",
+    ),
+    lessonTitle: "Pre-Speaking Routine (90 secs)",
+    lessonInstructions: preSpeakInstructions(false),
     lessonNote:
-      "Q: Why did sales slip in APAC?\nA: APAC slipped because we paused the partner motion in March. We restart it Monday.",
+      "OAO: I will share one customer line, not three.\nBreath: Box.\nLine I retired: at the end of the day.",
+    rating: 7,
+    comment:
+      "Ending is clean. The middle still lists. Cut two facts. Return to the campfire once, not three times.",
+  },
+  {
+    recordTitle: "Daily Routine (4 mins) — Light the Campfire/Beacon",
+    recordInstructions: campfireInstructions(
+      "Week 5. Same 4-minute routine, standing. One take. Timer on.",
+    ),
+    lessonTitle: "Pre-Speaking Routine (90 secs)",
+    lessonInstructions: preSpeakInstructions(false),
+    lessonNote:
+      "OAO: Number in sentence one.\nBreath: Lion’s.\nI still put net retention in sentence three. Caught it on playback.",
+    rating: 7,
+    comment:
+      "Repeatable now. The number belongs in the campfire, not in the wander.",
+  },
+  {
+    recordTitle: "Daily Routine (4 mins) — Light the Campfire/Beacon",
+    recordInstructions: campfireInstructions(
+      "Week 6. Same open, sitting in the chair you use for board calls. Do not look at notes.",
+    ),
+    lessonTitle: "Pre-Speaking Routine (90 secs)",
+    lessonInstructions: preSpeakInstructions(false),
+    lessonNote:
+      "OAO: I will not say I think or maybe.\nBreath: Box in the chair.\nReplacements: We should. Here is the ask.",
+    rating: 8,
+    comment:
+      "Chair version is calmer. Keep this campfire as the house open.",
+  },
+  {
+    recordTitle: "Daily Routine (4 mins) — Light the Campfire/Beacon",
+    recordInstructions: campfireInstructions(
+      "Week 7. Hostile question. Someone says the metric is wrong. Campfire first, then 60 seconds. No apology loop.",
+    ),
+    lessonTitle: "Pre-Speaking Routine (90 secs)",
+    lessonInstructions: preSpeakInstructions(false),
+    lessonNote:
+      "OAO: Name the cause in the first sentence.\nBreath: Box.\nQ I feared: Why did sales slip in APAC?\nCampfire: APAC slipped because we paused the partner motion in March.",
     rating: 6,
-    comment: "You still soften the first line. Start on the cause. The room already knows it slipped.",
+    comment:
+      "You still soften the first line. Start on the cause. The room already knows it slipped.",
   },
   {
-    recordTitle: "Capstone: 90-second update",
-    recordInstructions:
-      "Full fake board update. 90 seconds. Point first, two proofs, one ask. Stop talking.",
-    lessonTitle: "What you will not say",
-    lessonInstructions: "Three phrases you are retiring after this program.",
-    lessonNote: "kind of · I think maybe · at the end of the day",
+    recordTitle: "Daily Routine (4 mins) — Light the Campfire/Beacon",
+    recordInstructions: campfireInstructions(
+      "Week 8. Capstone. Full update inside the same 4 minutes. Point first, two proofs, one ask. Stop talking.",
+    ),
+    lessonTitle: "Pre-Speaking Routine (90 secs)",
+    lessonInstructions: preSpeakInstructions(false),
+    lessonNote:
+      "OAO: One ask. Stop.\nBreath: Lion’s.\nPhrases retired: kind of · I think maybe · at the end of the day.",
     rating: 8,
-    comment: "This is the after. Compare it to the BEFORE video. The open is a different person.",
+    comment:
+      "This is the after. Compare it to the BEFORE video. The campfire is a different person.",
   },
   {
-    recordTitle: "Live ask",
-    recordInstructions:
-      "Record the ask you will make on the next real exec call. Twenty seconds. Then stop.",
-    lessonTitle: "Next call, one line",
-    lessonInstructions: "Write the first sentence you will say when the Zoom window opens.",
-    lessonNote: "We need a yes on the APAC restart today, not a follow-up.",
+    recordTitle: "Daily Routine (4 mins) — Light the Campfire/Beacon",
+    recordInstructions: campfireInstructions(
+      "Week 9. Live ask. Twenty seconds of campfire, then the 60. Then stop. This is the sentence you take into the next exec call.",
+    ),
+    lessonTitle: "Pre-Speaking Routine (90 secs)",
+    lessonInstructions: preSpeakInstructions(false),
+    lessonNote:
+      "OAO: We need a yes on the APAC restart today, not a follow-up.\nBreath: Box.\nFirst sentence when Zoom opens: that OAO, nothing else.",
     rating: 7,
-    comment: "Ask is clear. Do not explain why you are asking. You already did.",
+    comment:
+      "Ask is clear. Do not explain why you are asking. You already did in the campfire.",
   },
 ];
 
