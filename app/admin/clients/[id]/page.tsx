@@ -68,13 +68,13 @@ function AdminLinkedInDrawer({
         className="absolute inset-0 bg-slate-900/30"
         onClick={onClose}
       />
-      <aside className="relative z-10 flex h-full w-full max-w-[36rem] flex-col border-l border-border bg-white shadow-xl">
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-6 py-5">
+      <aside className="relative z-10 flex h-full w-full max-w-[42rem] flex-col border-l border-border bg-white shadow-xl">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-7 py-6">
           <div>
             <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
               LinkedIn
             </p>
-            <p className="mt-1 text-2xl font-extrabold tracking-tight">
+            <p className="mt-2 text-4xl font-extrabold leading-tight tracking-tight text-slate-900">
               {profile?.fullName || client.name}
             </p>
           </div>
@@ -82,52 +82,60 @@ function AdminLinkedInDrawer({
             Close
           </button>
         </div>
-        <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-6 py-6">
+        <div className="min-h-0 flex-1 space-y-10 overflow-y-auto px-7 py-8">
           {!client.onboardingComplete ? (
-            <p className="text-lg font-semibold text-amber-800">
+            <p className="text-2xl font-extrabold text-amber-800">
               LinkedIn PDF not uploaded yet.
             </p>
           ) : (
             <>
-              {profile?.headline ? (
-                <p className="text-lg font-bold leading-snug text-slate-800">
-                  {profile.headline}
-                </p>
-              ) : null}
-              {profile?.location ? (
-                <p className="text-base font-semibold text-muted">
-                  {profile.location}
-                </p>
+              {profile?.headline || profile?.location ? (
+                <div>
+                  {profile.headline ? (
+                    <p className="text-2xl font-extrabold leading-snug text-slate-900">
+                      {profile.headline}
+                    </p>
+                  ) : null}
+                  {profile.location ? (
+                    <p className="mt-1 text-lg font-semibold text-muted">
+                      {profile.location}
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
               {profile?.about ? (
                 <div>
-                  <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
+                  <p className="text-3xl font-extrabold tracking-tight text-slate-900">
                     About
                   </p>
-                  <p className="mt-2 text-lg font-medium leading-relaxed text-slate-800">
+                  <p className="mt-3 text-2xl font-semibold leading-relaxed text-slate-800">
                     {profile.about}
                   </p>
                 </div>
               ) : null}
               {profile && profile.experience.length > 0 ? (
                 <div>
-                  <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
+                  <p className="text-3xl font-extrabold tracking-tight text-slate-900">
                     Experience
                   </p>
-                  <ul className="mt-3 space-y-5">
+                  <ul className="mt-5 space-y-8">
                     {profile.experience.map((job, i) => (
                       <li key={`${job.company}-${job.title}-${i}`}>
-                        <p className="text-lg font-extrabold text-slate-900">
+                        <p className="text-2xl font-extrabold leading-snug text-slate-900">
                           {job.title || "Role"}
-                          {job.company ? ` · ${job.company}` : ""}
                         </p>
+                        {job.company ? (
+                          <p className="mt-1 text-xl font-bold text-slate-800">
+                            {job.company}
+                          </p>
+                        ) : null}
                         {job.dates ? (
-                          <p className="mt-0.5 text-base font-semibold text-muted">
+                          <p className="mt-1 text-base font-semibold text-muted">
                             {job.dates}
                           </p>
                         ) : null}
                         {job.description ? (
-                          <p className="mt-2 text-lg leading-relaxed text-slate-700">
+                          <p className="mt-3 text-xl font-semibold leading-relaxed text-slate-800">
                             {job.description}
                           </p>
                         ) : null}
@@ -138,22 +146,24 @@ function AdminLinkedInDrawer({
               ) : null}
               {profile && profile.education.length > 0 ? (
                 <div>
-                  <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
+                  <p className="text-3xl font-extrabold tracking-tight text-slate-900">
                     Education
                   </p>
-                  <ul className="mt-3 space-y-3">
+                  <ul className="mt-5 space-y-4">
                     {profile.education.map((row, i) => (
-                      <li
-                        key={`${row.school}-${i}`}
-                        className="text-lg font-semibold text-slate-800"
-                      >
-                        {row.school || "School"}
-                        {row.degree ? ` · ${row.degree}` : ""}
+                      <li key={`${row.school}-${i}`}>
+                        <p className="text-2xl font-extrabold text-slate-900">
+                          {row.school || "School"}
+                        </p>
+                        {row.degree ? (
+                          <p className="mt-1 text-xl font-bold text-slate-800">
+                            {row.degree}
+                          </p>
+                        ) : null}
                         {row.dates ? (
-                          <span className="font-medium text-muted">
-                            {" "}
-                            · {row.dates}
-                          </span>
+                          <p className="mt-1 text-base font-semibold text-muted">
+                            {row.dates}
+                          </p>
                         ) : null}
                       </li>
                     ))}
@@ -162,29 +172,29 @@ function AdminLinkedInDrawer({
               ) : null}
               {profile && profile.skills.length > 0 ? (
                 <div>
-                  <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
+                  <p className="text-3xl font-extrabold tracking-tight text-slate-900">
                     Skills
                   </p>
-                  <p className="mt-2 text-lg font-medium leading-relaxed text-slate-800">
+                  <p className="mt-3 text-xl font-bold leading-relaxed text-slate-800">
                     {profile.skills.join(" · ")}
                   </p>
                 </div>
               ) : null}
               {blocks.length > 0 ? (
-                <div className="space-y-6 border-t border-border pt-6">
-                  <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
+                <div className="space-y-5 border-t border-border pt-8">
+                  <p className="text-base font-extrabold uppercase tracking-wide text-muted">
                     From the PDF
                   </p>
                   {blocks.map((block) => (
                     <div key={block.heading}>
-                      <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
+                      <p className="text-lg font-extrabold text-slate-700">
                         {block.heading}
                       </p>
-                      <div className="mt-2 space-y-3">
+                      <div className="mt-2 space-y-2">
                         {block.paragraphs.map((para, i) => (
                           <p
                             key={`${block.heading}-${i}`}
-                            className="text-lg leading-relaxed text-slate-800"
+                            className="text-base leading-relaxed text-slate-600"
                           >
                             {para}
                           </p>
@@ -194,7 +204,7 @@ function AdminLinkedInDrawer({
                   ))}
                 </div>
               ) : !profile && client.onboardingComplete ? (
-                <p className="text-lg text-muted">
+                <p className="text-xl text-muted">
                   PDF is saved. The parsed profile is empty — check that Gemini
                   ran on upload.
                 </p>
