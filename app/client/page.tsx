@@ -564,6 +564,9 @@ export default function ClientHomePage() {
       return `${row.name}, this session has been completed.`;
     }
     if (nav === INTRO_SESSION) {
+      if (!isIntroCallEmpty(intro)) {
+        return `${row.name}, your Intro Call overview is below. Complete the baseline video task when you are ready.`;
+      }
       return `${row.name}, paste a Google Drive or YouTube link for your baseline video. Your coach will write the diagnosis after the call.`;
     }
     if (selectedTasks.length === 0) {
@@ -572,9 +575,13 @@ export default function ClientHomePage() {
     return `${row.name}, work through each step below. Record audio when a task asks for it, then wait for your coach review.`;
   }
 
-  function renderTaskStep(task: CoachingTask, index: number) {
+  function renderTaskStep(task: CoachingTask, index: number, stepN?: number) {
     return (
-      <SessionReportStep key={task.id} n={index + 1} title={stepTitle(task, index)}>
+      <SessionReportStep
+        key={task.id}
+        n={stepN ?? index + 1}
+        title={stepTitle(task, index)}
+      >
         <p>{task.instructions}</p>
         <TaskScreen
           task={task}
@@ -767,6 +774,11 @@ export default function ClientHomePage() {
             title={sessionLabel(nav)}
             kicker={sessionKicker()}
           >
+            {nav === INTRO_SESSION && !isIntroCallEmpty(intro) ? (
+              <SessionReportStep n={1} title="Intro Call Overview">
+                <IntroCallView clientName={client.name} report={intro} />
+              </SessionReportStep>
+            ) : null}
             {sessionLocked || (selectedTasks.length === 0 && nav !== INTRO_SESSION) ? (
               <SessionWaiting
                 sessionNumber={nav}
@@ -777,16 +789,16 @@ export default function ClientHomePage() {
                 }
               />
             ) : (
-              selectedTasks.map((task, index) => renderTaskStep(task, index))
+              selectedTasks.map((task, index) =>
+                renderTaskStep(
+                  task,
+                  index,
+                  nav === INTRO_SESSION && !isIntroCallEmpty(intro)
+                    ? index + 2
+                    : index + 1,
+                ),
+              )
             )}
-            {nav === INTRO_SESSION ? (
-              <SessionReportStep
-                n={selectedTasks.length + 1}
-                title="Intro Diagnosis"
-              >
-                <IntroCallView clientName={client.name} report={intro} />
-              </SessionReportStep>
-            ) : null}
           </SessionReport>
         )}
         {error ? (
