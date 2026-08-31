@@ -29,13 +29,20 @@ function VoiceMark({ motion }: { motion: WaitMotion }) {
   );
 }
 
-export function SessionWaiting({ sessionNumber }: { sessionNumber: number }) {
+export function SessionWaiting({
+  sessionNumber,
+  lockNote,
+}: {
+  sessionNumber: number;
+  lockNote?: string;
+}) {
   const wait = sessionWaiting(sessionNumber);
   return (
     <div className="es-wait">
       <VoiceMark motion={wait.motion} />
       <p className="es-wait-theme">{wait.theme}</p>
       <p className="es-wait-line">{wait.line}</p>
+      {lockNote ? <p className="es-wait-lock">{lockNote}</p> : null}
       <span className="es-wait-rule" aria-hidden />
     </div>
   );

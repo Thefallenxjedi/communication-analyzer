@@ -52,6 +52,20 @@ export function parseCurrentStage(stage: string | undefined): number {
   return isValidSessionNumber(n) ? n : INTRO_SESSION;
 }
 
+/** Admin may assign ahead. The client can work a session only after the previous one is done. */
+export function isClientSessionUnlocked(
+  sessionNumber: number,
+  currentStage: string | undefined,
+): boolean {
+  return sessionNumber <= parseCurrentStage(currentStage);
+}
+
+export function previousProgramSession(sessionNumber: number): number {
+  if (sessionNumber <= 1) return INTRO_SESSION;
+  if (sessionNumber >= FINAL_SESSION) return WORK_SESSION_COUNT;
+  return sessionNumber - 1;
+}
+
 export function fileToken(value: string): string {
   const token = value
     .normalize("NFKD")

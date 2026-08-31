@@ -9,11 +9,21 @@ import {
   submitCoachingTask,
   usesVideoLink,
 } from "@/lib/coaching-tasks";
+import { isClientSessionUnlocked } from "@/lib/coaching-program";
 import { readClientEmailFromCookie } from "@/lib/client-session";
 import { formatConvexError, isConvexConfigured } from "@/lib/convex-server";
 import { normalizeVideoShareUrl } from "@/lib/google-drive";
 
 export const runtime = "nodejs";
+
+function visibleClientTasks(
+  tasks: Awaited<ReturnType<typeof listCoachingTasks>>,
+  currentStage: string,
+) {
+  return tasks.filter((task) =>
+    isClientSessionUnlocked(task.sessionNumber, currentStage),
+  );
+}
 
 export async function GET(request: Request) {
   if (!isConvexConfigured()) {
@@ -31,10 +41,11 @@ export async function GET(request: Request) {
       return Response.json({ error: "Not enrolled.", tasks: [], sessions: [] }, { status: 401 });
     }
     await ensureCoachingProgram(row.id);
-    const [tasks, sessions] = await Promise.all([
+    const [allTasks, sessions] = await Promise.all([
       listCoachingTasks(row.id),
       listCoachingSessions(row.id),
     ]);
+    const tasks = visibleClientTasks(allTasks, row.currentStage);
     return Response.json({ tasks, sessions });
   } catch (err) {
     return Response.json(
@@ -84,6 +95,12 @@ export async function POST(request: Request) {
     if (!mine) {
       return Response.json({ error: "Task not found." }, { status: 404 });
     }
+    if (!isClientSessionUnlocked(mine.sessionNumber, row.currentStage)) {
+      return Response.json(
+        { error: "This session opens after you finish the previous one." },
+        { status: 403 },
+      );
+    }
     if (mine.status !== "open") {
       return Response.json(
         { error: "This task is already submitted." },
@@ -105,7 +122,10 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
-      const next = await listCoachingTasks(row.id);
+      const next = visibleClientTasks(
+        await listCoachingTasks(row.id),
+        row.currentStage,
+      );
       return Response.json({ ok: true, tasks: next });
     }
 
@@ -142,7 +162,10 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const next = await listCoachingTasks(row.id);
+    const next = visibleClientTasks(
+      await listCoachingTasks(row.id),
+      row.currentStage,
+    );
     return Response.json({ ok: true, tasks: next });
   } catch (err) {
     return Response.json({ error: formatConvexError(err) }, { status: 500 });
@@ -187,6 +210,12 @@ export async function PATCH(request: Request) {
     if (!mine) {
       return Response.json({ error: "Task not found." }, { status: 404 });
     }
+    if (!isClientSessionUnlocked(mine.sessionNumber, row.currentStage)) {
+      return Response.json(
+        { error: "This session opens after you finish the previous one." },
+        { status: 403 },
+      );
+    }
     if (mine.status !== "submitted") {
       return Response.json(
         { error: "Only a submitted response can be edited once." },
@@ -228,7 +257,10 @@ export async function PATCH(request: Request) {
         { status: 400 },
       );
     }
-    const next = await listCoachingTasks(row.id);
+    const next = visibleClientTasks(
+      await listCoachingTasks(row.id),
+      row.currentStage,
+    );
     return Response.json({ ok: true, tasks: next });
   } catch (err) {
     return Response.json({ error: formatConvexError(err) }, { status: 500 });

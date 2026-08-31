@@ -37,4 +37,5 @@ export type ClientSession = Pick<
   | "status"
   | "currentStage"
   | "reviewRequired"
+  | "onboardingComplete"
 >;

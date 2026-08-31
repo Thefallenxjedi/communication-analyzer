@@ -123,6 +123,14 @@ export default defineSchema({
     lastActivityAt: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
+    /** First-login questions + LinkedIn PDF. Omitted until the client finishes onboarding. */
+    onboardingComplete: v.optional(v.boolean()),
+    onboardingRole: v.optional(v.string()),
+    onboardingCompany: v.optional(v.string()),
+    onboardingGoal: v.optional(v.string()),
+    linkedinStorageId: v.optional(v.id("_storage")),
+    linkedinText: v.optional(v.string()),
+    linkedinProfileJson: v.optional(v.string()),
   })
     .index("by_userId", ["userId"])
     .index("by_status_lastActivityAt", ["status", "lastActivityAt"])

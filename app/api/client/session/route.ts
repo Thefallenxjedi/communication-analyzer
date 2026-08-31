@@ -20,6 +20,7 @@ function toSession(row: {
   status: ClientSession["status"];
   currentStage?: string;
   reviewRequired?: boolean;
+  onboardingComplete?: boolean;
 }): ClientSession {
   return {
     id: row.id,
@@ -32,6 +33,7 @@ function toSession(row: {
     status: row.status,
     currentStage: row.currentStage || "Intro Call",
     reviewRequired: row.reviewRequired === true,
+    onboardingComplete: row.onboardingComplete === true,
   };
 }
 

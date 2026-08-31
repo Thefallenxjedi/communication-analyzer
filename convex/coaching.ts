@@ -200,6 +200,11 @@ async function toClientView(
     pendingReviews: pendingReviews.length,
     lastActivityAt: new Date(row.lastActivityAt).toISOString(),
     createdAt: new Date(row.createdAt).toISOString(),
+    onboardingComplete: row.onboardingComplete === true,
+    onboardingRole: row.onboardingRole ?? "",
+    onboardingCompany: row.onboardingCompany ?? "",
+    onboardingGoal: row.onboardingGoal ?? "",
+    linkedinProfileJson: row.linkedinProfileJson ?? "",
   };
 }
 
@@ -484,6 +489,61 @@ export const createTask = mutation({
 export const generateUploadUrl = mutation({
   args: {},
   handler: async (ctx) => ctx.storage.generateUploadUrl(),
+});
+
+export const getStorageUrl = query({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => ctx.storage.getUrl(args.storageId),
+});
+
+const ROLE_MAX = 120;
+const COMPANY_MAX = 120;
+const GOAL_MAX = 800;
+const PROFILE_JSON_MAX = 60_000;
+const LINKEDIN_TEXT_MAX = 80_000;
+
+export const saveOnboarding = mutation({
+  args: {
+    clientId: v.id("clients"),
+    role: v.string(),
+    company: v.optional(v.string()),
+    goal: v.string(),
+    linkedinStorageId: v.id("_storage"),
+    linkedinText: v.string(),
+    linkedinProfileJson: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.db.get(args.clientId);
+    if (!existing) return { ok: false as const, reason: "not_found" as const };
+    if (existing.onboardingComplete === true) {
+      return { ok: false as const, reason: "already_complete" as const };
+    }
+
+    const role = args.role.replace(/\s+/g, " ").trim().slice(0, ROLE_MAX);
+    const company = (args.company ?? "").replace(/\s+/g, " ").trim().slice(0, COMPANY_MAX);
+    const goal = args.goal.replace(/\s+/g, " ").trim().slice(0, GOAL_MAX);
+    if (!role) throw new Error("role required");
+    if (!goal) throw new Error("goal required");
+
+    const now = Date.now();
+    if (existing.linkedinStorageId && existing.linkedinStorageId !== args.linkedinStorageId) {
+      await ctx.storage.delete(existing.linkedinStorageId);
+    }
+
+    await ctx.db.patch(args.clientId, {
+      onboardingComplete: true,
+      onboardingRole: role,
+      ...(company ? { onboardingCompany: company } : {}),
+      onboardingGoal: goal,
+      linkedinStorageId: args.linkedinStorageId,
+      linkedinText: args.linkedinText.slice(0, LINKEDIN_TEXT_MAX),
+      linkedinProfileJson: args.linkedinProfileJson.slice(0, PROFILE_JSON_MAX),
+      lastActivityAt: now,
+      updatedAt: now,
+    });
+
+    return { ok: true as const };
+  },
 });
 
 export const submitTask = mutation({

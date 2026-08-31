@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ClientOnboarding } from "@/components/ClientOnboarding";
 import { Ember } from "@/components/Ember";
 import { HowItWorksRoadmap } from "@/components/HowItWorksRoadmap";
 import { ClipPlayer } from "@/components/ClipPlayer";
@@ -18,7 +19,9 @@ import {
 import {
   FINAL_SESSION,
   INTRO_SESSION,
+  isClientSessionUnlocked,
   parseCurrentStage,
+  previousProgramSession,
   sessionLabel,
 } from "@/lib/coaching-program";
 import {
@@ -37,9 +40,10 @@ function stageToNav(stage: string | undefined): NavId {
   return parseCurrentStage(stage);
 }
 
-function navClass(active: boolean, here: boolean): string {
+function navClass(active: boolean, here: boolean, locked = false): string {
   if (active) return "es-nav-item es-nav-item--active";
   if (here) return "es-nav-item es-nav-item--here";
+  if (locked) return "es-nav-item es-nav-item--locked";
   return "es-nav-item";
 }
 
@@ -524,9 +528,25 @@ export default function ClientHomePage() {
     );
   }
 
+  if (!client.onboardingComplete) {
+    return (
+      <ClientOnboarding
+        name={client.name}
+        onDone={() => void load()}
+        onLogout={() => void logout()}
+      />
+    );
+  }
+
   const row = client;
   const here = stageToNav(row.currentStage);
-  const selectedTasks = isSessionNav(nav) ? tasksForSession(tasks, nav) : [];
+  const sessionLocked =
+    isSessionNav(nav) && !isClientSessionUnlocked(nav, row.currentStage);
+  const selectedTasks = sessionLocked
+    ? []
+    : isSessionNav(nav)
+      ? tasksForSession(tasks, nav)
+      : [];
   const sessionComplete = isSessionComplete(selectedTasks);
   const emberId = liveTaskId(
     selectedTasks.filter((task) => task.recordingRequired),
@@ -549,6 +569,9 @@ export default function ClientHomePage() {
   }
 
   function sessionKicker() {
+    if (sessionLocked && isSessionNav(nav)) {
+      return `${row.name}, this session opens after you finish ${sessionLabel(previousProgramSession(nav))}.`;
+    }
     if (sessionComplete) {
       return `${row.name}, this session has been completed.`;
     }
@@ -638,6 +661,10 @@ export default function ClientHomePage() {
           {sessions.map((slot) => {
             const slotTasks = tasksForSession(tasks, slot.sessionNumber);
             const milestone = sessionMilestone(slot.sessionNumber, here, slotTasks);
+            const locked = !isClientSessionUnlocked(
+              slot.sessionNumber,
+              row.currentStage,
+            );
             return (
               <button
                 key={slot.sessionNumber}
@@ -646,6 +673,7 @@ export default function ClientHomePage() {
                 className={navClass(
                   nav === slot.sessionNumber,
                   milestone === "current",
+                  locked,
                 )}
               >
                 <span className="flex items-center gap-2">
@@ -708,15 +736,22 @@ export default function ClientHomePage() {
         ) : (
           <SessionReport
             className={
-              selectedTasks.length === 0 && nav !== INTRO_SESSION
+              sessionLocked || (selectedTasks.length === 0 && nav !== INTRO_SESSION)
                 ? "flex-1 es-report--empty"
                 : "flex-1"
             }
             title={sessionLabel(nav)}
             kicker={sessionKicker()}
           >
-            {selectedTasks.length === 0 && nav !== INTRO_SESSION ? (
-              <SessionWaiting sessionNumber={nav} />
+            {sessionLocked || (selectedTasks.length === 0 && nav !== INTRO_SESSION) ? (
+              <SessionWaiting
+                sessionNumber={nav}
+                lockNote={
+                  sessionLocked && isSessionNav(nav)
+                    ? `Opens after ${sessionLabel(previousProgramSession(nav))}.`
+                    : undefined
+                }
+              />
             ) : (
               selectedTasks.map((task, index) => renderTaskStep(task, index))
             )}

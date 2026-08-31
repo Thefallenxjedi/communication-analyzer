@@ -6,6 +6,9 @@ import { useParams } from "next/navigation";
 import { IntroCallView } from "@/components/IntroCallView";
 import type { CoachingClient } from "@/lib/coaching-clients";
 import {
+  parseLinkedInProfile,
+} from "@/lib/linkedin-profile";
+import {
   FINAL_SESSION,
   INTRO_SESSION,
   PROGRAM_SLOTS,
@@ -32,6 +35,59 @@ import {
   type IntroCallReport,
 } from "@/lib/intro-call";
 
+function AdminLinkedInCard({ client }: { client: CoachingClient }) {
+  if (!client.onboardingComplete) {
+    return (
+      <p className="mt-4 text-base font-semibold text-amber-800">
+        Client has not finished first-login onboarding yet.
+      </p>
+    );
+  }
+  const profile = parseLinkedInProfile(client.linkedinProfileJson);
+  return (
+    <section className="mt-5 max-w-3xl rounded-2xl border border-border bg-white p-5">
+      <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
+        Client profile
+      </p>
+      <p className="mt-2 text-lg font-extrabold">
+        {profile?.fullName || client.name}
+        {profile?.headline ? (
+          <span className="ml-2 text-base font-semibold text-muted">
+            {profile.headline}
+          </span>
+        ) : null}
+      </p>
+      {client.onboardingRole ? (
+        <p className="mt-1 text-base">
+          {client.onboardingRole}
+          {client.onboardingCompany ? ` · ${client.onboardingCompany}` : ""}
+        </p>
+      ) : null}
+      {client.onboardingGoal ? (
+        <p className="mt-2 text-base text-slate-700">{client.onboardingGoal}</p>
+      ) : null}
+      {profile?.about ? (
+        <p className="mt-3 whitespace-pre-wrap text-base leading-relaxed text-slate-800">
+          {profile.about}
+        </p>
+      ) : null}
+      {profile && profile.experience.length > 0 ? (
+        <ul className="mt-3 space-y-2">
+          {profile.experience.slice(0, 4).map((job, i) => (
+            <li key={`${job.company}-${i}`} className="text-base">
+              <span className="font-bold">{job.title}</span>
+              {job.company ? ` · ${job.company}` : ""}
+              {job.dates ? (
+                <span className="text-muted"> · {job.dates}</span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
+  );
+}
+
 function ResponseTypeField({
   kind,
   onChange,
@@ -45,20 +101,20 @@ function ResponseTypeField({
     ? "Client pastes a Drive or YouTube link."
     : "Client records audio in the app.";
   const selected =
-    "rounded-xl border-2 border-slate-900 bg-slate-50 px-3 py-2.5 text-left";
+    "rounded-xl border-2 border-slate-900 bg-slate-50 px-4 py-3.5 text-left";
   const idle =
-    "rounded-xl border border-border bg-white px-3 py-2.5 text-left hover:bg-slate-50";
+    "rounded-xl border border-border bg-white px-4 py-3.5 text-left hover:bg-slate-50";
   return (
     <fieldset>
-      <legend className="text-sm font-semibold">Task type</legend>
-      <div className="mt-2 grid grid-cols-2 gap-2">
+      <legend className="text-base font-semibold">Task type</legend>
+      <div className="mt-2 grid grid-cols-2 gap-3">
         <button
           type="button"
           onClick={() => onChange("record")}
           className={kind === "record" ? selected : idle}
         >
-          <span className="block text-sm font-extrabold">Record audio</span>
-          <span className="mt-0.5 block text-xs font-normal text-muted">
+          <span className="block text-base font-extrabold">Record audio</span>
+          <span className="mt-1 block text-sm font-normal text-muted">
             {recordHint}
           </span>
         </button>
@@ -67,8 +123,8 @@ function ResponseTypeField({
           onClick={() => onChange("lesson")}
           className={kind === "lesson" ? selected : idle}
         >
-          <span className="block text-sm font-extrabold">Self lesson</span>
-          <span className="mt-0.5 block text-xs font-normal text-muted">
+          <span className="block text-base font-extrabold">Self lesson</span>
+          <span className="mt-1 block text-sm font-normal text-muted">
             Written work. Client marks complete. No recording.
           </span>
         </button>
@@ -82,7 +138,7 @@ function navRowClass(
   kind: "current" | "review" | "complete" | "idle",
 ): string {
   const base =
-    "w-full rounded-xl border px-3 py-3 text-left border-l-4 transition";
+    "w-full rounded-xl border px-3.5 py-2.5 text-left border-l-4 transition";
   if (open) {
     return `${base} border-slate-200 border-l-teal-700 bg-slate-50`;
   }
@@ -105,15 +161,17 @@ const adminUi = {
   link: "text-teal-700 hover:text-teal-900",
   focus: "focus:border-teal-500 focus:ring-teal-500/20",
   primaryBtn:
-    "inline-flex min-h-11 items-center justify-center rounded-full bg-slate-900 px-5 font-bold text-white disabled:opacity-55",
+    "inline-flex min-h-12 items-center justify-center rounded-full bg-slate-900 px-6 text-base font-bold text-white disabled:opacity-55",
   btnGhost:
-    "inline-flex min-h-9 items-center justify-center rounded-full border border-slate-300 bg-white px-3.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-55",
+    "inline-flex min-h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-4 text-base font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-55",
   btnSolid:
-    "inline-flex min-h-9 items-center justify-center rounded-full bg-slate-900 px-3.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-55",
+    "inline-flex min-h-11 items-center justify-center rounded-full bg-slate-900 px-4 text-base font-semibold text-white hover:bg-slate-800 disabled:opacity-55",
   btnDanger:
-    "inline-flex min-h-9 items-center justify-center rounded-full border border-rose-200 bg-white px-3.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-55",
+    "inline-flex min-h-11 items-center justify-center rounded-full border border-rose-200 bg-white px-4 text-base font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-55",
   dangerText: "text-rose-600",
   dangerBtn: "text-rose-700 hover:text-rose-800",
+  field:
+    "w-full rounded-xl border border-border px-3.5 py-3 text-base outline-none",
 } as const;
 
 function tasksForSession(tasks: CoachingTask[], sessionNumber: number) {
@@ -577,8 +635,8 @@ export default function AdminClientDetailPage() {
       <article key={task.id} className="rounded-2xl border border-border bg-white p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h3 className="text-base font-extrabold text-slate-900">{task.title}</h3>
-            <p className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+            <h3 className="text-lg font-extrabold text-slate-900">{task.title}</h3>
+            <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
               <span className="text-muted">{kindLabel}</span>
               <span
                 className={
@@ -631,7 +689,7 @@ export default function AdminClientDetailPage() {
           )}
         </div>
         {finished ? (
-          <p className="mt-3 text-sm font-semibold text-slate-700">
+          <p className="mt-3 text-base font-semibold text-slate-700">
             This task has been completed.
           </p>
         ) : null}
@@ -641,14 +699,14 @@ export default function AdminClientDetailPage() {
               type="text"
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value.slice(0, 160))}
-              className={`w-full rounded-xl border border-border px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+              className={`${adminUi.field} ${adminUi.focus}`}
               required
             />
             <textarea
               value={editInstructions}
               onChange={(e) => setEditInstructions(e.target.value.slice(0, 8000))}
               rows={4}
-              className={`w-full rounded-xl border border-border px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+              className={`${adminUi.field} ${adminUi.focus}`}
               required
             />
             <ResponseTypeField
@@ -670,7 +728,7 @@ export default function AdminClientDetailPage() {
             </div>
           </form>
         ) : (
-          <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-800">
+          <p className="mt-4 whitespace-pre-wrap text-base leading-relaxed text-slate-800">
             {task.instructions}
           </p>
         )}
@@ -732,8 +790,8 @@ export default function AdminClientDetailPage() {
           task.status === "done") ? (
           rateId === task.id ? (
             <form onSubmit={(e) => void onRate(e)} className="mt-4 space-y-3 rounded-xl border border-border p-4">
-              <p className="text-sm font-extrabold">Coach rating</p>
-              <label className="block text-sm font-semibold">
+              <p className="text-base font-extrabold">Coach rating</p>
+              <label className="block text-base font-semibold">
                 Score 0–10
                 <input
                   type="number"
@@ -741,7 +799,7 @@ export default function AdminClientDetailPage() {
                   max={10}
                   value={rating}
                   onChange={(e) => setRating(e.target.value)}
-                  className={`mt-1 w-24 rounded-lg border border-border px-2 py-1.5 text-sm ${adminUi.focus}`}
+                  className={`mt-1 w-28 rounded-lg border border-border px-2.5 py-2 text-base ${adminUi.focus}`}
                   required
                 />
               </label>
@@ -750,7 +808,7 @@ export default function AdminClientDetailPage() {
                 onChange={(e) => setComment(e.target.value.slice(0, 2000))}
                 placeholder="Comment for the client"
                 rows={3}
-                className={`w-full rounded-xl border border-border px-3 py-2 text-sm ${adminUi.focus}`}
+                className={`${adminUi.field} ${adminUi.focus}`}
               />
               <div className="flex gap-2">
                 <button type="submit" disabled={busy} className={adminUi.btnSolid}>
@@ -817,15 +875,15 @@ export default function AdminClientDetailPage() {
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <h2 className="text-lg font-extrabold tracking-tight">
+            <h2 className="text-2xl font-extrabold tracking-tight">
               {sessionHeadline(sessionNumber)}
             </h2>
             {sessionLocked ? (
-              <p className="mt-1 text-sm font-semibold text-slate-700">
+              <p className="mt-1.5 text-base font-semibold text-slate-700">
                 This session has been completed.
               </p>
             ) : sessionMilestoneLine(sessionNumber) ? (
-              <p className="mt-1 text-sm text-muted">
+              <p className="mt-1.5 text-base text-muted">
                 {sessionMilestoneLine(sessionNumber)}
               </p>
             ) : null}
@@ -851,13 +909,13 @@ export default function AdminClientDetailPage() {
         </div>
 
         {adding && !sessionLocked ? (
-          <form onSubmit={(e) => void onAssign(e)} className="space-y-3 border-t border-border pt-3">
+          <form onSubmit={(e) => void onAssign(e)} className="space-y-4 border-t border-border pt-4">
             <input
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value.slice(0, 160))}
               placeholder={`Task ${sessionTasks.length + 1}`}
-              className={`w-full rounded-xl border border-border px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+              className={`${adminUi.field} ${adminUi.focus}`}
               required
             />
             <textarea
@@ -865,7 +923,7 @@ export default function AdminClientDetailPage() {
               onChange={(e) => setInstructions(e.target.value.slice(0, 8000))}
               placeholder="Instructions / exercises"
               rows={5}
-              className={`w-full rounded-xl border border-border px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+              className={`${adminUi.field} ${adminUi.focus}`}
               required
             />
             <ResponseTypeField
@@ -880,7 +938,7 @@ export default function AdminClientDetailPage() {
         ) : null}
 
         {sessionTasks.length === 0 && !adding ? (
-          <p className="text-sm text-muted">No tasks yet. Use + Task.</p>
+          <p className="text-base text-muted">No tasks yet. Use + Task.</p>
         ) : (
           sessionTasks.map((task) => renderTask(task, sessionLocked))
         )}
@@ -889,10 +947,10 @@ export default function AdminClientDetailPage() {
           <div className="space-y-4 border-t border-border pt-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <h3 className="text-sm font-extrabold uppercase tracking-wide">
+                <h3 className="text-base font-extrabold uppercase tracking-wide">
                   Intro Diagnosis
                 </h3>
-                <p className="mt-1 text-sm text-muted">
+                <p className="mt-1 text-base text-muted">
                   Joseph reviews the BEFORE recording live with the client, names
                   the top breakdowns, and sets focus areas.
                 </p>
@@ -926,7 +984,7 @@ export default function AdminClientDetailPage() {
             onSubmit={(e) => void onSaveIntro(e)}
             className="space-y-4"
           >
-            <label className="block text-sm font-semibold">
+            <label className="block text-base font-semibold">
               Our EliteSpeak Summary
               <textarea
                 value={intro.summary}
@@ -934,11 +992,11 @@ export default function AdminClientDetailPage() {
                   setIntro((prev) => ({ ...prev, summary: e.target.value }))
                 }
                 rows={8}
-                className={`mt-1.5 w-full rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+                className={`mt-1.5 ${adminUi.field} bg-white ${adminUi.focus}`}
               />
             </label>
             <div>
-              <p className="text-sm font-semibold">Main Challenges</p>
+              <p className="text-base font-semibold">Main Challenges</p>
               {intro.challenges.map((item, i) => (
                 <div key={`c-${i}`} className="mt-2 space-y-2 border-t border-border pt-2">
                   <input
@@ -951,7 +1009,7 @@ export default function AdminClientDetailPage() {
                       })
                     }
                     placeholder="Challenge title"
-                    className={`w-full rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+                    className={`${adminUi.field} bg-white ${adminUi.focus}`}
                   />
                   <textarea
                     value={item.body}
@@ -964,7 +1022,7 @@ export default function AdminClientDetailPage() {
                     }
                     placeholder="Challenge detail"
                     rows={3}
-                    className={`w-full rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+                    className={`${adminUi.field} bg-white ${adminUi.focus}`}
                   />
                 </div>
               ))}
@@ -981,7 +1039,7 @@ export default function AdminClientDetailPage() {
                 + Add challenge
               </button>
             </div>
-            <label className="block text-sm font-semibold">
+            <label className="block text-base font-semibold">
               Coaching Schedule
               <textarea
                 value={intro.coachingSchedule}
@@ -992,11 +1050,11 @@ export default function AdminClientDetailPage() {
                   }))
                 }
                 rows={6}
-                className={`mt-1.5 w-full rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+                className={`mt-1.5 ${adminUi.field} bg-white ${adminUi.focus}`}
               />
             </label>
             <div>
-              <p className="text-sm font-semibold">Biggest Communication OS</p>
+              <p className="text-base font-semibold">Biggest Communication OS</p>
               {intro.osItems.map((item, i) => (
                 <div key={`os-${i}`} className="mt-2 space-y-2 border-t border-border pt-2">
                   <input
@@ -1009,7 +1067,7 @@ export default function AdminClientDetailPage() {
                       })
                     }
                     placeholder="Current pattern (e.g. Uncompressed Thought)"
-                    className={`w-full rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+                    className={`${adminUi.field} bg-white ${adminUi.focus}`}
                   />
                   <input
                     value={item.goal}
@@ -1021,7 +1079,7 @@ export default function AdminClientDetailPage() {
                       })
                     }
                     placeholder="Goal (e.g. One sentence, then silence)"
-                    className={`w-full rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+                    className={`${adminUi.field} bg-white ${adminUi.focus}`}
                   />
                   <textarea
                     value={item.body}
@@ -1034,7 +1092,7 @@ export default function AdminClientDetailPage() {
                     }
                     placeholder="Detail"
                     rows={3}
-                    className={`w-full rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+                    className={`${adminUi.field} bg-white ${adminUi.focus}`}
                   />
                 </div>
               ))}
@@ -1052,7 +1110,7 @@ export default function AdminClientDetailPage() {
               </button>
             </div>
             <div>
-              <p className="text-sm font-semibold">What Reps Look Like</p>
+              <p className="text-base font-semibold">What Reps Look Like</p>
               {intro.reps.map((item, i) => (
                 <div key={`r-${i}`} className="mt-2 space-y-2 border-t border-border pt-2">
                   <input
@@ -1065,7 +1123,7 @@ export default function AdminClientDetailPage() {
                       })
                     }
                     placeholder="Rep title"
-                    className={`w-full rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+                    className={`${adminUi.field} bg-white ${adminUi.focus}`}
                   />
                   <textarea
                     value={item.body}
@@ -1078,7 +1136,7 @@ export default function AdminClientDetailPage() {
                     }
                     placeholder="Rep detail"
                     rows={3}
-                    className={`w-full rounded-xl border border-border bg-white px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+                    className={`${adminUi.field} bg-white ${adminUi.focus}`}
                   />
                 </div>
               ))}
@@ -1113,43 +1171,44 @@ export default function AdminClientDetailPage() {
       <header className="shrink-0 border-b border-border px-6 py-5 lg:px-8">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
-            <Link href="/admin/clients" className={`text-sm font-semibold ${adminUi.link}`}>
+            <Link href="/admin/clients" className={`text-base font-semibold ${adminUi.link}`}>
               ← Clients
             </Link>
             <p className={`mt-3 text-xs font-semibold uppercase tracking-[0.16em] ${adminUi.brand}`}>
               EliteSpeak
             </p>
             <h1 className="mt-1 text-3xl font-extrabold tracking-tight">{client.name}</h1>
-            <p className="mt-1 text-sm text-muted">{client.email}</p>
+            <p className="mt-1 text-base text-muted">{client.email}</p>
             {client.currentFocus ? (
-              <p className="mt-2 text-sm">{client.currentFocus}</p>
+              <p className="mt-2 text-base">{client.currentFocus}</p>
             ) : null}
           </div>
-          <div className="text-sm">
+          <div className="text-base">
             <p className="font-semibold">
               Now: {client.currentStage || "Intro Call"}
             </p>
             {client.reviewRequired ? (
-              <p className="mt-2 inline-flex rounded-full bg-amber-100 px-2.5 py-1 text-xs font-extrabold uppercase tracking-wide text-amber-800">
+              <p className="mt-2 inline-flex rounded-full bg-amber-100 px-3 py-1 text-sm font-extrabold uppercase tracking-wide text-amber-800">
                 Review required
               </p>
             ) : null}
           </div>
         </div>
-        {error ? <p className={`mt-4 text-sm ${adminUi.dangerText}`}>{error}</p> : null}
+        <AdminLinkedInCard client={client} />
+        {error ? <p className={`mt-4 text-base ${adminUi.dangerText}`}>{error}</p> : null}
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="sticky top-0 h-[calc(100dvh-9rem)] w-72 shrink-0 overflow-y-auto border-r border-border bg-white">
-          <div className="px-4 py-4">
-            <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
+        <aside className="sticky top-0 h-[calc(100dvh-9rem)] w-80 shrink-0 overflow-y-auto border-r border-border bg-white">
+          <div className="px-4 py-3">
+            <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
               Program
             </p>
-            <p className="mt-1 text-xs text-muted">
-              One session at a time. Select from this list.
+            <p className="mt-1 text-sm text-muted">
+              Assign ahead if you want. The client only sees a session after the previous one is complete.
             </p>
           </div>
-          <nav className="flex flex-col gap-1 px-3 pb-6">
+          <nav className="flex flex-col gap-0.5 px-3 pb-6">
             {PROGRAM_SLOTS.map((n) => {
               const sessionTasks = tasksForSession(tasks, n);
               const tone = sessionTone(n, client.currentStage, sessionTasks, introSaved);
@@ -1174,20 +1233,20 @@ export default function AdminClientDetailPage() {
                   className={navRowClass(open, tone)}
                 >
                   <span className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-bold">{sessionLabel(n)}</span>
+                    <span className="text-base font-bold">{sessionLabel(n)}</span>
                     {here === n ? (
-                      <span className="rounded-full bg-teal-700 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-white">
+                      <span className="rounded-full bg-teal-700 px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-wide text-white">
                         Now
                       </span>
                     ) : tone === "complete" ? (
-                      <span className="text-xs font-bold text-slate-500">✓</span>
+                      <span className="text-sm font-bold text-slate-500">✓</span>
                     ) : null}
                   </span>
                   <span
                     className={
                       tone === "review"
-                        ? "mt-1 block text-xs font-extrabold uppercase tracking-wide text-amber-800"
-                        : "mt-0.5 block text-xs text-muted"
+                        ? "mt-0.5 block text-sm font-extrabold uppercase tracking-wide text-amber-800"
+                        : "mt-0.5 block text-sm text-muted"
                     }
                   >
                     {tone === "review"

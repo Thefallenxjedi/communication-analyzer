@@ -242,10 +242,10 @@ export default function AdminClientsPage() {
         </p>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">
+            <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
               EliteSpeak Clients
             </h1>
-            <p className="mt-2 text-sm text-muted">
+            <p className="mt-2 text-base text-muted">
               Paid coaching clients only. Separate from the free analyzer
               leads on the main admin page.
             </p>
@@ -329,45 +329,45 @@ export default function AdminClientsPage() {
               onSubmit={(e) => void onCreate(e)}
               className="card-surface space-y-4 p-5 sm:p-6"
             >
-              <h2 className="text-sm font-extrabold uppercase tracking-wide">
+              <h2 className="text-base font-extrabold uppercase tracking-wide">
                 Add client
               </h2>
-              <p className="text-sm text-muted">
+              <p className="text-base text-muted">
                 Creates their coaching record. Login invites come in the next
                 slice.
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block text-sm font-semibold">
+                <label className="block text-base font-semibold">
                   Name
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value.slice(0, 80))}
-                    className={`mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+                    className={`mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-3 text-base outline-none ${adminUi.focus}`}
                     required
                   />
                 </label>
-                <label className="block text-sm font-semibold">
+                <label className="block text-base font-semibold">
                   Email
                   <input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value.slice(0, 200))}
-                    className={`mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+                    className={`mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-3 text-base outline-none ${adminUi.focus}`}
                     required
                   />
                 </label>
-                <label className="block text-sm font-semibold">
+                <label className="block text-base font-semibold">
                   Start date
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className={`mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+                    className={`mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-3 text-base outline-none ${adminUi.focus}`}
                     required
                   />
                 </label>
-                <label className="block text-sm font-semibold">
+                <label className="block text-base font-semibold">
                   Current focus{" "}
                   <span className="font-medium text-muted">(optional)</span>
                   <input
@@ -377,7 +377,7 @@ export default function AdminClientsPage() {
                       setCurrentFocus(e.target.value.slice(0, 120))
                     }
                     placeholder="e.g. Uncompressed Thought"
-                    className={`mt-1.5 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none ${adminUi.focus}`}
+                    className={`mt-1.5 w-full rounded-xl border border-border bg-background px-3.5 py-3 text-base outline-none ${adminUi.focus}`}
                   />
                 </label>
               </div>
@@ -394,8 +394,8 @@ export default function AdminClientsPage() {
             </form>
 
             <div className="card-surface overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead className="bg-track/80 text-xs font-semibold uppercase tracking-wide text-muted">
+              <table className="min-w-full text-left text-base">
+                <thead className="bg-track/80 text-sm font-semibold uppercase tracking-wide text-muted">
                   <tr>
                     <th className="px-3 py-2.5">Client</th>
                     <th className="px-3 py-2.5">Focus</th>
@@ -425,9 +425,9 @@ export default function AdminClientsPage() {
                           key={row.id}
                           className="border-t border-border align-top"
                         >
-                          <td className="px-3 py-3">
-                            <p className="font-bold">{row.name}</p>
-                            <p className="mt-0.5 text-xs text-muted">{row.email}</p>
+                          <td className="px-3 py-3.5">
+                            <p className="text-lg font-bold">{row.name}</p>
+                            <p className="mt-0.5 text-sm text-muted">{row.email}</p>
                           </td>
                           <td className="px-3 py-3">
                             {editing ? (
@@ -469,12 +469,17 @@ export default function AdminClientsPage() {
                             )}
                           </td>
                           <td className="px-3 py-3">
-                            <span className="inline-flex rounded-full bg-slate-900 px-2.5 py-1 text-xs font-bold text-white">
+                            <span className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-sm font-bold text-white">
                               {row.currentStage || "Intro Call"}
                             </span>
                             {row.reviewRequired ? (
-                              <p className="mt-1.5 text-[11px] font-extrabold uppercase tracking-wide text-amber-800">
+                              <p className="mt-1.5 text-sm font-extrabold uppercase tracking-wide text-amber-800">
                                 Review required
+                              </p>
+                            ) : null}
+                            {!row.onboardingComplete ? (
+                              <p className="mt-1.5 text-sm font-semibold text-slate-500">
+                                Onboarding pending
                               </p>
                             ) : null}
                           </td>
@@ -506,7 +511,7 @@ export default function AdminClientsPage() {
                                 <>
                                   <Link
                                     href={`/admin/clients/${row.id}`}
-                                    className="inline-flex min-h-9 items-center rounded-full bg-teal-600 px-4 text-sm font-bold text-white no-underline hover:bg-teal-700"
+                                    className="inline-flex min-h-11 items-center rounded-full bg-teal-600 px-5 text-base font-bold text-white no-underline hover:bg-teal-700"
                                   >
                                     Open
                                   </Link>
@@ -514,7 +519,7 @@ export default function AdminClientsPage() {
                                     type="button"
                                     disabled={rowBusy}
                                     onClick={() => startEdit(row)}
-                                    className="text-sm font-semibold text-slate-600 hover:text-slate-900"
+                                    className="text-base font-semibold text-slate-600 hover:text-slate-900"
                                   >
                                     Edit
                                   </button>
@@ -524,7 +529,7 @@ export default function AdminClientsPage() {
                                 type="button"
                                 disabled={rowBusy}
                                 onClick={() => void onDelete(row.id, row.name)}
-                                className={`ml-1 text-sm font-semibold ${adminUi.dangerBtn}`}
+                                className={`ml-1 text-base font-semibold ${adminUi.dangerBtn}`}
                               >
                                 Remove
                               </button>

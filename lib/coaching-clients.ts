@@ -23,6 +23,11 @@ export type CoachingClient = {
   pendingReviews: number;
   lastActivityAt: string;
   createdAt: string;
+  onboardingComplete: boolean;
+  onboardingRole: string;
+  onboardingCompany: string;
+  onboardingGoal: string;
+  linkedinProfileJson: string;
 };
 
 export async function getCoachingClientByEmail(
@@ -141,6 +146,62 @@ export async function removeCoachingClient(
   } catch (err) {
     const error = formatConvexError(err);
     console.error("[coaching] remove failed", error, err);
+    return { ok: false, error };
+  }
+}
+
+export async function getCoachingStorageUrl(
+  storageId: string,
+): Promise<string | null> {
+  if (!isConvexConfigured()) return null;
+  const client = getConvexHttpClient();
+  if (!client) return null;
+  try {
+    return ((await client.query(coachingApi.getStorageUrl, {
+      storageId: storageId as never,
+    })) as string | null) ?? null;
+  } catch (err) {
+    console.error("[coaching] storage url failed", formatConvexError(err), err);
+    return null;
+  }
+}
+
+export async function saveClientOnboarding(input: {
+  clientId: string;
+  role: string;
+  company?: string;
+  goal: string;
+  linkedinStorageId: string;
+  linkedinText: string;
+  linkedinProfileJson: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
+  const client = getConvexHttpClient();
+  if (!client) return { ok: false, error: "Convex is not configured." };
+
+  try {
+    const result = (await client.mutation(coachingApi.saveOnboarding, {
+      clientId: input.clientId as never,
+      role: input.role,
+      company: input.company,
+      goal: input.goal,
+      linkedinStorageId: input.linkedinStorageId as never,
+      linkedinText: input.linkedinText,
+      linkedinProfileJson: input.linkedinProfileJson,
+    })) as { ok?: boolean; reason?: string };
+    if (!result?.ok) {
+      return {
+        ok: false,
+        error:
+          result?.reason === "already_complete"
+            ? "Onboarding is already complete."
+            : "Could not save onboarding.",
+      };
+    }
+    return { ok: true };
+  } catch (err) {
+    const error = formatConvexError(err);
+    console.error("[coaching] onboarding failed", error, err);
     return { ok: false, error };
   }
 }

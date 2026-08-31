@@ -79,6 +79,8 @@ export const coachingApi = {
   listSessions: makeFunctionReference<"query">("coachingSessions:listForClient"),
   markSessionReady: makeFunctionReference<"mutation">("coachingSessions:markReady"),
   generateUploadUrl: makeFunctionReference<"mutation">("coaching:generateUploadUrl"),
+  getStorageUrl: makeFunctionReference<"query">("coaching:getStorageUrl"),
+  saveOnboarding: makeFunctionReference<"mutation">("coaching:saveOnboarding"),
   submitTask: makeFunctionReference<"mutation">("coaching:submitTask"),
   reviseTask: makeFunctionReference<"mutation">("coaching:reviseTask"),
   updateTask: makeFunctionReference<"mutation">("coaching:updateTask"),
