@@ -36,124 +36,174 @@ import {
   type IntroCallReport,
 } from "@/lib/intro-call";
 
-function AdminLinkedInCard({ client }: { client: CoachingClient }) {
-  if (!client.onboardingComplete) {
-    return (
-      <p className="mt-4 text-base font-semibold text-amber-800">
-        LinkedIn PDF not uploaded yet.
-      </p>
-    );
-  }
+function AdminLinkedInDrawer({
+  client,
+  open,
+  onClose,
+}: {
+  client: CoachingClient;
+  open: boolean;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
   const profile = parseLinkedInProfile(client.linkedinProfileJson);
   const text = client.linkedinText?.trim() || "";
+  const blocks = text ? formatLinkedInPdfText(text) : [];
+
   return (
-    <section className="mt-5 max-w-3xl space-y-4 rounded-2xl border border-border bg-white p-5">
-      <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
-        LinkedIn profile
-      </p>
-      <div>
-        <p className="text-lg font-extrabold">
-          {profile?.fullName || client.name}
-        </p>
-        {profile?.headline ? (
-          <p className="mt-1 text-base font-semibold text-slate-700">
-            {profile.headline}
-          </p>
-        ) : null}
-        {profile?.location ? (
-          <p className="mt-1 text-sm text-muted">{profile.location}</p>
-        ) : null}
-      </div>
-      {profile?.about ? (
-        <div>
-          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
-            About
-          </p>
-          <p className="mt-1.5 whitespace-pre-wrap text-base leading-relaxed text-slate-800">
-            {profile.about}
-          </p>
+    <div className="fixed inset-0 z-40 flex justify-end">
+      <button
+        type="button"
+        aria-label="Close LinkedIn"
+        className="absolute inset-0 bg-slate-900/30"
+        onClick={onClose}
+      />
+      <aside className="relative z-10 flex h-full w-full max-w-[36rem] flex-col border-l border-border bg-white shadow-xl">
+        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-6 py-5">
+          <div>
+            <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
+              LinkedIn
+            </p>
+            <p className="mt-1 text-2xl font-extrabold tracking-tight">
+              {profile?.fullName || client.name}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} className={adminUi.btnGhost}>
+            Close
+          </button>
         </div>
-      ) : null}
-      {profile && profile.experience.length > 0 ? (
-        <div>
-          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
-            Experience
-          </p>
-          <ul className="mt-2 space-y-3">
-            {profile.experience.map((job, i) => (
-              <li key={`${job.company}-${job.title}-${i}`} className="text-base">
-                <p className="font-bold">
-                  {job.title || "Role"}
-                  {job.company ? ` · ${job.company}` : ""}
+        <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-6 py-6">
+          {!client.onboardingComplete ? (
+            <p className="text-lg font-semibold text-amber-800">
+              LinkedIn PDF not uploaded yet.
+            </p>
+          ) : (
+            <>
+              {profile?.headline ? (
+                <p className="text-lg font-bold leading-snug text-slate-800">
+                  {profile.headline}
                 </p>
-                {job.dates ? (
-                  <p className="text-sm text-muted">{job.dates}</p>
-                ) : null}
-                {job.description ? (
-                  <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-                    {job.description}
+              ) : null}
+              {profile?.location ? (
+                <p className="text-base font-semibold text-muted">
+                  {profile.location}
+                </p>
+              ) : null}
+              {profile?.about ? (
+                <div>
+                  <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
+                    About
                   </p>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {profile && profile.education.length > 0 ? (
-        <div>
-          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
-            Education
-          </p>
-          <ul className="mt-2 space-y-2">
-            {profile.education.map((row, i) => (
-              <li key={`${row.school}-${i}`} className="text-base">
-                <span className="font-bold">{row.school || "School"}</span>
-                {row.degree ? ` · ${row.degree}` : ""}
-                {row.dates ? (
-                  <span className="text-muted"> · {row.dates}</span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-      {profile && profile.skills.length > 0 ? (
-        <div>
-          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
-            Skills
-          </p>
-          <p className="mt-1.5 text-base text-slate-800">
-            {profile.skills.join(" · ")}
-          </p>
-        </div>
-      ) : null}
-      {text ? (
-        <div className="space-y-4">
-          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
-            From the PDF
-          </p>
-          {formatLinkedInPdfText(text).map((block) => (
-            <div key={block.heading}>
-              <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
-                {block.heading}
-              </p>
-              <div className="mt-1.5 space-y-2">
-                {block.paragraphs.map((para, i) => (
-                  <p key={`${block.heading}-${i}`} className="text-base leading-relaxed text-slate-800">
-                    {para}
+                  <p className="mt-2 text-lg font-medium leading-relaxed text-slate-800">
+                    {profile.about}
                   </p>
-                ))}
-              </div>
-            </div>
-          ))}
+                </div>
+              ) : null}
+              {profile && profile.experience.length > 0 ? (
+                <div>
+                  <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
+                    Experience
+                  </p>
+                  <ul className="mt-3 space-y-5">
+                    {profile.experience.map((job, i) => (
+                      <li key={`${job.company}-${job.title}-${i}`}>
+                        <p className="text-lg font-extrabold text-slate-900">
+                          {job.title || "Role"}
+                          {job.company ? ` · ${job.company}` : ""}
+                        </p>
+                        {job.dates ? (
+                          <p className="mt-0.5 text-base font-semibold text-muted">
+                            {job.dates}
+                          </p>
+                        ) : null}
+                        {job.description ? (
+                          <p className="mt-2 text-lg leading-relaxed text-slate-700">
+                            {job.description}
+                          </p>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {profile && profile.education.length > 0 ? (
+                <div>
+                  <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
+                    Education
+                  </p>
+                  <ul className="mt-3 space-y-3">
+                    {profile.education.map((row, i) => (
+                      <li
+                        key={`${row.school}-${i}`}
+                        className="text-lg font-semibold text-slate-800"
+                      >
+                        {row.school || "School"}
+                        {row.degree ? ` · ${row.degree}` : ""}
+                        {row.dates ? (
+                          <span className="font-medium text-muted">
+                            {" "}
+                            · {row.dates}
+                          </span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {profile && profile.skills.length > 0 ? (
+                <div>
+                  <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
+                    Skills
+                  </p>
+                  <p className="mt-2 text-lg font-medium leading-relaxed text-slate-800">
+                    {profile.skills.join(" · ")}
+                  </p>
+                </div>
+              ) : null}
+              {blocks.length > 0 ? (
+                <div className="space-y-6 border-t border-border pt-6">
+                  <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
+                    From the PDF
+                  </p>
+                  {blocks.map((block) => (
+                    <div key={block.heading}>
+                      <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
+                        {block.heading}
+                      </p>
+                      <div className="mt-2 space-y-3">
+                        {block.paragraphs.map((para, i) => (
+                          <p
+                            key={`${block.heading}-${i}`}
+                            className="text-lg leading-relaxed text-slate-800"
+                          >
+                            {para}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : !profile && client.onboardingComplete ? (
+                <p className="text-lg text-muted">
+                  PDF is saved. The parsed profile is empty — check that Gemini
+                  ran on upload.
+                </p>
+              ) : null}
+            </>
+          )}
         </div>
-      ) : !profile ? (
-        <p className="text-base text-muted">
-          PDF is saved. The parsed profile is empty — check that Gemini ran on
-          upload.
-        </p>
-      ) : null}
-    </section>
+      </aside>
+    </div>
   );
 }
 
@@ -290,6 +340,7 @@ export default function AdminClientDetailPage() {
   const [tasks, setTasks] = useState<CoachingTask[]>([]);
   const [assignSession, setAssignSession] = useState<number | null>(null);
   const [selectedSession, setSelectedSession] = useState(INTRO_SESSION);
+  const [linkedinOpen, setLinkedinOpen] = useState(false);
   const [intro, setIntro] = useState(emptyIntroCall());
   const [introSaved, setIntroSaved] = useState<IntroCallReport | null>(null);
   const [introBusy, setIntroBusy] = useState(false);
@@ -1252,18 +1303,26 @@ export default function AdminClientDetailPage() {
               <p className="mt-2 text-base">{client.currentFocus}</p>
             ) : null}
           </div>
-          <div className="text-base">
+          <div className="flex flex-col items-end gap-3 text-base">
             <p className="font-semibold">
               Now: {client.currentStage || "Intro Call"}
             </p>
             {client.reviewRequired ? (
-              <p className="mt-2 inline-flex rounded-full bg-amber-100 px-3 py-1 text-sm font-extrabold uppercase tracking-wide text-amber-800">
+              <p className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-sm font-extrabold uppercase tracking-wide text-amber-800">
                 Review required
               </p>
             ) : null}
+            <button
+              type="button"
+              onClick={() => setLinkedinOpen(true)}
+              className={
+                client.onboardingComplete ? adminUi.btnSolid : adminUi.btnGhost
+              }
+            >
+              {client.onboardingComplete ? "LinkedIn" : "LinkedIn pending"}
+            </button>
           </div>
         </div>
-        <AdminLinkedInCard client={client} />
         {error ? <p className={`mt-4 text-base ${adminUi.dangerText}`}>{error}</p> : null}
       </header>
 
@@ -1334,6 +1393,11 @@ export default function AdminClientDetailPage() {
           {renderWorkspace(selectedSession)}
         </section>
       </div>
+      <AdminLinkedInDrawer
+        client={client}
+        open={linkedinOpen}
+        onClose={() => setLinkedinOpen(false)}
+      />
     </div>
   );
 }
