@@ -129,3 +129,51 @@ ${ex.instructions}`,
 export function exerciseById(id: string): WorkoutExercise | undefined {
   return WORKOUT_EXERCISES.find((ex) => ex.id === id);
 }
+
+/** Parse catalog timing strings like "4 minutes" or "90 seconds" into minutes. */
+export function parseTimingMinutes(timing: string): number | null {
+  const minMatch = timing.match(/(\d+)\s*min/i);
+  if (minMatch) return Math.max(1, Number(minMatch[1]));
+  const secMatch = timing.match(/(\d+)\s*sec/i);
+  if (secMatch) return Math.max(1, Math.ceil(Number(secMatch[1]) / 60));
+  return null;
+}
+
+export function expectedMinutesForExercise(exerciseId: string): number | null {
+  const ex = exerciseById(exerciseId);
+  if (!ex) return null;
+  return parseTimingMinutes(ex.timing);
+}
+
+/** Infer expected minutes from title match or instruction header when DB field is missing. */
+export function inferTaskExpectedMinutes(task: {
+  title: string;
+  instructions: string;
+  expectedMinutes?: number | null;
+}): number | null {
+  if (
+    typeof task.expectedMinutes === "number" &&
+    Number.isFinite(task.expectedMinutes) &&
+    task.expectedMinutes > 0
+  ) {
+    return task.expectedMinutes;
+  }
+  const title = task.title.toLowerCase();
+  for (const ex of WORKOUT_EXERCISES) {
+    if (title.includes(ex.name.toLowerCase().slice(0, 12))) {
+      return parseTimingMinutes(ex.timing);
+    }
+  }
+  const header = task.instructions.slice(0, 80);
+  const inlineMin = header.match(/\((\d+)\s*min/i);
+  if (inlineMin) return Math.max(1, Number(inlineMin[1]));
+  const inlineSec = header.match(/\((\d+)\s*sec/i);
+  if (inlineSec) return Math.max(1, Math.ceil(Number(inlineSec[1]) / 60));
+  return null;
+}
+
+export function formatExpectedTime(minutes: number | null): string {
+  if (!minutes || minutes <= 0) return "";
+  if (minutes === 1) return "~1 min";
+  return `~${minutes} min`;
+}

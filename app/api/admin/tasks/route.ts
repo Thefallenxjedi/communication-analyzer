@@ -67,6 +67,7 @@ export async function POST(request: Request) {
     instructions?: string;
     recordingRequired?: boolean;
     reviewRequired?: boolean;
+    expectedMinutes?: number;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -85,6 +86,7 @@ export async function POST(request: Request) {
     instructions: body.instructions ?? "",
     recordingRequired: body.recordingRequired,
     reviewRequired: body.reviewRequired,
+    expectedMinutes: body.expectedMinutes,
   });
   if (!result.ok) {
     return Response.json(

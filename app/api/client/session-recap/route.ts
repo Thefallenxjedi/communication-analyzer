@@ -30,7 +30,15 @@ export async function GET(request: Request) {
       clientId: row.id,
       sessionNumber,
     });
-    return Response.json({ recap });
+    return Response.json({
+      recap: recap
+        ? {
+            sessionNumber: recap.sessionNumber,
+            recapSummary: recap.recapSummary,
+            recapUpdatedAt: recap.recapUpdatedAt,
+          }
+        : null,
+    });
   } catch (err) {
     return Response.json(
       { error: formatConvexError(err), recap: null },

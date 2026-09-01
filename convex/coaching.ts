@@ -406,6 +406,7 @@ async function toTaskView(ctx: QueryCtx, row: Doc<"tasks">) {
     createdAt: new Date(row.createdAt).toISOString(),
     updatedAt: new Date(row.updatedAt).toISOString(),
     completedAt: row.completedAt ? new Date(row.completedAt).toISOString() : "",
+    expectedMinutes: row.expectedMinutes ?? null,
   };
 }
 
@@ -454,6 +455,7 @@ export const createTask = mutation({
     instructions: v.string(),
     recordingRequired: v.optional(v.boolean()),
     reviewRequired: v.optional(v.boolean()),
+    expectedMinutes: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const client = await ctx.db.get(args.clientId);
@@ -469,6 +471,12 @@ export const createTask = mutation({
     }
 
     const now = Date.now();
+    const expectedMinutes =
+      typeof args.expectedMinutes === "number" &&
+      Number.isFinite(args.expectedMinutes) &&
+      args.expectedMinutes > 0
+        ? Math.min(180, Math.round(args.expectedMinutes))
+        : undefined;
     const id = await ctx.db.insert("tasks", {
       clientId: args.clientId,
       sessionNumber,
@@ -476,6 +484,7 @@ export const createTask = mutation({
       instructions,
       recordingRequired: args.recordingRequired === true,
       reviewRequired: args.reviewRequired !== false,
+      ...(expectedMinutes !== undefined ? { expectedMinutes } : {}),
       status: "open",
       createdAt: now,
       updatedAt: now,

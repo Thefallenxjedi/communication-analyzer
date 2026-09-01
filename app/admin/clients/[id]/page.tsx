@@ -780,7 +780,7 @@ export default function AdminClientDetailPage() {
               </span>
             </p>
           </div>
-          {sessionLocked || finished || editId === task.id ? null : (
+          {editId === task.id ? null : (
             <div className="flex shrink-0 flex-wrap gap-2">
               <button
                 type="button"
@@ -824,7 +824,7 @@ export default function AdminClientDetailPage() {
             This task has been completed.
           </p>
         ) : null}
-        {editId === task.id && !finished && !sessionLocked ? (
+        {editId === task.id ? (
           <form onSubmit={(e) => void onSaveTaskEdit(e)} className="mt-3 space-y-3">
             <input
               type="text"
@@ -1019,7 +1019,6 @@ export default function AdminClientDetailPage() {
               </p>
             ) : null}
           </div>
-          {sessionLocked ? null : (
           <button
             type="button"
             onClick={() => {
@@ -1036,10 +1035,9 @@ export default function AdminClientDetailPage() {
           >
             {adding ? "Cancel" : "+ Task"}
           </button>
-          )}
         </div>
 
-        {adding && !sessionLocked ? (
+        {adding ? (
           <form onSubmit={(e) => void onAssign(e)} className="space-y-4 border-t border-border pt-4">
             <input
               type="text"
@@ -1093,7 +1091,7 @@ export default function AdminClientDetailPage() {
                   the top breakdowns, and sets focus areas.
                 </p>
               </div>
-              {sessionLocked ? null : editingIntro ? (
+              {editingIntro ? (
                 <button
                   type="button"
                   onClick={() => {

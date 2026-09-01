@@ -106,6 +106,7 @@ export const getRecap = query({
       sessionNumber,
       recapSummary: row.recapSummary,
       recapUpdatedAt: row.recapUpdatedAt ?? row.updatedAt,
+      sourceTranscript: row.sourceTranscript ?? undefined,
     };
   },
 });

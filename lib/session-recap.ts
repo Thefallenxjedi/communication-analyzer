@@ -9,6 +9,7 @@ export type SessionRecap = {
   sessionNumber: number;
   recapSummary: string;
   recapUpdatedAt: string;
+  sourceTranscript?: string;
 };
 
 export async function getSessionRecap(input: {
@@ -27,12 +28,14 @@ export async function getSessionRecap(input: {
       sessionNumber: number;
       recapSummary: string;
       recapUpdatedAt: number;
+      sourceTranscript?: string;
     } | null;
     if (!row?.recapSummary?.trim()) return null;
     return {
       sessionNumber: row.sessionNumber,
       recapSummary: row.recapSummary,
       recapUpdatedAt: new Date(row.recapUpdatedAt).toISOString(),
+      ...(row.sourceTranscript ? { sourceTranscript: row.sourceTranscript } : {}),
     };
   } catch (err) {
     console.error("[sessionRecap] get failed", formatConvexError(err), err);

@@ -28,6 +28,7 @@ export type CoachingTask = {
   createdAt: string;
   updatedAt: string;
   completedAt: string;
+  expectedMinutes: number | null;
 };
 
 export function taskStatusLabel(
@@ -96,6 +97,7 @@ export async function createCoachingTask(input: {
   instructions: string;
   recordingRequired?: boolean;
   reviewRequired?: boolean;
+  expectedMinutes?: number;
 }): Promise<{ ok: boolean; id?: string; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
   const client = getConvexHttpClient();
@@ -109,6 +111,7 @@ export async function createCoachingTask(input: {
       instructions: input.instructions,
       recordingRequired: input.recordingRequired,
       reviewRequired: input.reviewRequired,
+      expectedMinutes: input.expectedMinutes,
     })) as { ok?: boolean; id?: string };
     return { ok: Boolean(result?.ok), id: result?.id };
   } catch (err) {

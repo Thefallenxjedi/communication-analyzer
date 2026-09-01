@@ -165,6 +165,8 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     completedAt: v.optional(v.number()),
+    /** Coach-estimated time for the client to complete this task. */
+    expectedMinutes: v.optional(v.number()),
   })
     .index("by_clientId_createdAt", ["clientId", "createdAt"])
     .index("by_clientId_status_createdAt", ["clientId", "status", "createdAt"]),

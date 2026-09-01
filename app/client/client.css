@@ -1134,6 +1134,85 @@
   color: #6b6250;
 }
 
+.es-session-progress {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #e0d6c0;
+}
+
+.es-session-progress-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+
+.es-session-progress-pct {
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #3a2e22;
+}
+
+.es-session-progress-count {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #7a6f5d;
+}
+
+.es-session-progress-track {
+  margin-top: 0.65rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: #ebe4d4;
+  overflow: hidden;
+}
+
+.es-session-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #c9a968, #a88444);
+  transition: width 0.35s ease;
+}
+
+.es-session-progress-hint {
+  margin: 0.65rem 0 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #6b6250;
+}
+
+.es-task-expected {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #7a6f5d;
+}
+
+.es-task-locked {
+  padding: 1rem 1.1rem;
+  border-radius: 0.75rem;
+  border: 1px dashed #d8cdb8;
+  background: #f8f4ec;
+}
+
+.es-task-locked-title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9a8f7c;
+}
+
+.es-task-locked-copy {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #6b6250;
+}
+
 .es-report .es-session-recap-title,
 .es-report .es-session-recap-body {
   font-family: var(--font-playfair), Georgia, "Times New Roman", serif;

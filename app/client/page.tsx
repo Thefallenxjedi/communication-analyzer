@@ -33,6 +33,10 @@ import {
 import { videoShareKind } from "@/lib/google-drive";
 import { isIntroCallEmpty, type IntroCallReport } from "@/lib/intro-call";
 import type { SessionRecap } from "@/lib/session-recap";
+import {
+  formatExpectedTime,
+  inferTaskExpectedMinutes,
+} from "@/lib/workout-exercises";
 
 type Milestone = "complete" | "current" | "upcoming";
 
@@ -90,6 +94,22 @@ function tasksForSession(tasks: CoachingTask[], sessionNumber: number) {
 
 function isSessionNav(nav: NavId): nav is number {
   return typeof nav === "number";
+}
+
+function isClientTaskComplete(task: CoachingTask): boolean {
+  return task.status !== "open";
+}
+
+function sessionTaskProgress(tasks: CoachingTask[]) {
+  const total = tasks.length;
+  const completed = tasks.filter(isClientTaskComplete).length;
+  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  return { completed, total, pct };
+}
+
+function firstOpenTaskIndex(tasks: CoachingTask[]): number {
+  const idx = tasks.findIndex((task) => task.status === "open");
+  return idx === -1 ? tasks.length : idx;
 }
 
 function CompassMark() {
@@ -598,13 +618,44 @@ export default function ClientHomePage() {
     return `${row.name}, work through each step below. Record audio when a task asks for it, then wait for your coach review.`;
   }
 
-  function renderTaskStep(task: CoachingTask, index: number, stepN?: number) {
+  function renderTaskStep(
+    task: CoachingTask,
+    index: number,
+    stepN?: number,
+    locked = false,
+  ) {
+    const expected = formatExpectedTime(
+      inferTaskExpectedMinutes({
+        title: task.title,
+        instructions: task.instructions,
+        expectedMinutes: task.expectedMinutes,
+      }),
+    );
+  if (locked) {
     return (
       <SessionReportStep
         key={task.id}
         n={stepN ?? index + 1}
         title={stepTitle(task, index)}
       >
+        <div className="es-task-locked">
+          <p className="es-task-locked-title">Locked</p>
+          <p className="es-task-locked-copy">
+            Complete Task {index} to unlock this step.
+          </p>
+        </div>
+      </SessionReportStep>
+    );
+  }
+    return (
+      <SessionReportStep
+        key={task.id}
+        n={stepN ?? index + 1}
+        title={stepTitle(task, index)}
+      >
+        {expected ? (
+          <p className="es-task-expected">Expected time: {expected}</p>
+        ) : null}
         <p>{task.instructions}</p>
         <TaskScreen
           task={task}
@@ -860,13 +911,50 @@ export default function ClientHomePage() {
                 }
               />
             ) : sessionView === "tasks" ? (
-              selectedTasks.map((task, index) => {
-                let stepBase = 1;
-                if (nav === INTRO_SESSION && !isIntroCallEmpty(intro)) {
-                  stepBase += 1;
-                }
-                return renderTaskStep(task, index, index + stepBase);
-              })
+              <>
+                {selectedTasks.length > 0 ? (
+                  <div className="es-session-progress">
+                    <div className="es-session-progress-head">
+                      <span className="es-session-progress-pct">
+                        {sessionTaskProgress(selectedTasks).pct}% complete
+                      </span>
+                      <span className="es-session-progress-count">
+                        {sessionTaskProgress(selectedTasks).completed} of{" "}
+                        {sessionTaskProgress(selectedTasks).total} tasks done
+                      </span>
+                    </div>
+                    <div className="es-session-progress-track">
+                      <div
+                        className="es-session-progress-fill"
+                        style={{
+                          width: `${sessionTaskProgress(selectedTasks).pct}%`,
+                        }}
+                      />
+                    </div>
+                    {sessionTaskProgress(selectedTasks).pct < 100 ? (
+                      <p className="es-session-progress-hint">
+                        Complete each task in order to unlock the next one.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {(() => {
+                  const openIdx = firstOpenTaskIndex(selectedTasks);
+                  return selectedTasks.map((task, index) => {
+                    let stepBase = 1;
+                    if (nav === INTRO_SESSION && !isIntroCallEmpty(intro)) {
+                      stepBase += 1;
+                    }
+                    const locked = index > openIdx;
+                    return renderTaskStep(
+                      task,
+                      index,
+                      index + stepBase,
+                      locked,
+                    );
+                  });
+                })()}
+              </>
             ) : null}
           </SessionReport>
         )}
