@@ -315,7 +315,7 @@ export const applySampleClient = internalMutation({
 
     const existingUser = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", SAMPLE_EMAIL))
+      .withIndex("email", (q) => q.eq("email", SAMPLE_EMAIL))
       .unique();
 
     let userId: Id<"users">;

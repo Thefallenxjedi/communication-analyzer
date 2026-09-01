@@ -1,32 +1,20 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useAuthActions } from "@convex-dev/auth/react";
+import { useState } from "react";
 
 export default function ClientLoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
+  const { signIn } = useAuthActions();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  async function onSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function onGoogleSignIn() {
     setBusy(true);
     setError("");
     try {
-      const res = await fetch("/api/client/session", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-      const data = (await res.json()) as { error?: string };
-      if (!res.ok) {
-        throw new Error(data.error || "Could not sign in.");
-      }
-      router.replace("/client");
+      await signIn("google", { redirectTo: "/client" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not sign in.");
-    } finally {
       setBusy(false);
     }
   }
@@ -36,33 +24,24 @@ export default function ClientLoginPage() {
       <p className="es-wordmark es-wordmark--login">EliteSpeak</p>
       <h1 className="mt-5 text-3xl">Client login</h1>
       <p className="mt-3 text-sm text-muted">
-        Temporary login while we build. Use the email from EliteSpeak Clients.
+        Sign in with Google. Your coach will approve new accounts before you can
+        access your program.
       </p>
-      <form onSubmit={(e) => void onSubmit(e)} className="mt-10 space-y-5">
-        <label className="block text-sm font-medium">
-          Email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="es-input mt-2"
-            autoComplete="email"
-            required
-          />
-        </label>
+      <div className="mt-10 space-y-4">
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void onGoogleSignIn()}
+          className="es-btn w-full min-h-12"
+        >
+          {busy ? "Redirecting…" : "Continue with Google"}
+        </button>
         {error ? (
           <p className="text-sm" style={{ color: "var(--es-ember)" }}>
             {error}
           </p>
         ) : null}
-        <button
-          type="submit"
-          disabled={busy || !email.trim()}
-          className="es-btn w-full min-h-12"
-        >
-          {busy ? "Checking…" : "Continue"}
-        </button>
-      </form>
+      </div>
     </main>
   );
 }

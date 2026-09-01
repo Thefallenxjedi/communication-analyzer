@@ -11,6 +11,7 @@ import {
   stageLabel,
 } from "./coachingProgram";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 const NAME_MAX = 80;
 const EMAIL_MAX = 200;
@@ -22,7 +23,7 @@ const RESPONSE_TEXT_MAX = 4000;
 const DRIVE_URL_MAX = 500;
 const PROGRAM_DAYS = 90;
 
-const CLIENT_STATUSES = ["active", "paused", "completed"] as const;
+const CLIENT_STATUSES = ["pending", "active", "paused", "completed"] as const;
 type ClientStatus = (typeof CLIENT_STATUSES)[number];
 
 function normalizeName(value: string): string {
@@ -221,7 +222,9 @@ export const listClients = query({
       .order("desc")
       .take(200);
 
-    return Promise.all(rows.map((row) => toClientView(ctx, row, now)));
+    const enrolled = rows.filter((row) => row.status !== "pending");
+
+    return Promise.all(enrolled.map((row) => toClientView(ctx, row, now)));
   },
 });
 
@@ -234,7 +237,7 @@ export const getClientByEmail = query({
 
     const user = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
+      .withIndex("email", (q) => q.eq("email", email))
       .unique();
     if (!user || user.role !== "client") return null;
 
@@ -257,6 +260,115 @@ export const getClient = query({
   },
 });
 
+export const getMyClient = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return { authenticated: false as const };
+    }
+
+    const row = await ctx.db
+      .query("clients")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+
+    if (!row) {
+      return {
+        authenticated: true as const,
+        client: null,
+        needsRegistration: true as const,
+      };
+    }
+
+    return {
+      authenticated: true as const,
+      client: await toClientView(ctx, row, Date.now()),
+      needsRegistration: false as const,
+    };
+  },
+});
+
+export const listPendingClients = query({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db
+      .query("clients")
+      .withIndex("by_status_lastActivityAt", (q) => q.eq("status", "pending"))
+      .order("desc")
+      .take(100);
+    return Promise.all(rows.map((row) => toClientView(ctx, row, Date.now())));
+  },
+});
+
+export const registerClientSignup = mutation({
+  args: { name: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated.");
+
+    const name = normalizeName(args.name);
+    if (!name) throw new Error("name required");
+
+    const user = await ctx.db.get(userId);
+    if (!user) throw new Error("user not found");
+
+    const now = Date.now();
+    await ctx.db.patch(userId, {
+      name,
+      role: "client",
+      updatedAt: now,
+      ...(user.createdAt ? {} : { createdAt: now }),
+    });
+
+    const existing = await ctx.db
+      .query("clients")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+
+    if (existing) {
+      return {
+        ok: true as const,
+        status: existing.status,
+        clientId: existing._id,
+      };
+    }
+
+    const clientId = await ctx.db.insert("clients", {
+      userId,
+      startDate: now,
+      status: "pending",
+      lastActivityAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    return { ok: true as const, status: "pending" as const, clientId };
+  },
+});
+
+export const approveClientSignup = mutation({
+  args: { id: v.id("clients") },
+  handler: async (ctx, args) => {
+    const row = await ctx.db.get(args.id);
+    if (!row) throw new Error("client not found");
+    if (row.status !== "pending") {
+      throw new Error("Client is not pending approval.");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      status: "active",
+      updatedAt: now,
+      lastActivityAt: now,
+    });
+
+    await seedProgramTasks(ctx, args.id, now);
+
+    return { ok: true as const };
+  },
+});
+
 export const createClient = mutation({
   args: {
     name: v.string(),
@@ -273,7 +385,7 @@ export const createClient = mutation({
 
     const existingUser = await ctx.db
       .query("users")
-      .withIndex("by_email", (q) => q.eq("email", email))
+      .withIndex("email", (q) => q.eq("email", email))
       .unique();
     if (existingUser) throw new Error("A user with this email already exists");
 

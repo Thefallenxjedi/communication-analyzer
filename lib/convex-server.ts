@@ -66,6 +66,10 @@ export const diagnosisCorePromptApi = {
 
 /** Paid coaching clients — not the free analyzer funnel. */
 export const coachingApi = {
+  approveClientSignup: makeFunctionReference<"mutation">("coaching:approveClientSignup"),
+  listPendingClients: makeFunctionReference<"query">("coaching:listPendingClients"),
+  getMyClient: makeFunctionReference<"query">("coaching:getMyClient"),
+  registerClientSignup: makeFunctionReference<"mutation">("coaching:registerClientSignup"),
   listClients: makeFunctionReference<"query">("coaching:listClients"),
   getClientByEmail: makeFunctionReference<"query">("coaching:getClientByEmail"),
   createClient: makeFunctionReference<"mutation">("coaching:createClient"),

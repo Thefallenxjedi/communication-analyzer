@@ -1,9 +1,8 @@
+import { getActiveClientSession } from "@/lib/client-auth";
 import {
-  getCoachingClientByEmail,
   getCoachingStorageUrl,
   saveClientOnboarding,
 } from "@/lib/coaching-clients";
-import { readClientEmailFromCookie } from "@/lib/client-session";
 import { formatConvexError, isConvexConfigured } from "@/lib/convex-server";
 import { profileFromLinkedInPdf } from "@/lib/linkedin-profile";
 import { pdfToText } from "@/lib/pdf-text";
@@ -18,10 +17,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "Not configured." }, { status: 503 });
   }
 
-  const email = readClientEmailFromCookie(request);
-  if (!email) {
+  const active = await getActiveClientSession();
+  if (!active) {
     return Response.json({ error: "Not signed in." }, { status: 401 });
   }
+  const row = active.client;
 
   let body: { storageId?: string };
   try {
@@ -36,10 +36,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    const row = await getCoachingClientByEmail(email);
-    if (!row) {
-      return Response.json({ error: "Not enrolled." }, { status: 401 });
-    }
     if (row.onboardingComplete) {
       return Response.json({ error: "LinkedIn is already submitted." }, { status: 400 });
     }

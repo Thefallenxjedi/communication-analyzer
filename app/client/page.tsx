@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuthActions } from "@convex-dev/auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Ember } from "@/components/Ember";
@@ -390,6 +391,7 @@ function TaskScreen({
 
 export default function ClientHomePage() {
   const router = useRouter();
+  const { signOut } = useAuthActions();
   const [client, setClient] = useState<ClientSession | null>(null);
   const [tasks, setTasks] = useState<CoachingTask[]>([]);
   const [sessions, setSessions] = useState<CoachingSessionSlot[]>(emptySessionSlots);
@@ -409,10 +411,20 @@ export default function ClientHomePage() {
   const load = useCallback(async () => {
     const sessionRes = await fetch("/api/client/session");
     const sessionData = (await sessionRes.json()) as {
+      authenticated?: boolean;
+      needsRegistration?: boolean;
       client?: ClientSession | null;
     };
-    if (!sessionRes.ok || !sessionData.client) {
+    if (!sessionRes.ok || !sessionData.authenticated) {
       router.replace("/client/login");
+      return;
+    }
+    if (sessionData.needsRegistration) {
+      router.replace("/client/register");
+      return;
+    }
+    if (!sessionData.client || sessionData.client.status === "pending") {
+      router.replace("/client/waiting");
       return;
     }
     setClient(sessionData.client);
@@ -472,7 +484,7 @@ export default function ClientHomePage() {
   }, [nav]);
 
   async function logout() {
-    await fetch("/api/client/session", { method: "DELETE" });
+    await signOut();
     router.replace("/client/login");
   }
 

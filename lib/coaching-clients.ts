@@ -5,7 +5,7 @@ import {
   isConvexConfigured,
 } from "@/lib/convex-server";
 
-export type CoachingClientStatus = "active" | "paused" | "completed";
+export type CoachingClientStatus = "pending" | "active" | "paused" | "completed";
 
 export type CoachingClient = {
   id: string;

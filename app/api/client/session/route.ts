@@ -1,10 +1,8 @@
-import { getCoachingClientByEmail } from "@/lib/coaching-clients";
 import {
-  clearClientSessionCookie,
-  clientSessionCookie,
-  readClientEmailFromCookie,
-  type ClientSession,
-} from "@/lib/client-session";
+  fetchMyClientFromConvex,
+  getActiveClientSession,
+} from "@/lib/client-auth";
+import type { ClientSession } from "@/lib/client-session";
 import { formatConvexError, isConvexConfigured } from "@/lib/convex-server";
 
 export const runtime = "nodejs";
@@ -37,70 +35,59 @@ function toSession(row: {
   };
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   if (!isConvexConfigured()) {
-    return Response.json({ error: "Not configured.", client: null }, { status: 503 });
-  }
-
-  const email = readClientEmailFromCookie(request);
-  if (!email) {
-    return Response.json({ client: null }, { status: 401 });
+    return Response.json({ error: "Not configured.", authenticated: false }, { status: 503 });
   }
 
   try {
-    const row = await getCoachingClientByEmail(email);
-    if (!row) {
-      return Response.json(
-        { error: "Session is no longer valid.", client: null },
-        { status: 401, headers: { "set-cookie": clearClientSessionCookie() } },
-      );
+    const data = await fetchMyClientFromConvex();
+    if (!data.authenticated) {
+      return Response.json({ authenticated: false, client: null }, { status: 401 });
     }
-    return Response.json({ client: toSession(row) });
+
+    if (data.needsRegistration) {
+      return Response.json({
+        authenticated: true,
+        needsRegistration: true,
+        client: null,
+      });
+    }
+
+    if (!data.client) {
+      return Response.json({
+        authenticated: true,
+        needsRegistration: true,
+        client: null,
+      });
+    }
+
+    return Response.json({
+      authenticated: true,
+      needsRegistration: false,
+      client: toSession(data.client),
+    });
   } catch (err) {
     return Response.json(
-      { error: formatConvexError(err), client: null },
+      { error: formatConvexError(err), authenticated: false, client: null },
       { status: 500 },
     );
   }
 }
 
-export async function POST(request: Request) {
-  if (!isConvexConfigured()) {
-    return Response.json({ error: "Not configured." }, { status: 503 });
-  }
-
-  let body: { email?: string };
-  try {
-    body = (await request.json()) as typeof body;
-  } catch {
-    return Response.json({ error: "Invalid JSON." }, { status: 400 });
-  }
-
-  const email = body.email?.trim().toLowerCase() ?? "";
-  if (!email || !email.includes("@")) {
-    return Response.json({ error: "Enter a valid email." }, { status: 400 });
-  }
-
-  try {
-    const row = await getCoachingClientByEmail(email);
-    if (!row) {
-      return Response.json(
-        { error: "This email is not enrolled." },
-        { status: 404 },
-      );
-    }
-    return Response.json(
-      { ok: true, client: toSession(row) },
-      { headers: { "set-cookie": clientSessionCookie(row.email) } },
-    );
-  } catch (err) {
-    return Response.json({ error: formatConvexError(err) }, { status: 500 });
-  }
+/** Legacy email login removed — use Google via Convex Auth. */
+export async function POST() {
+  return Response.json(
+    { error: "Use Sign in with Google on the client login page." },
+    { status: 400 },
+  );
 }
 
 export async function DELETE() {
-  return Response.json(
-    { ok: true },
-    { headers: { "set-cookie": clearClientSessionCookie() } },
-  );
+  return Response.json({ ok: true });
+}
+
+export async function requireActiveClient() {
+  const active = await getActiveClientSession();
+  return active;
 }

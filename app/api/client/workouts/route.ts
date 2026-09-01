@@ -1,4 +1,4 @@
-import { getCoachingClientByEmail } from "@/lib/coaching-clients";
+import { getActiveClientSession } from "@/lib/client-auth";
 import { listCoachingSessions } from "@/lib/coaching-sessions";
 import {
   completeCoachingTask,
@@ -10,7 +10,6 @@ import {
   usesVideoLink,
 } from "@/lib/coaching-tasks";
 import { isClientSessionUnlocked } from "@/lib/coaching-program";
-import { readClientEmailFromCookie } from "@/lib/client-session";
 import { formatConvexError, isConvexConfigured } from "@/lib/convex-server";
 import { normalizeVideoShareUrl } from "@/lib/google-drive";
 
@@ -30,16 +29,13 @@ export async function GET(request: Request) {
     return Response.json({ error: "Not configured.", tasks: [], sessions: [] }, { status: 503 });
   }
 
-  const email = readClientEmailFromCookie(request);
-  if (!email) {
+  const active = await getActiveClientSession();
+  if (!active) {
     return Response.json({ error: "Not signed in.", tasks: [], sessions: [] }, { status: 401 });
   }
+  const row = active.client;
 
   try {
-    const row = await getCoachingClientByEmail(email);
-    if (!row) {
-      return Response.json({ error: "Not enrolled.", tasks: [], sessions: [] }, { status: 401 });
-    }
     await ensureCoachingProgram(row.id);
     const [allTasks, sessions] = await Promise.all([
       listCoachingTasks(row.id),
@@ -60,10 +56,11 @@ export async function POST(request: Request) {
     return Response.json({ error: "Not configured." }, { status: 503 });
   }
 
-  const email = readClientEmailFromCookie(request);
-  if (!email) {
+  const active = await getActiveClientSession();
+  if (!active) {
     return Response.json({ error: "Not signed in." }, { status: 401 });
   }
+  const row = active.client;
 
   let body: {
     id?: string;
@@ -86,10 +83,6 @@ export async function POST(request: Request) {
   }
 
   try {
-    const row = await getCoachingClientByEmail(email);
-    if (!row) {
-      return Response.json({ error: "Not enrolled." }, { status: 401 });
-    }
     const tasks = await listCoachingTasks(row.id);
     const mine = tasks.find((task) => task.id === id);
     if (!mine) {
@@ -177,10 +170,11 @@ export async function PATCH(request: Request) {
     return Response.json({ error: "Not configured." }, { status: 503 });
   }
 
-  const email = readClientEmailFromCookie(request);
-  if (!email) {
+  const active = await getActiveClientSession();
+  if (!active) {
     return Response.json({ error: "Not signed in." }, { status: 401 });
   }
+  const row = active.client;
 
   let body: {
     id?: string;
@@ -201,10 +195,6 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const row = await getCoachingClientByEmail(email);
-    if (!row) {
-      return Response.json({ error: "Not enrolled." }, { status: 401 });
-    }
     const tasks = await listCoachingTasks(row.id);
     const mine = tasks.find((task) => task.id === id);
     if (!mine) {

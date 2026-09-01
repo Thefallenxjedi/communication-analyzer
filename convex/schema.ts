@@ -1,4 +1,5 @@
 import { defineSchema, defineTable } from "convex/server";
+import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 /**
@@ -7,6 +8,25 @@ import { v } from "convex/values";
  * firstName/email filled when user requests the PDF (lead capture).
  */
 export default defineSchema({
+  ...authTables,
+  users: defineTable({
+    name: v.optional(v.string()),
+    image: v.optional(v.string()),
+    email: v.optional(v.string()),
+    emailVerificationTime: v.optional(v.number()),
+    phone: v.optional(v.string()),
+    phoneVerificationTime: v.optional(v.number()),
+    isAnonymous: v.optional(v.boolean()),
+    role: v.optional(
+      v.union(v.literal("client"), v.literal("coach"), v.literal("admin")),
+    ),
+    passwordHash: v.optional(v.string()),
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
+  })
+    .index("email", ["email"])
+    .index("by_role_createdAt", ["role", "createdAt"]),
+
   analyses: defineTable({
     anonymousId: v.string(),
     overallScore: v.number(),
@@ -92,21 +112,6 @@ export default defineSchema({
     updatedAt: v.number(),
   }).index("by_key", ["key"]),
 
-  /**
-   * Paid coaching platform only. Isolated from the free analyzer funnel
-   * (`analyses`, `sharedReports`, surveys, prompts).
-   */
-  users: defineTable({
-    name: v.string(),
-    email: v.string(),
-    role: v.union(v.literal("client"), v.literal("coach"), v.literal("admin")),
-    passwordHash: v.optional(v.string()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-  })
-    .index("by_email", ["email"])
-    .index("by_role_createdAt", ["role", "createdAt"]),
-
   /** One enrolled coaching client. Login and tasks come in later slices. */
   clients: defineTable({
     userId: v.id("users"),
@@ -116,6 +121,7 @@ export default defineSchema({
     /** One dedicated meeting URL for every call. */
     meetingLink: v.optional(v.string()),
     status: v.union(
+      v.literal("pending"),
       v.literal("active"),
       v.literal("paused"),
       v.literal("completed"),

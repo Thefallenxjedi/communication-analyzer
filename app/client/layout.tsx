@@ -1,4 +1,6 @@
+import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { IBM_Plex_Mono, Inter, Playfair_Display } from "next/font/google";
+import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 import "./client.css";
 
 const playfair = Playfair_Display({
@@ -19,16 +21,18 @@ const plex = IBM_Plex_Mono({
   variable: "--font-plex",
 });
 
-export default function ClientLayout({
+export default async function ClientLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className={`${playfair.variable} ${inter.variable} ${plex.variable} es-client`}
-    >
-      {children}
-    </div>
+    <ConvexAuthNextjsServerProvider>
+      <div
+        className={`${playfair.variable} ${inter.variable} ${plex.variable} es-client`}
+      >
+        <ConvexClientProvider>{children}</ConvexClientProvider>
+      </div>
+    </ConvexAuthNextjsServerProvider>
   );
 }

@@ -43,6 +43,7 @@ function formatWhen(iso: string): string {
 
 function statusClass(status: CoachingClientStatus): string {
   if (status === "active") return "bg-emerald-100 text-emerald-800";
+  if (status === "pending") return "bg-sky-100 text-sky-900";
   if (status === "paused") return "bg-amber-100 text-amber-900";
   return "bg-slate-100 text-slate-700";
 }
@@ -53,6 +54,7 @@ export default function AdminClientsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [clients, setClients] = useState<CoachingClient[]>([]);
+  const [pendingClients, setPendingClients] = useState<CoachingClient[]>([]);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -75,14 +77,21 @@ export default function AdminClientsPage() {
       const res = await fetch("/api/admin/clients", {
         headers: { "x-admin-password": pwd },
       });
+      const pendingRes = await fetch("/api/admin/clients/pending", {
+        headers: { "x-admin-password": pwd },
+      });
       const data = (await res.json()) as {
         error?: string;
+        clients?: CoachingClient[];
+      };
+      const pendingData = (await pendingRes.json()) as {
         clients?: CoachingClient[];
       };
       if (!res.ok) {
         throw new Error(data.error || "Wrong admin password.");
       }
       setClients(data.clients || []);
+      setPendingClients(pendingData.clients || []);
       setPassword(pwd);
       setUnlocked(true);
       try {
@@ -206,6 +215,31 @@ export default function AdminClientsPage() {
     }
   }
 
+  async function onApprove(id: string, clientName: string) {
+    setRowBusyId(id);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/clients/pending", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-admin-password": password,
+        },
+        body: JSON.stringify({ clientId: id }),
+      });
+      const data = (await res.json()) as { error?: string };
+      if (!res.ok) {
+        throw new Error(data.error || "Could not approve client.");
+      }
+      setPendingClients((prev) => prev.filter((row) => row.id !== id));
+      await load(password);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Approve failed.");
+    } finally {
+      setRowBusyId(null);
+    }
+  }
+
   async function onDelete(id: string, clientName: string) {
     if (!window.confirm(`Remove ${clientName} from EliteSpeak Clients?`)) return;
     setRowBusyId(id);
@@ -323,6 +357,41 @@ export default function AdminClientsPage() {
 
             {error ? (
               <p className={`text-sm ${adminUi.dangerText}`}>{error}</p>
+            ) : null}
+
+            {pendingClients.length > 0 ? (
+              <section className="card-surface space-y-4 p-5 sm:p-6">
+                <div>
+                  <h2 className="text-lg font-extrabold tracking-tight">
+                    Pending Google sign-ups
+                  </h2>
+                  <p className="mt-1 text-sm text-muted">
+                    Clients who signed in with Google and submitted their name.
+                    Approve to grant program access.
+                  </p>
+                </div>
+                <ul className="divide-y divide-border">
+                  {pendingClients.map((row) => (
+                    <li
+                      key={row.id}
+                      className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0"
+                    >
+                      <div>
+                        <p className="font-extrabold text-slate-900">{row.name}</p>
+                        <p className="text-sm text-muted">{row.email}</p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={rowBusyId === row.id}
+                        onClick={() => void onApprove(row.id, row.name)}
+                        className={adminUi.primaryBtn}
+                      >
+                        {rowBusyId === row.id ? "Approving…" : "Approve"}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ) : null}
 
             <form

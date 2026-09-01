@@ -9,6 +9,7 @@
  */
 
 import type * as analyses from "../analyses.js";
+import type * as auth from "../auth.js";
 import type * as coaching from "../coaching.js";
 import type * as coachingProgram from "../coachingProgram.js";
 import type * as coachingSessions from "../coachingSessions.js";
@@ -16,6 +17,7 @@ import type * as crons from "../crons.js";
 import type * as demoSeed from "../demoSeed.js";
 import type * as diagnosisCorePrompt from "../diagnosisCorePrompt.js";
 import type * as estimateAnalysisDuration from "../estimateAnalysisDuration.js";
+import type * as http from "../http.js";
 import type * as introCall from "../introCall.js";
 import type * as promptAddOns from "../promptAddOns.js";
 import type * as reports from "../reports.js";
@@ -29,6 +31,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   analyses: typeof analyses;
+  auth: typeof auth;
   coaching: typeof coaching;
   coachingProgram: typeof coachingProgram;
   coachingSessions: typeof coachingSessions;
@@ -36,6 +39,7 @@ declare const fullApi: ApiFromModules<{
   demoSeed: typeof demoSeed;
   diagnosisCorePrompt: typeof diagnosisCorePrompt;
   estimateAnalysisDuration: typeof estimateAnalysisDuration;
+  http: typeof http;
   introCall: typeof introCall;
   promptAddOns: typeof promptAddOns;
   reports: typeof reports;

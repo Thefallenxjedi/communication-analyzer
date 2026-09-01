@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@ai-sdk/google": "^4.0.27",
+    "@auth/core": "^0.41.1",
+    "@convex-dev/auth": "^0.0.95",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "@vercel/functions": "^3.9.3",
