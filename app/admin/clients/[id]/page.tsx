@@ -1039,14 +1039,6 @@ export default function AdminClientDetailPage() {
           )}
         </div>
 
-        <TranscriptToWorkoutPanel
-          clientId={clientId}
-          targetSessionNumber={sessionNumber}
-          password={password}
-          sessionLocked={sessionLocked}
-          onSaved={refreshTasks}
-        />
-
         {adding && !sessionLocked ? (
           <form onSubmit={(e) => void onAssign(e)} className="space-y-4 border-t border-border pt-4">
             <input
@@ -1081,6 +1073,13 @@ export default function AdminClientDetailPage() {
         ) : (
           sessionTasks.map((task) => renderTask(task, sessionLocked))
         )}
+
+        <TranscriptToWorkoutPanel
+          clientId={clientId}
+          targetSessionNumber={sessionNumber}
+          password={password}
+          onSaved={refreshTasks}
+        />
 
         {sessionNumber === INTRO_SESSION ? (
           <div className="space-y-4 border-t border-border pt-4">

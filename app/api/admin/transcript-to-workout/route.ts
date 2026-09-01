@@ -33,6 +33,7 @@ export async function POST(request: Request) {
     transcript?: string;
     sourceSessionNumber?: number;
     targetSessionNumber?: number;
+    mode?: "recap" | "tasks" | "both";
   };
   try {
     body = (await request.json()) as typeof body;
@@ -89,6 +90,7 @@ export async function POST(request: Request) {
       introChallenges: intro?.challenges
         .map((c) => c.title)
         .filter(Boolean),
+      mode: body.mode ?? "both",
     });
 
     return Response.json({ draft });

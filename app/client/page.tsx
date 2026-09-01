@@ -375,6 +375,7 @@ export default function ClientHomePage() {
   const [sessions, setSessions] = useState<CoachingSessionSlot[]>(emptySessionSlots);
   const [intro, setIntro] = useState<IntroCallReport | null>(null);
   const [sessionRecap, setSessionRecap] = useState<SessionRecap | null>(null);
+  const [sessionView, setSessionView] = useState<"tasks" | "summary">("tasks");
   const [nav, setNav] = useState<NavId>(INTRO_SESSION);
   const [driveLinks, setDriveLinks] = useState<Record<string, string>>({});
   const [drafts, setDrafts] = useState<
@@ -436,6 +437,7 @@ export default function ClientHomePage() {
       setSessionRecap(null);
       return;
     }
+    setSessionView("tasks");
     let cancelled = false;
     void (async () => {
       const res = await fetch(
@@ -788,10 +790,9 @@ export default function ClientHomePage() {
         ) : (
           <SessionReport
             className={
-              sessionLocked ||
-              (selectedTasks.length === 0 &&
-                nav !== INTRO_SESSION &&
-                !sessionRecap?.recapSummary)
+              sessionView === "tasks" &&
+              (sessionLocked ||
+                (selectedTasks.length === 0 && nav !== INTRO_SESSION))
                 ? "flex-1 es-report--empty"
                 : "flex-1"
             }
@@ -803,27 +804,53 @@ export default function ClientHomePage() {
                 <IntroCallView clientName={client.name} report={intro} />
               </SessionReportStep>
             ) : null}
+            {isSessionNav(nav) && nav >= 1 ? (
+              <div className="es-session-tabs" role="tablist" aria-label="Session view">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={sessionView === "tasks"}
+                  className={
+                    sessionView === "tasks"
+                      ? "es-session-tab es-session-tab--active"
+                      : "es-session-tab"
+                  }
+                  onClick={() => setSessionView("tasks")}
+                >
+                  Tasks
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={sessionView === "summary"}
+                  className={
+                    sessionView === "summary"
+                      ? "es-session-tab es-session-tab--active"
+                      : "es-session-tab"
+                  }
+                  onClick={() => setSessionView("summary")}
+                >
+                  Summary
+                </button>
+              </div>
+            ) : null}
             {isSessionNav(nav) &&
             nav >= 1 &&
-            sessionRecap?.recapSummary ? (
-              <SessionReportStep
-                n={
-                  nav === INTRO_SESSION && !isIntroCallEmpty(intro)
-                    ? 2
-                    : 1
-                }
-                title="Call overview"
-              >
+            sessionView === "summary" ? (
+              sessionRecap?.recapSummary ? (
                 <SessionRecapView
                   sessionLabel={sessionLabel(nav)}
                   recap={sessionRecap.recapSummary}
                 />
-              </SessionReportStep>
+              ) : (
+                <p className="es-session-summary-empty">
+                  Your coach will add a call summary after your session.
+                </p>
+              )
             ) : null}
-            {sessionLocked ||
-            (selectedTasks.length === 0 &&
-              nav !== INTRO_SESSION &&
-              !sessionRecap?.recapSummary) ? (
+            {sessionView === "tasks" &&
+            (sessionLocked ||
+            (selectedTasks.length === 0 && nav !== INTRO_SESSION)) ? (
               <SessionWaiting
                 sessionNumber={nav}
                 lockNote={
@@ -832,20 +859,15 @@ export default function ClientHomePage() {
                     : undefined
                 }
               />
-            ) : (
+            ) : sessionView === "tasks" ? (
               selectedTasks.map((task, index) => {
                 let stepBase = 1;
-                if (nav === INTRO_SESSION && !isIntroCallEmpty(intro)) stepBase += 1;
-                if (
-                  isSessionNav(nav) &&
-                  nav >= 1 &&
-                  sessionRecap?.recapSummary
-                ) {
+                if (nav === INTRO_SESSION && !isIntroCallEmpty(intro)) {
                   stepBase += 1;
                 }
                 return renderTaskStep(task, index, index + stepBase);
               })
-            )}
+            ) : null}
           </SessionReport>
         )}
         {error ? (
