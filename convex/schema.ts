@@ -175,6 +175,11 @@ export default defineSchema({
     sessionNumber: v.number(),
     ready: v.boolean(),
     updatedAt: v.number(),
+    /** Client-visible call recap after a coaching session. */
+    recapSummary: v.optional(v.string()),
+    /** Raw Meet transcript (admin audit only). */
+    sourceTranscript: v.optional(v.string()),
+    recapUpdatedAt: v.optional(v.number()),
   })
     .index("by_clientId", ["clientId"])
     .index("by_clientId_sessionNumber", ["clientId", "sessionNumber"]),

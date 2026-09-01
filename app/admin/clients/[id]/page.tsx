@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { IntroCallView } from "@/components/IntroCallView";
+import { TranscriptToWorkoutPanel } from "@/components/TranscriptToWorkoutPanel";
 import type { CoachingClient } from "@/lib/coaching-clients";
 import {
   parseLinkedInProfile,
@@ -1037,6 +1038,14 @@ export default function AdminClientDetailPage() {
           </button>
           )}
         </div>
+
+        <TranscriptToWorkoutPanel
+          clientId={clientId}
+          targetSessionNumber={sessionNumber}
+          password={password}
+          sessionLocked={sessionLocked}
+          onSaved={refreshTasks}
+        />
 
         {adding && !sessionLocked ? (
           <form onSubmit={(e) => void onAssign(e)} className="space-y-4 border-t border-border pt-4">

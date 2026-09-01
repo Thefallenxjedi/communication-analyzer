@@ -7,6 +7,7 @@ import { HowItWorksRoadmap } from "@/components/HowItWorksRoadmap";
 import { LinkedInMark, LinkedInUpload } from "@/components/LinkedInUpload";
 import { ClipPlayer } from "@/components/ClipPlayer";
 import { IntroCallView } from "@/components/IntroCallView";
+import { SessionRecapView } from "@/components/SessionRecapView";
 import { SessionReport, SessionReportStep } from "@/components/SessionReport";
 import { SessionWaiting } from "@/components/SessionWaiting";
 import { TaskRecorder } from "@/components/TaskRecorder";
@@ -31,6 +32,7 @@ import {
 } from "@/lib/coaching-tasks";
 import { videoShareKind } from "@/lib/google-drive";
 import { isIntroCallEmpty, type IntroCallReport } from "@/lib/intro-call";
+import type { SessionRecap } from "@/lib/session-recap";
 
 type Milestone = "complete" | "current" | "upcoming";
 
@@ -372,6 +374,7 @@ export default function ClientHomePage() {
   const [tasks, setTasks] = useState<CoachingTask[]>([]);
   const [sessions, setSessions] = useState<CoachingSessionSlot[]>(emptySessionSlots);
   const [intro, setIntro] = useState<IntroCallReport | null>(null);
+  const [sessionRecap, setSessionRecap] = useState<SessionRecap | null>(null);
   const [nav, setNav] = useState<NavId>(INTRO_SESSION);
   const [driveLinks, setDriveLinks] = useState<Record<string, string>>({});
   const [drafts, setDrafts] = useState<
@@ -426,6 +429,24 @@ export default function ClientHomePage() {
     if (!root) return;
     const active = root.querySelector(".es-nav-item--active, .es-nav-item--here");
     active?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [nav]);
+
+  useEffect(() => {
+    if (!isSessionNav(nav)) {
+      setSessionRecap(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const res = await fetch(
+        `/api/client/session-recap?session=${encodeURIComponent(String(nav))}`,
+      );
+      const data = (await res.json()) as { recap?: SessionRecap | null };
+      if (!cancelled) setSessionRecap(data.recap ?? null);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [nav]);
 
   async function logout() {
@@ -767,7 +788,10 @@ export default function ClientHomePage() {
         ) : (
           <SessionReport
             className={
-              sessionLocked || (selectedTasks.length === 0 && nav !== INTRO_SESSION)
+              sessionLocked ||
+              (selectedTasks.length === 0 &&
+                nav !== INTRO_SESSION &&
+                !sessionRecap?.recapSummary)
                 ? "flex-1 es-report--empty"
                 : "flex-1"
             }
@@ -779,7 +803,27 @@ export default function ClientHomePage() {
                 <IntroCallView clientName={client.name} report={intro} />
               </SessionReportStep>
             ) : null}
-            {sessionLocked || (selectedTasks.length === 0 && nav !== INTRO_SESSION) ? (
+            {isSessionNav(nav) &&
+            nav >= 1 &&
+            sessionRecap?.recapSummary ? (
+              <SessionReportStep
+                n={
+                  nav === INTRO_SESSION && !isIntroCallEmpty(intro)
+                    ? 2
+                    : 1
+                }
+                title="Call overview"
+              >
+                <SessionRecapView
+                  sessionLabel={sessionLabel(nav)}
+                  recap={sessionRecap.recapSummary}
+                />
+              </SessionReportStep>
+            ) : null}
+            {sessionLocked ||
+            (selectedTasks.length === 0 &&
+              nav !== INTRO_SESSION &&
+              !sessionRecap?.recapSummary) ? (
               <SessionWaiting
                 sessionNumber={nav}
                 lockNote={
@@ -789,15 +833,18 @@ export default function ClientHomePage() {
                 }
               />
             ) : (
-              selectedTasks.map((task, index) =>
-                renderTaskStep(
-                  task,
-                  index,
-                  nav === INTRO_SESSION && !isIntroCallEmpty(intro)
-                    ? index + 2
-                    : index + 1,
-                ),
-              )
+              selectedTasks.map((task, index) => {
+                let stepBase = 1;
+                if (nav === INTRO_SESSION && !isIntroCallEmpty(intro)) stepBase += 1;
+                if (
+                  isSessionNav(nav) &&
+                  nav >= 1 &&
+                  sessionRecap?.recapSummary
+                ) {
+                  stepBase += 1;
+                }
+                return renderTaskStep(task, index, index + stepBase);
+              })
             )}
           </SessionReport>
         )}

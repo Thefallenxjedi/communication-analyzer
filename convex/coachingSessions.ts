@@ -81,3 +81,84 @@ export const markReady = mutation({
     return { ok: true as const };
   },
 });
+
+const RECAP_MAX = 12_000;
+const TRANSCRIPT_MAX = 80_000;
+
+export const getRecap = query({
+  args: {
+    clientId: v.id("clients"),
+    sessionNumber: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const sessionNumber = Math.round(args.sessionNumber);
+    if (!isValidSessionNumber(sessionNumber) || sessionNumber < 1) {
+      return null;
+    }
+    const row = await ctx.db
+      .query("coachingSessions")
+      .withIndex("by_clientId_sessionNumber", (q) =>
+        q.eq("clientId", args.clientId).eq("sessionNumber", sessionNumber),
+      )
+      .unique();
+    if (!row?.recapSummary?.trim()) return null;
+    return {
+      sessionNumber,
+      recapSummary: row.recapSummary,
+      recapUpdatedAt: row.recapUpdatedAt ?? row.updatedAt,
+    };
+  },
+});
+
+export const upsertRecap = mutation({
+  args: {
+    clientId: v.id("clients"),
+    sessionNumber: v.number(),
+    recapSummary: v.string(),
+    sourceTranscript: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const client = await ctx.db.get(args.clientId);
+    if (!client) throw new Error("client not found");
+
+    const sessionNumber = Math.round(args.sessionNumber);
+    if (!isValidSessionNumber(sessionNumber) || sessionNumber < 1) {
+      throw new Error("sessionNumber must be 1–9 or Final Call");
+    }
+
+    const recapSummary = args.recapSummary.trim().slice(0, RECAP_MAX);
+    if (!recapSummary) throw new Error("recapSummary required");
+
+    const sourceTranscript = args.sourceTranscript?.trim().slice(0, TRANSCRIPT_MAX);
+    const now = Date.now();
+
+    const existing = await ctx.db
+      .query("coachingSessions")
+      .withIndex("by_clientId_sessionNumber", (q) =>
+        q.eq("clientId", args.clientId).eq("sessionNumber", sessionNumber),
+      )
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        recapSummary,
+        ...(sourceTranscript !== undefined ? { sourceTranscript } : {}),
+        recapUpdatedAt: now,
+        updatedAt: now,
+      });
+    } else {
+      await ctx.db.insert("coachingSessions", {
+        clientId: args.clientId,
+        sessionNumber,
+        ready: false,
+        recapSummary,
+        ...(sourceTranscript ? { sourceTranscript } : {}),
+        recapUpdatedAt: now,
+        updatedAt: now,
+      });
+    }
+
+    await ctx.db.patch(args.clientId, { lastActivityAt: now, updatedAt: now });
+    return { ok: true as const };
+  },
+});
