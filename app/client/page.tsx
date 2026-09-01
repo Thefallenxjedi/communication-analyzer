@@ -916,6 +916,11 @@ export default function ClientHomePage() {
             (selectedTasks.length === 0 && nav !== INTRO_SESSION)) ? (
               <SessionWaiting
                 sessionNumber={nav}
+                awaitingCoach={
+                  !sessionLocked &&
+                  isSessionNav(nav) &&
+                  selectedTasks.length === 0
+                }
                 lockNote={
                   sessionLocked && isSessionNav(nav)
                     ? `Opens after ${sessionLabel(previousProgramSession(nav))}.`

@@ -2512,3 +2512,203 @@
     font-size: clamp(2.1rem, 3.4vw, 3.15rem);
   }
 }
+
+/* —— Auth split (login / register / waiting) —— */
+.es-login-split {
+  display: grid;
+  min-height: 100dvh;
+  grid-template-columns: 1fr;
+}
+
+.es-login-brand {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2.75rem 1.75rem;
+  background:
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--es-gold) 6%, var(--es-void-2)) 0%,
+      var(--es-void-2) 42%,
+      var(--es-void) 100%
+    );
+  border-bottom: 1px solid color-mix(in srgb, var(--es-gold) 16%, transparent);
+}
+
+.es-login-brand-title {
+  margin: 1.35rem 0 0;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 5vw, 2.85rem);
+  font-weight: 600;
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  color: var(--es-parchment);
+}
+
+.es-login-brand-lead {
+  margin: 1rem 0 0;
+  max-width: 30rem;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--es-parchment-dim);
+}
+
+.es-login-brand-rule {
+  display: block;
+  width: 2.75rem;
+  height: 1px;
+  margin: 1.5rem 0;
+  background: var(--es-gold);
+  opacity: 0.5;
+}
+
+.es-login-brand-note {
+  margin: 0;
+  max-width: 26rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--es-parchment-dim);
+  opacity: 0.85;
+}
+
+.es-login-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.75rem 1.75rem;
+  background: var(--es-void);
+}
+
+.es-login-panel-inner {
+  width: 100%;
+  max-width: 22rem;
+}
+
+.es-login-panel-title {
+  margin: 0;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: clamp(1.65rem, 4vw, 2rem);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--es-parchment);
+}
+
+.es-login-panel-sub {
+  margin: 0.85rem 0 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--es-parchment-dim);
+}
+
+.es-login-google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  margin-top: 2rem;
+  width: 100%;
+  min-height: 3rem;
+}
+
+.es-login-google-icon {
+  flex-shrink: 0;
+  opacity: 0.92;
+}
+
+.es-login-error {
+  margin: 1rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--es-ember);
+}
+
+.es-login-form {
+  margin-top: 1.75rem;
+}
+
+.es-login-label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--es-parchment);
+}
+
+.es-login-input {
+  margin-top: 0.5rem;
+}
+
+.es-login-signout {
+  margin-top: 2rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--es-parchment-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.es-login-signout:hover {
+  color: var(--es-parchment);
+}
+
+.es-login-signout:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.es-login-wait-mark {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+}
+
+.es-login-wait-ring {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--es-gold) 45%, transparent);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--es-gold) 18%, transparent);
+  animation: es-login-wait-pulse 3.2s ease-in-out infinite;
+}
+
+@keyframes es-login-wait-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--es-gold) 12%, transparent);
+    opacity: 0.75;
+  }
+  50% {
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--es-gold) 0%, transparent);
+    opacity: 1;
+  }
+}
+
+@media (min-width: 900px) {
+  .es-login-split {
+    grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  }
+
+  .es-login-brand {
+    padding: 4rem 3.5rem;
+    border-bottom: 0;
+    border-right: 1px solid color-mix(in srgb, var(--es-gold) 14%, transparent);
+  }
+
+  .es-login-panel {
+    padding: 4rem 3rem;
+  }
+
+  .es-login-wait-mark {
+    justify-content: flex-start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .es-login-wait-ring {
+    animation: none;
+    opacity: 0.8;
+  }
+}
