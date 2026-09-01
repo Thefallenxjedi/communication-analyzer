@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { FINAL_SESSION, INTRO_SESSION, sessionLabel } from "@/lib/coaching-program";
+import {
+  FINAL_SESSION,
+  INTRO_SESSION,
+  PROGRAM_SLOTS,
+  sessionLabel,
+  transcriptWorkoutDefaults,
+} from "@/lib/coaching-program";
 import type { CoachingTask } from "@/lib/coaching-tasks";
 import type { CoachingSessionSlot } from "@/lib/coaching-sessions";
 import type { GeneratedWorkoutTask } from "@/lib/transcript-to-workout";
@@ -35,12 +41,11 @@ export function TranscriptToWorkoutPanel({
     sessions?: CoachingSessionSlot[];
   }) => void | Promise<void>;
 }) {
-  const defaultSource =
-    targetSessionNumber > 1 ? targetSessionNumber - 1 : 1;
+  const defaults = transcriptWorkoutDefaults(targetSessionNumber);
 
   const [transcript, setTranscript] = useState("");
-  const [sourceSession, setSourceSession] = useState(defaultSource);
-  const [targetSession, setTargetSession] = useState(targetSessionNumber);
+  const [sourceSession, setSourceSession] = useState(defaults.summarySession);
+  const [targetSession, setTargetSession] = useState(defaults.tasksSession);
   const [generatingRecap, setGeneratingRecap] = useState(false);
   const [generatingTasks, setGeneratingTasks] = useState(false);
   const [savingRecap, setSavingRecap] = useState(false);
@@ -53,10 +58,11 @@ export function TranscriptToWorkoutPanel({
   const [workspaceRecap, setWorkspaceRecap] = useState<SessionRecap | null>(null);
 
   const loadWorkspaceRecap = useCallback(async () => {
-    if (!password || targetSessionNumber < 1) return;
+    const summarySession = transcriptWorkoutDefaults(targetSessionNumber).summarySession;
+    if (!password || summarySession < 1) return;
     try {
       const res = await fetch(
-        `/api/admin/session-recap?clientId=${encodeURIComponent(clientId)}&session=${targetSessionNumber}`,
+        `/api/admin/session-recap?clientId=${encodeURIComponent(clientId)}&session=${summarySession}`,
         { headers: { "x-admin-password": password } },
       );
       const data = (await res.json()) as { recap?: SessionRecap | null };
@@ -74,18 +80,19 @@ export function TranscriptToWorkoutPanel({
         { headers: { "x-admin-password": password } },
       );
       const data = (await res.json()) as { recap?: SessionRecap | null };
-      if (data.recap?.recapSummary && sourceSession !== targetSessionNumber) {
+      if (data.recap?.recapSummary) {
         return data.recap;
       }
       return null;
     } catch {
       return null;
     }
-  }, [clientId, password, sourceSession, targetSessionNumber]);
+  }, [clientId, password, sourceSession]);
 
   useEffect(() => {
-    setSourceSession(targetSessionNumber > 1 ? targetSessionNumber - 1 : 1);
-    setTargetSession(targetSessionNumber);
+    const next = transcriptWorkoutDefaults(targetSessionNumber);
+    setSourceSession(next.summarySession);
+    setTargetSession(next.tasksSession);
   }, [targetSessionNumber]);
 
   useEffect(() => {
@@ -162,9 +169,7 @@ export function TranscriptToWorkoutPanel({
       if (!res.ok) throw new Error(data.error || "Could not save summary.");
       setShowRecapEditor(false);
       setRecapDraft("");
-      if (sourceSession === targetSessionNumber) {
-        void loadWorkspaceRecap();
-      }
+      void loadWorkspaceRecap();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed.");
     } finally {
@@ -285,13 +290,13 @@ export function TranscriptToWorkoutPanel({
         <div className="rounded-xl border border-border bg-white p-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <p className="text-sm font-extrabold text-slate-900">
-              {sessionLabel(targetSessionNumber)} summary (client-visible)
+              {sessionLabel(defaults.summarySession)} summary (client-visible)
             </p>
             <button
               type="button"
               onClick={() => {
                 setRecapDraft(workspaceRecap.recapSummary);
-                setSourceSession(targetSessionNumber);
+                setSourceSession(defaults.summarySession);
                 setShowRecapEditor(true);
               }}
               className="text-sm font-semibold text-teal-800"
@@ -324,7 +329,7 @@ export function TranscriptToWorkoutPanel({
             onChange={(e) => setSourceSession(Number(e.target.value))}
             className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-3 text-base"
           >
-            {Array.from({ length: 9 }, (_, i) => i + 1).map((n) => (
+            {PROGRAM_SLOTS.filter((n) => n >= 1 && n < FINAL_SESSION).map((n) => (
               <option key={n} value={n}>
                 {sessionLabel(n)}
               </option>
@@ -338,7 +343,7 @@ export function TranscriptToWorkoutPanel({
             onChange={(e) => setTargetSession(Number(e.target.value))}
             className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-3 text-base"
           >
-            {Array.from({ length: 9 }, (_, i) => i + 1).map((n) => (
+            {PROGRAM_SLOTS.filter((n) => n >= 1 && n !== INTRO_SESSION).map((n) => (
               <option key={n} value={n}>
                 {sessionLabel(n)}
               </option>

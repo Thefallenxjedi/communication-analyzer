@@ -66,6 +66,20 @@ export function previousProgramSession(sessionNumber: number): number {
   return sessionNumber - 1;
 }
 
+/** Admin transcript panel: summary for the call just completed, tasks for the next session. */
+export function transcriptWorkoutDefaults(workspaceSession: number): {
+  summarySession: number;
+  tasksSession: number;
+} {
+  if (workspaceSession === INTRO_SESSION) {
+    return { summarySession: 1, tasksSession: 2 };
+  }
+  if (workspaceSession >= WORK_SESSION_COUNT) {
+    return { summarySession: workspaceSession, tasksSession: FINAL_SESSION };
+  }
+  return { summarySession: workspaceSession, tasksSession: workspaceSession + 1 };
+}
+
 export function fileToken(value: string): string {
   const token = value
     .normalize("NFKD")
