@@ -1,25 +1,12 @@
-import { checkAdminAuth, isAdminConfigured } from "@/lib/admin-auth";
-import { formatConvexError, isConvexConfigured } from "@/lib/convex-server";
+import { adminApiGuard } from "@/lib/admin-route";
+import { formatConvexError } from "@/lib/convex-server";
 import { getSurveyStats } from "@/lib/surveys";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  if (!isAdminConfigured()) {
-    return Response.json(
-      { error: "ADMIN_PASSWORD is not configured." },
-      { status: 503 },
-    );
-  }
-  if (!checkAdminAuth(request)) {
-    return Response.json({ error: "Wrong admin password." }, { status: 401 });
-  }
-  if (!isConvexConfigured()) {
-    return Response.json(
-      { error: "Convex is not configured.", stats: null },
-      { status: 503 },
-    );
-  }
+  const denied = await adminApiGuard(request, "viewer");
+  if (denied) return denied;
 
   try {
     const url = new URL(request.url);

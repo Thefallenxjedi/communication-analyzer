@@ -1,32 +1,16 @@
-import { checkAdminAuth, isAdminConfigured } from "@/lib/admin-auth";
+import { adminApiGuard } from "@/lib/admin-route";
 import { getCoachingClient } from "@/lib/coaching-clients";
 import { FINAL_SESSION, INTRO_SESSION } from "@/lib/coaching-program";
 import { getIntroCallReport } from "@/lib/intro-call";
-import { formatConvexError, isConvexConfigured } from "@/lib/convex-server";
+import { formatConvexError } from "@/lib/convex-server";
 import { generateWorkoutFromTranscript } from "@/lib/transcript-to-workout";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-function adminGate() {
-  if (!isAdminConfigured()) {
-    return Response.json(
-      { error: "ADMIN_PASSWORD is not configured." },
-      { status: 503 },
-    );
-  }
-  return null;
-}
-
 export async function POST(request: Request) {
-  const denied = adminGate();
+  const denied = await adminApiGuard(request, "editor");
   if (denied) return denied;
-  if (!checkAdminAuth(request)) {
-    return Response.json({ error: "Wrong admin password." }, { status: 401 });
-  }
-  if (!isConvexConfigured()) {
-    return Response.json({ error: "Convex is not configured." }, { status: 503 });
-  }
 
   let body: {
     clientId?: string;

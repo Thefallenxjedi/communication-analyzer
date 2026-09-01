@@ -4,11 +4,12 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { IntroCallView } from "@/components/IntroCallView";
+import { AdminHeader } from "@/components/AdminHeader";
+import { useAdminStaff } from "@/components/AdminShell";
 import { TranscriptToWorkoutPanel } from "@/components/TranscriptToWorkoutPanel";
 import type { CoachingClient } from "@/lib/coaching-clients";
 import {
-  parseLinkedInProfile,
-} from "@/lib/linkedin-profile";
+  parseLinkedInProfile} from "@/lib/linkedin-profile";
 import { formatLinkedInPdfText } from "@/lib/pdf-text";
 import {
   FINAL_SESSION,
@@ -17,8 +18,7 @@ import {
   parseCurrentStage,
   sessionHeadline,
   sessionLabel,
-  sessionMilestoneLine,
-} from "@/lib/coaching-program";
+  sessionMilestoneLine} from "@/lib/coaching-program";
 import type { CoachingSessionSlot } from "@/lib/coaching-sessions";
 import {
   isTaskLocked,
@@ -28,20 +28,17 @@ import {
   taskStatusLabel,
   usesVideoLink,
   type CoachingTask,
-  type TaskResponseKind,
-} from "@/lib/coaching-tasks";
+  type TaskResponseKind} from "@/lib/coaching-tasks";
 import { videoShareKind } from "@/lib/google-drive";
 import {
   emptyIntroCall,
   isIntroCallEmpty,
-  type IntroCallReport,
-} from "@/lib/intro-call";
+  type IntroCallReport} from "@/lib/intro-call";
 
 function AdminLinkedInDrawer({
   client,
   open,
-  onClose,
-}: {
+  onClose}: {
   client: CoachingClient;
   open: boolean;
   onClose: () => void;
@@ -221,8 +218,7 @@ function AdminLinkedInDrawer({
 function ResponseTypeField({
   kind,
   onChange,
-  video,
-}: {
+  video}: {
   kind: TaskResponseKind;
   onChange: (kind: TaskResponseKind) => void;
   video: boolean;
@@ -301,8 +297,7 @@ const adminUi = {
   dangerText: "text-rose-600",
   dangerBtn: "text-rose-700 hover:text-rose-800",
   field:
-    "w-full rounded-xl border border-border px-3.5 py-3 text-base outline-none",
-} as const;
+    "w-full rounded-xl border border-border px-3.5 py-3 text-base outline-none"} as const;
 
 function tasksForSession(tasks: CoachingTask[], sessionNumber: number) {
   return tasks
@@ -342,9 +337,8 @@ function sessionTone(
 export default function AdminClientDetailPage() {
   const params = useParams<{ id: string }>();
   const clientId = params.id;
+  const { canEdit } = useAdminStaff();
 
-  const [password, setPassword] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [client, setClient] = useState<CoachingClient | null>(null);
@@ -370,14 +364,11 @@ export default function AdminClientDetailPage() {
   const [editInstructions, setEditInstructions] = useState("");
   const [editKind, setEditKind] = useState<TaskResponseKind>("record");
 
-  const load = useCallback(
-    async (pwd: string) => {
+  const load = useCallback(async () => {
       setBusy(true);
       setError("");
       try {
-        const res = await fetch(`/api/admin/clients/${encodeURIComponent(clientId)}`, {
-          headers: { "x-admin-password": pwd },
-        });
+        const res = await fetch(`/api/admin/clients/${encodeURIComponent(clientId)}`);
         const data = (await res.json()) as {
           error?: string;
           client?: CoachingClient;
@@ -387,13 +378,10 @@ export default function AdminClientDetailPage() {
         if (!res.ok) throw new Error(data.error || "Could not load client.");
         setClient(data.client ?? null);
         setTasks(data.tasks || []);
-        if (!unlocked) {
-          setSelectedSession(parseCurrentStage(data.client?.currentStage));
-        }
+        setSelectedSession(parseCurrentStage(data.client?.currentStage));
 
         const introRes = await fetch(
           `/api/admin/intro-call?clientId=${encodeURIComponent(clientId)}`,
-          { headers: { "x-admin-password": pwd } },
         );
         const introData = (await introRes.json()) as {
           error?: string;
@@ -414,22 +402,13 @@ export default function AdminClientDetailPage() {
               : [{ name: "", goal: "", body: "" }],
             reps: introData.report.reps.length
               ? introData.report.reps
-              : [{ title: "", body: "" }],
-          });
+              : [{ title: "", body: "" }]});
         } else {
           setIntroSaved(null);
           setIntro(emptyIntroCall(clientId));
         }
-        setPassword(pwd);
-        setUnlocked(true);
-        try {
-          sessionStorage.setItem(ADMIN_SESSION_KEY, pwd);
-        } catch {
-          // ignore
-        }
       } catch (err) {
-        setUnlocked(false);
-        setError(err instanceof Error ? err.message : "Unauthorized.");
+        setError(err instanceof Error ? err.message : "Could not load.");
       } finally {
         setBusy(false);
       }
@@ -438,15 +417,7 @@ export default function AdminClientDetailPage() {
   );
 
   useEffect(() => {
-    const id = window.setTimeout(() => {
-      try {
-        const saved = sessionStorage.getItem(ADMIN_SESSION_KEY)?.trim();
-        if (saved) void load(saved);
-      } catch {
-        // ignore
-      }
-    }, 0);
-    return () => window.clearTimeout(id);
+    void load();
   }, [load]);
 
   async function onSaveIntro(e: FormEvent) {
@@ -457,18 +428,14 @@ export default function AdminClientDetailPage() {
       const res = await fetch("/api/admin/intro-call", {
         method: "PUT",
         headers: {
-          "content-type": "application/json",
-          "x-admin-password": password,
-        },
+          "content-type": "application/json"},
         body: JSON.stringify({
           clientId,
           summary: intro.summary,
           challenges: intro.challenges,
           coachingSchedule: intro.coachingSchedule,
           osItems: intro.osItems,
-          reps: intro.reps,
-        }),
-      });
+          reps: intro.reps})});
       const data = (await res.json()) as {
         error?: string;
         report?: IntroCallReport | null;
@@ -498,18 +465,14 @@ export default function AdminClientDetailPage() {
       const res = await fetch("/api/admin/tasks", {
         method: "POST",
         headers: {
-          "content-type": "application/json",
-          "x-admin-password": password,
-        },
+          "content-type": "application/json"},
         body: JSON.stringify({
           clientId,
           sessionNumber: assignSession ?? 1,
           title: title.trim(),
           instructions: instructions.trim(),
           recordingRequired: responseKind === "record",
-          reviewRequired: responseKind === "record",
-        }),
-      });
+          reviewRequired: responseKind === "record"})});
       const data = (await res.json()) as {
         error?: string;
         tasks?: CoachingTask[];
@@ -536,16 +499,12 @@ export default function AdminClientDetailPage() {
       const res = await fetch("/api/admin/tasks", {
         method: "PATCH",
         headers: {
-          "content-type": "application/json",
-          "x-admin-password": password,
-        },
+          "content-type": "application/json"},
         body: JSON.stringify({
           id: rateId,
           clientId,
           rating: Number(rating),
-          comment: comment.trim(),
-        }),
-      });
+          comment: comment.trim()})});
       const data = (await res.json()) as {
         error?: string;
         tasks?: CoachingTask[];
@@ -571,18 +530,14 @@ export default function AdminClientDetailPage() {
       const res = await fetch("/api/admin/tasks", {
         method: "PATCH",
         headers: {
-          "content-type": "application/json",
-          "x-admin-password": password,
-        },
+          "content-type": "application/json"},
         body: JSON.stringify({
           id: editId,
           clientId,
           title: editTitle.trim(),
           instructions: editInstructions.trim(),
           recordingRequired: editKind === "record",
-          reviewRequired: editKind === "record",
-        }),
-      });
+          reviewRequired: editKind === "record"})});
       const data = (await res.json()) as {
         error?: string;
         tasks?: CoachingTask[];
@@ -605,11 +560,8 @@ export default function AdminClientDetailPage() {
       const res = await fetch("/api/admin/tasks", {
         method: "PATCH",
         headers: {
-          "content-type": "application/json",
-          "x-admin-password": password,
-        },
-        body: JSON.stringify({ id, clientId, complete: true }),
-      });
+          "content-type": "application/json"},
+        body: JSON.stringify({ id, clientId, complete: true })});
       const data = (await res.json()) as {
         error?: string;
         tasks?: CoachingTask[];
@@ -631,7 +583,6 @@ export default function AdminClientDetailPage() {
     try {
       const res = await fetch(
         `/api/admin/tasks?id=${encodeURIComponent(id)}&clientId=${encodeURIComponent(clientId)}`,
-        { method: "DELETE", headers: { "x-admin-password": password } },
       );
       const data = (await res.json()) as {
         error?: string;
@@ -653,7 +604,6 @@ export default function AdminClientDetailPage() {
     try {
       const res = await fetch(
         `/api/admin/recordings?id=${encodeURIComponent(task.id)}`,
-        { headers: { "x-admin-password": password } },
       );
       if (!res.ok) {
         const data = (await res.json()) as { error?: string };
@@ -689,8 +639,7 @@ export default function AdminClientDetailPage() {
         osItems: report.osItems.length
           ? report.osItems
           : [{ name: "", goal: "", body: "" }],
-        reps: report.reps.length ? report.reps : [{ title: "", body: "" }],
-      });
+        reps: report.reps.length ? report.reps : [{ title: "", body: "" }]});
     } else {
       setIntro(emptyIntroCall(clientId));
     }
@@ -704,33 +653,10 @@ export default function AdminClientDetailPage() {
     setEditingIntro(false);
   }
 
-  if (!unlocked) {
+  if (!client && busy) {
     return (
-      <main className="mx-auto max-w-md px-4 py-10">
-        <Link href="/admin/clients" className={`text-sm font-semibold ${adminUi.link}`}>
-          ← Clients
-        </Link>
-        <h1 className="mt-4 text-2xl font-extrabold">Client</h1>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void load(password.trim());
-          }}
-          className="mt-6 space-y-4"
-        >
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className={`w-full rounded-xl border border-border px-3 py-2.5 text-sm outline-none ${adminUi.focus}`}
-            placeholder="Admin password"
-            required
-          />
-          {error ? <p className={`text-sm ${adminUi.dangerText}`}>{error}</p> : null}
-          <button type="submit" disabled={busy} className={adminUi.primaryBtn}>
-            {busy ? "Checking…" : "Unlock"}
-          </button>
-        </form>
+      <main className="mx-auto max-w-lg px-4 py-10 text-sm text-muted">
+        Loading client…
       </main>
     );
   }
@@ -1075,7 +1001,7 @@ export default function AdminClientDetailPage() {
         <TranscriptToWorkoutPanel
           clientId={clientId}
           targetSessionNumber={sessionNumber}
-          password={password}
+          canEdit={canEdit}
           onSaved={refreshTasks}
         />
 
@@ -1177,8 +1103,7 @@ export default function AdminClientDetailPage() {
                 onClick={() =>
                   setIntro((prev) => ({
                     ...prev,
-                    challenges: [...prev.challenges, { title: "", body: "" }],
-                  }))
+                    challenges: [...prev.challenges, { title: "", body: "" }]}))
                 }
                 className={`mt-2 text-sm font-semibold ${adminUi.link}`}
               >
@@ -1192,8 +1117,7 @@ export default function AdminClientDetailPage() {
                 onChange={(e) =>
                   setIntro((prev) => ({
                     ...prev,
-                    coachingSchedule: e.target.value,
-                  }))
+                    coachingSchedule: e.target.value}))
                 }
                 rows={6}
                 className={`mt-1.5 ${adminUi.field} bg-white ${adminUi.focus}`}
@@ -1247,8 +1171,7 @@ export default function AdminClientDetailPage() {
                 onClick={() =>
                   setIntro((prev) => ({
                     ...prev,
-                    osItems: [...prev.osItems, { name: "", goal: "", body: "" }],
-                  }))
+                    osItems: [...prev.osItems, { name: "", goal: "", body: "" }]}))
                 }
                 className={`mt-2 text-sm font-semibold ${adminUi.link}`}
               >
@@ -1291,8 +1214,7 @@ export default function AdminClientDetailPage() {
                 onClick={() =>
                   setIntro((prev) => ({
                     ...prev,
-                    reps: [...prev.reps, { title: "", body: "" }],
-                  }))
+                    reps: [...prev.reps, { title: "", body: "" }]}))
                 }
                 className={`mt-2 text-sm font-semibold ${adminUi.link}`}
               >

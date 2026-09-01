@@ -5,23 +5,15 @@ import {
   getAnalysisStats,
   listAnalyses,
 } from "@/lib/analyses";
-import { checkAdminAuth, isAdminConfigured } from "@/lib/admin-auth";
+import { adminApiGuard } from "@/lib/admin-route";
 import { formatConvexError, getConvexUrl, isConvexConfigured } from "@/lib/convex-server";
 import { getSurveyRatingsBySlugs } from "@/lib/surveys";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  if (!isAdminConfigured()) {
-    return Response.json(
-      { error: "ADMIN_PASSWORD is not configured on Vercel." },
-      { status: 503 },
-    );
-  }
-
-  if (!checkAdminAuth(request)) {
-    return Response.json({ error: "Wrong admin password." }, { status: 401 });
-  }
+  const denied = await adminApiGuard(request, "viewer");
+  if (denied) return denied;
 
   if (!isConvexConfigured()) {
     return Response.json(
@@ -111,15 +103,8 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!isAdminConfigured()) {
-    return Response.json(
-      { error: "ADMIN_PASSWORD is not configured on Vercel." },
-      { status: 503 },
-    );
-  }
-  if (!checkAdminAuth(request)) {
-    return Response.json({ error: "Wrong admin password." }, { status: 401 });
-  }
+  const denied = await adminApiGuard(request, "editor");
+  if (denied) return denied;
   if (!isConvexConfigured()) {
     return Response.json(
       { error: "Convex is not configured." },

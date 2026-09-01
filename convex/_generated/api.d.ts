@@ -21,6 +21,7 @@ import type * as http from "../http.js";
 import type * as introCall from "../introCall.js";
 import type * as promptAddOns from "../promptAddOns.js";
 import type * as reports from "../reports.js";
+import type * as staff from "../staff.js";
 import type * as surveys from "../surveys.js";
 
 import type {
@@ -43,6 +44,7 @@ declare const fullApi: ApiFromModules<{
   introCall: typeof introCall;
   promptAddOns: typeof promptAddOns;
   reports: typeof reports;
+  staff: typeof staff;
   surveys: typeof surveys;
 }>;
 

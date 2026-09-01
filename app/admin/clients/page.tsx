@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { AdminHeader } from "@/components/AdminHeader";
+import { useAdminStaff } from "@/components/AdminShell";
 import type { CoachingClient, CoachingClientStatus } from "@/lib/coaching-clients";
-
-const ADMIN_SESSION_KEY = "ca_admin_password";
 
 const adminUi = {
   brand: "text-teal-700",
@@ -37,8 +37,7 @@ function formatWhen(iso: string): string {
   return d.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
-    year: "numeric",
-  });
+    year: "numeric"});
 }
 
 function statusClass(status: CoachingClientStatus): string {
@@ -49,8 +48,7 @@ function statusClass(status: CoachingClientStatus): string {
 }
 
 export default function AdminClientsPage() {
-  const [password, setPassword] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
+  const { canEdit } = useAdminStaff();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [clients, setClients] = useState<CoachingClient[]>([]);
@@ -70,16 +68,12 @@ export default function AdminClientsPage() {
   const [editMeetingLink, setEditMeetingLink] = useState("");
   const [rowBusyId, setRowBusyId] = useState<string | null>(null);
 
-  const load = useCallback(async (pwd: string) => {
+  const load = useCallback(async () => {
     setBusy(true);
     setError("");
     try {
-      const res = await fetch("/api/admin/clients", {
-        headers: { "x-admin-password": pwd },
-      });
-      const pendingRes = await fetch("/api/admin/clients/pending", {
-        headers: { "x-admin-password": pwd },
-      });
+      const res = await fetch("/api/admin/clients");
+      const pendingRes = await fetch("/api/admin/clients/pending");
       const data = (await res.json()) as {
         error?: string;
         clients?: CoachingClient[];
@@ -88,53 +82,20 @@ export default function AdminClientsPage() {
         clients?: CoachingClient[];
       };
       if (!res.ok) {
-        throw new Error(data.error || "Wrong admin password.");
+        throw new Error(data.error || "Could not load clients.");
       }
       setClients(data.clients || []);
       setPendingClients(pendingData.clients || []);
-      setPassword(pwd);
-      setUnlocked(true);
-      try {
-        sessionStorage.setItem(ADMIN_SESSION_KEY, pwd);
-      } catch {
-        // ignore
-      }
     } catch (err) {
-      setUnlocked(false);
-      setError(err instanceof Error ? err.message : "Unauthorized.");
+      setError(err instanceof Error ? err.message : "Could not load.");
     } finally {
       setBusy(false);
     }
   }, []);
 
   useEffect(() => {
-    const id = window.setTimeout(() => {
-      try {
-        const saved = sessionStorage.getItem(ADMIN_SESSION_KEY)?.trim();
-        if (saved) void load(saved);
-      } catch {
-        // ignore
-      }
-    }, 0);
-    return () => window.clearTimeout(id);
+    void load();
   }, [load]);
-
-  function onSubmit(e: FormEvent) {
-    e.preventDefault();
-    void load(password.trim());
-  }
-
-  function logout() {
-    try {
-      sessionStorage.removeItem(ADMIN_SESSION_KEY);
-    } catch {
-      // ignore
-    }
-    setUnlocked(false);
-    setClients([]);
-    setPassword("");
-    setError("");
-  }
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
@@ -144,16 +105,12 @@ export default function AdminClientsPage() {
       const res = await fetch("/api/admin/clients", {
         method: "POST",
         headers: {
-          "content-type": "application/json",
-          "x-admin-password": password,
-        },
+          "content-type": "application/json"},
         body: JSON.stringify({
           name: name.trim(),
           email: email.trim(),
           startDate,
-          currentFocus: currentFocus.trim(),
-        }),
-      });
+          currentFocus: currentFocus.trim()})});
       const data = (await res.json()) as {
         error?: string;
         clients?: CoachingClient[];
@@ -188,17 +145,13 @@ export default function AdminClientsPage() {
       const res = await fetch("/api/admin/clients", {
         method: "PATCH",
         headers: {
-          "content-type": "application/json",
-          "x-admin-password": password,
-        },
+          "content-type": "application/json"},
         body: JSON.stringify({
           id,
           currentFocus: editFocus,
           status: editStatus,
           startDate: editStartDate,
-          meetingLink: editMeetingLink,
-        }),
-      });
+          meetingLink: editMeetingLink})});
       const data = (await res.json()) as {
         error?: string;
         clients?: CoachingClient[];
@@ -222,17 +175,14 @@ export default function AdminClientsPage() {
       const res = await fetch("/api/admin/clients/pending", {
         method: "POST",
         headers: {
-          "content-type": "application/json",
-          "x-admin-password": password,
-        },
-        body: JSON.stringify({ clientId: id }),
-      });
+          "content-type": "application/json"},
+        body: JSON.stringify({ clientId: id })});
       const data = (await res.json()) as { error?: string };
       if (!res.ok) {
         throw new Error(data.error || "Could not approve client.");
       }
       setPendingClients((prev) => prev.filter((row) => row.id !== id));
-      await load(password);
+      await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Approve failed.");
     } finally {
@@ -248,9 +198,7 @@ export default function AdminClientsPage() {
       const res = await fetch(
         `/api/admin/clients?id=${encodeURIComponent(id)}`,
         {
-          method: "DELETE",
-          headers: { "x-admin-password": password },
-        },
+          method: "DELETE"},
       );
       const data = (await res.json()) as {
         error?: string;
@@ -271,9 +219,7 @@ export default function AdminClientsPage() {
   return (
     <div className="app-shell">
       <main className="mx-auto w-full max-w-[90rem] px-4 py-10 lg:px-8">
-        <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${adminUi.brand}`}>
-          EliteSpeak
-        </p>
+        <AdminHeader />
         <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
@@ -300,59 +246,20 @@ export default function AdminClientsPage() {
           </div>
         </div>
 
-        {!unlocked ? (
-          <form
-            onSubmit={onSubmit}
-            className="card-surface mt-8 max-w-md space-y-4 p-5 sm:p-6"
-          >
-            <label className="block text-sm font-semibold">
-              Admin password
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={`mt-2 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none ${adminUi.focus}`}
-                autoComplete="current-password"
-                required
-              />
-            </label>
-            {error ? (
-              <p className={`text-sm ${adminUi.dangerText}`}>{error}</p>
-            ) : null}
-            <button type="submit" disabled={busy} className={adminUi.primaryBtn}>
-              {busy ? "Checking…" : "Unlock"}
-            </button>
-          </form>
-        ) : (
-          <div className="mt-8 space-y-8">
+        <div className="mt-8 space-y-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-muted">
                 {clients.length}{" "}
                 {clients.length === 1 ? "client" : "clients"}
               </p>
-              <div className="flex flex-wrap gap-2">
-                <Link
-                  href="/admin"
-                  className="btn-secondary !w-auto px-4 no-underline"
-                >
-                  Analysis admin
-                </Link>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void load(password)}
-                  className="btn-secondary !w-auto px-4"
-                >
-                  {busy ? "Refreshing…" : "Refresh"}
-                </button>
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="btn-secondary !w-auto px-4"
-                >
-                  Lock
-                </button>
-              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void load()}
+                className="btn-secondary !w-auto px-4"
+              >
+                {busy ? "Refreshing…" : "Refresh"}
+              </button>
             </div>
 
             {error ? (
@@ -611,8 +518,7 @@ export default function AdminClientsPage() {
                 </tbody>
               </table>
             </div>
-          </div>
-        )}
+        </div>
       </main>
     </div>
   );

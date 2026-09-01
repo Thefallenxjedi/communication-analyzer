@@ -6,8 +6,7 @@ import {
   INTRO_SESSION,
   PROGRAM_SLOTS,
   sessionLabel,
-  transcriptWorkoutDefaults,
-} from "@/lib/coaching-program";
+  transcriptWorkoutDefaults} from "@/lib/coaching-program";
 import type { CoachingTask } from "@/lib/coaching-tasks";
 import type { CoachingSessionSlot } from "@/lib/coaching-sessions";
 import type { GeneratedWorkoutTask } from "@/lib/transcript-to-workout";
@@ -23,8 +22,7 @@ function emptyTask(): DraftTask {
     title: "",
     instructions: "",
     recordingRequired: false,
-    reviewRequired: false,
-  };
+    reviewRequired: false};
 }
 
 function CheckIcon({ className }: { className?: string }) {
@@ -48,8 +46,7 @@ function CheckIcon({ className }: { className?: string }) {
 
 function StatusBanner({
   tone,
-  children,
-}: {
+  children}: {
   tone: "success" | "info";
   children: ReactNode;
 }) {
@@ -72,12 +69,11 @@ function StatusBanner({
 export function TranscriptToWorkoutPanel({
   clientId,
   targetSessionNumber,
-  password,
-  onSaved,
-}: {
+  canEdit,
+  onSaved}: {
   clientId: string;
   targetSessionNumber: number;
-  password: string;
+  canEdit: boolean;
   sessionLocked?: boolean;
   onSaved: (data: {
     tasks?: CoachingTask[];
@@ -103,32 +99,30 @@ export function TranscriptToWorkoutPanel({
 
   const loadWorkspaceRecap = useCallback(async () => {
     const summarySession = transcriptWorkoutDefaults(targetSessionNumber).summarySession;
-    if (!password || summarySession < 1) return;
+    if (!canEdit || summarySession < 1) return;
     try {
       const res = await fetch(
         `/api/admin/session-recap?clientId=${encodeURIComponent(clientId)}&session=${summarySession}`,
-        { headers: { "x-admin-password": password } },
       );
       const data = (await res.json()) as { recap?: SessionRecap | null };
       setWorkspaceRecap(data.recap ?? null);
     } catch {
       setWorkspaceRecap(null);
     }
-  }, [clientId, password, targetSessionNumber]);
+  }, [clientId, canEdit, targetSessionNumber]);
 
   const loadSourceRecap = useCallback(async () => {
-    if (!password || sourceSession < 1) return null;
+    if (!canEdit || sourceSession < 1) return null;
     try {
       const res = await fetch(
         `/api/admin/session-recap?clientId=${encodeURIComponent(clientId)}&session=${sourceSession}`,
-        { headers: { "x-admin-password": password } },
       );
       const data = (await res.json()) as { recap?: SessionRecap | null };
       return data.recap ?? null;
     } catch {
       return null;
     }
-  }, [clientId, password, sourceSession]);
+  }, [clientId, canEdit, sourceSession]);
 
   useEffect(() => {
     const next = transcriptWorkoutDefaults(targetSessionNumber);
@@ -166,17 +160,13 @@ export function TranscriptToWorkoutPanel({
       const res = await fetch("/api/admin/transcript-to-workout", {
         method: "POST",
         headers: {
-          "content-type": "application/json",
-          "x-admin-password": password,
-        },
+          "content-type": "application/json"},
         body: JSON.stringify({
           clientId,
           transcript,
           sourceSessionNumber: sourceSession,
           targetSessionNumber: targetSession,
-          mode: "recap",
-        }),
-      });
+          mode: "recap"})});
       const data = (await res.json()) as {
         error?: string;
         draft?: { sessionRecap: string };
@@ -211,16 +201,12 @@ export function TranscriptToWorkoutPanel({
       const res = await fetch("/api/admin/session-recap", {
         method: "POST",
         headers: {
-          "content-type": "application/json",
-          "x-admin-password": password,
-        },
+          "content-type": "application/json"},
         body: JSON.stringify({
           clientId,
           sessionNumber: sourceSession,
           recapSummary: recapDraft.trim(),
-          sourceTranscript: transcript.trim() || undefined,
-        }),
-      });
+          sourceTranscript: transcript.trim() || undefined})});
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Could not save summary.");
       setShowRecapEditor(false);
@@ -248,17 +234,13 @@ export function TranscriptToWorkoutPanel({
       const res = await fetch("/api/admin/transcript-to-workout", {
         method: "POST",
         headers: {
-          "content-type": "application/json",
-          "x-admin-password": password,
-        },
+          "content-type": "application/json"},
         body: JSON.stringify({
           clientId,
           transcript,
           sourceSessionNumber: sourceSession,
           targetSessionNumber: targetSession,
-          mode: "tasks",
-        }),
-      });
+          mode: "tasks"})});
       const data = (await res.json()) as {
         error?: string;
         draft?: { tasks: GeneratedWorkoutTask[] };
@@ -267,8 +249,7 @@ export function TranscriptToWorkoutPanel({
       setDraftTasks(
         (data.draft?.tasks ?? []).map((task, i) => ({
           ...task,
-          key: `t-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
-        })),
+          key: `t-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`})),
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generate failed.");
@@ -296,9 +277,7 @@ export function TranscriptToWorkoutPanel({
         const res = await fetch("/api/admin/tasks", {
           method: "POST",
           headers: {
-            "content-type": "application/json",
-            "x-admin-password": password,
-          },
+            "content-type": "application/json"},
           body: JSON.stringify({
             clientId,
             sessionNumber: targetSession,
@@ -306,9 +285,7 @@ export function TranscriptToWorkoutPanel({
             instructions: task.instructions.trim(),
             recordingRequired: task.recordingRequired,
             reviewRequired: task.reviewRequired,
-            expectedMinutes: expectedMinutes ?? undefined,
-          }),
-        });
+            expectedMinutes: expectedMinutes ?? undefined})});
         const data = (await res.json()) as {
           error?: string;
           tasks?: CoachingTask[];

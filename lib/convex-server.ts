@@ -95,6 +95,12 @@ export const coachingApi = {
   removeTask: makeFunctionReference<"mutation">("coaching:removeTask"),
 };
 
+export const staffApi = {
+  getMyStaff: makeFunctionReference<"query">("staff:getMyStaff"),
+  listStaff: makeFunctionReference<"query">("staff:listStaff"),
+  setStaffRole: makeFunctionReference<"mutation">("staff:setStaffRole"),
+};
+
 export const introCallApi = {
   getByClient: makeFunctionReference<"query">("introCall:getByClient"),
   upsert: makeFunctionReference<"mutation">("introCall:upsert"),

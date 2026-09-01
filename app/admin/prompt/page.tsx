@@ -15,8 +15,7 @@ const adminUi = {
   primaryBtn:
     "inline-flex min-h-12 w-full items-center justify-center rounded-full bg-teal-600 px-6 font-bold text-white shadow-sm transition hover:bg-teal-700 disabled:opacity-55 sm:w-auto sm:min-w-[12rem]",
   dangerText: "text-rose-600",
-  dangerBtn: "text-rose-700 hover:text-rose-800",
-} as const;
+  dangerBtn: "text-rose-700 hover:text-rose-800"} as const;
 
 function formatWhenCompact(iso: string): string {
   if (!iso) return "—";
@@ -26,13 +25,12 @@ function formatWhenCompact(iso: string): string {
     month: "numeric",
     day: "numeric",
     hour: "numeric",
-    minute: "2-digit",
-  });
+    minute: "2-digit"});
 }
 
 export default function AdminPromptPage() {
   const [password, setPassword] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -57,7 +55,6 @@ export default function AdminPromptPage() {
     setError("");
     try {
       const res = await fetch("/api/admin/prompt-addons", {
-        headers: { "x-admin-password": pwd },
       });
       const data = (await res.json()) as {
         error?: string;
@@ -89,15 +86,7 @@ export default function AdminPromptPage() {
   }, []);
 
   useEffect(() => {
-    const id = window.setTimeout(() => {
-      try {
-        const saved = sessionStorage.getItem(ADMIN_SESSION_KEY)?.trim();
-        if (saved) void load(saved);
-      } catch {
-        // ignore
-      }
-    }, 0);
-    return () => window.clearTimeout(id);
+    void load("");
   }, [load]);
 
   const onSubmit = (e: FormEvent) => {
@@ -107,7 +96,6 @@ export default function AdminPromptPage() {
 
   const refreshAddOns = async () => {
     const res = await fetch("/api/admin/prompt-addons", {
-      headers: { "x-admin-password": password },
     });
     const data = (await res.json()) as {
       addOns?: PromptAddOn[];
@@ -136,11 +124,8 @@ export default function AdminPromptPage() {
       const res = await fetch("/api/admin/prompt-addons", {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
-          "x-admin-password": password,
-        },
-        body: JSON.stringify({ body: corePromptDraft }),
-      });
+          "Content-Type": "application/json"},
+        body: JSON.stringify({ body: corePromptDraft })});
       const data = (await res.json()) as {
         error?: string;
         corePrompt?: DiagnosisCorePromptState;
@@ -172,11 +157,8 @@ export default function AdminPromptPage() {
       const res = await fetch("/api/admin/prompt-addons", {
         method: "PUT",
         headers: {
-          "Content-Type": "application/json",
-          "x-admin-password": password,
-        },
-        body: JSON.stringify({ reset: true }),
-      });
+          "Content-Type": "application/json"},
+        body: JSON.stringify({ reset: true })});
       const data = (await res.json()) as {
         error?: string;
         corePrompt?: DiagnosisCorePromptState;
@@ -208,15 +190,11 @@ export default function AdminPromptPage() {
       const res = await fetch("/api/admin/prompt-addons", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "x-admin-password": password,
-        },
+          "Content-Type": "application/json"},
         body: JSON.stringify({
           title: addOnTitle.trim(),
           body: addOnBody.trim(),
-          enabled: true,
-        }),
-      });
+          enabled: true})});
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Could not create add-on.");
       setAddOnTitle("");
@@ -235,11 +213,8 @@ export default function AdminPromptPage() {
       const res = await fetch("/api/admin/prompt-addons", {
         method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
-          "x-admin-password": password,
-        },
-        body: JSON.stringify({ id, enabled }),
-      });
+          "Content-Type": "application/json"},
+        body: JSON.stringify({ id, enabled })});
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Could not update add-on.");
       await refreshAddOns();
@@ -259,15 +234,11 @@ export default function AdminPromptPage() {
       const res = await fetch("/api/admin/prompt-addons", {
         method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
-          "x-admin-password": password,
-        },
+          "Content-Type": "application/json"},
         body: JSON.stringify({
           id: editingAddOnId,
           title: editTitle.trim(),
-          body: editBody.trim(),
-        }),
-      });
+          body: editBody.trim()})});
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Could not save add-on.");
       setEditingAddOnId(null);
@@ -288,9 +259,7 @@ export default function AdminPromptPage() {
       const res = await fetch(
         `/api/admin/prompt-addons?id=${encodeURIComponent(id)}`,
         {
-          method: "DELETE",
-          headers: { "x-admin-password": password },
-        },
+          method: "DELETE"},
       );
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Could not delete add-on.");

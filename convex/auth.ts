@@ -1,7 +1,6 @@
 import Google from "@auth/core/providers/google";
-import {
-  convexAuth,
-} from "@convex-dev/auth/server";
+import { convexAuth } from "@convex-dev/auth/server";
+import { applyBootstrapAdmin } from "./staff";
 
 const NAME_MAX = 80;
 const EMAIL_MAX = 200;
@@ -35,6 +34,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 
       if (existingUserId) {
         await ctx.db.patch(existingUserId, patch);
+        if (email) await applyBootstrapAdmin(ctx, existingUserId, email);
         return existingUserId;
       }
 
@@ -45,15 +45,19 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           .first();
         if (byEmail) {
           await ctx.db.patch(byEmail._id, patch);
+          await applyBootstrapAdmin(ctx, byEmail._id, email);
           return byEmail._id;
         }
       }
 
-      return await ctx.db.insert("users", {
+      const userId = await ctx.db.insert("users", {
         ...patch,
         role: "client",
         createdAt: now,
       });
+
+      if (email) await applyBootstrapAdmin(ctx, userId, email);
+      return userId;
     },
   },
 });

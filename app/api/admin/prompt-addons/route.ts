@@ -1,5 +1,5 @@
-import { checkAdminAuth, isAdminConfigured } from "@/lib/admin-auth";
-import { formatConvexError, isConvexConfigured } from "@/lib/convex-server";
+import { adminApiGuard } from "@/lib/admin-route";
+import { formatConvexError } from "@/lib/convex-server";
 import {
   getDiagnosisCorePromptState,
   resetDiagnosisCorePrompt,
@@ -16,21 +16,8 @@ import {
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  if (!isAdminConfigured()) {
-    return Response.json(
-      { error: "ADMIN_PASSWORD is not configured." },
-      { status: 503 },
-    );
-  }
-  if (!checkAdminAuth(request)) {
-    return Response.json({ error: "Wrong admin password." }, { status: 401 });
-  }
-  if (!isConvexConfigured()) {
-    return Response.json(
-      { error: "Convex is not configured.", addOns: [], corePrompt: null },
-      { status: 503 },
-    );
-  }
+  const denied = await adminApiGuard(request, "viewer");
+  if (denied) return denied;
 
   try {
     const [addOns, corePrompt] = await Promise.all([
@@ -47,18 +34,8 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  if (!isAdminConfigured()) {
-    return Response.json(
-      { error: "ADMIN_PASSWORD is not configured." },
-      { status: 503 },
-    );
-  }
-  if (!checkAdminAuth(request)) {
-    return Response.json({ error: "Wrong admin password." }, { status: 401 });
-  }
-  if (!isConvexConfigured()) {
-    return Response.json({ error: "Convex is not configured." }, { status: 503 });
-  }
+  const denied = await adminApiGuard(request, "editor");
+  if (denied) return denied;
 
   let body: { body?: string; reset?: boolean };
   try {
@@ -99,18 +76,8 @@ export async function PUT(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!isAdminConfigured()) {
-    return Response.json(
-      { error: "ADMIN_PASSWORD is not configured." },
-      { status: 503 },
-    );
-  }
-  if (!checkAdminAuth(request)) {
-    return Response.json({ error: "Wrong admin password." }, { status: 401 });
-  }
-  if (!isConvexConfigured()) {
-    return Response.json({ error: "Convex is not configured." }, { status: 503 });
-  }
+  const denied = await adminApiGuard(request, "editor");
+  if (denied) return denied;
 
   let body: { title?: string; body?: string; enabled?: boolean };
   try {
@@ -143,18 +110,8 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  if (!isAdminConfigured()) {
-    return Response.json(
-      { error: "ADMIN_PASSWORD is not configured." },
-      { status: 503 },
-    );
-  }
-  if (!checkAdminAuth(request)) {
-    return Response.json({ error: "Wrong admin password." }, { status: 401 });
-  }
-  if (!isConvexConfigured()) {
-    return Response.json({ error: "Convex is not configured." }, { status: 503 });
-  }
+  const denied = await adminApiGuard(request, "editor");
+  if (denied) return denied;
 
   let body: {
     id?: string;
@@ -204,18 +161,8 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  if (!isAdminConfigured()) {
-    return Response.json(
-      { error: "ADMIN_PASSWORD is not configured." },
-      { status: 503 },
-    );
-  }
-  if (!checkAdminAuth(request)) {
-    return Response.json({ error: "Wrong admin password." }, { status: 401 });
-  }
-  if (!isConvexConfigured()) {
-    return Response.json({ error: "Convex is not configured." }, { status: 503 });
-  }
+  const denied = await adminApiGuard(request, "editor");
+  if (denied) return denied;
 
   const url = new URL(request.url);
   let id = url.searchParams.get("id")?.trim() || "";

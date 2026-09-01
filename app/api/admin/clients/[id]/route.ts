@@ -1,8 +1,8 @@
-import { checkAdminAuth, isAdminConfigured } from "@/lib/admin-auth";
+import { adminApiGuard } from "@/lib/admin-route";
 import { getCoachingClient } from "@/lib/coaching-clients";
 import { listCoachingSessions } from "@/lib/coaching-sessions";
 import { ensureCoachingProgram, listCoachingTasks } from "@/lib/coaching-tasks";
-import { formatConvexError, isConvexConfigured } from "@/lib/convex-server";
+import { formatConvexError } from "@/lib/convex-server";
 
 export const runtime = "nodejs";
 
@@ -10,18 +10,8 @@ export async function GET(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  if (!isAdminConfigured()) {
-    return Response.json(
-      { error: "ADMIN_PASSWORD is not configured." },
-      { status: 503 },
-    );
-  }
-  if (!checkAdminAuth(request)) {
-    return Response.json({ error: "Wrong admin password." }, { status: 401 });
-  }
-  if (!isConvexConfigured()) {
-    return Response.json({ error: "Convex is not configured." }, { status: 503 });
-  }
+  const denied = await adminApiGuard(request, "viewer");
+  if (denied) return denied;
 
   const { id } = await context.params;
   if (!id?.trim()) {

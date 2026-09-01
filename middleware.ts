@@ -10,8 +10,24 @@ const isPublicClientRoute = createRouteMatcher([
   "/client/waiting",
 ]);
 
+const isPublicAdminRoute = createRouteMatcher([
+  "/admin/login",
+  "/admin/unauthorized",
+]);
+
 export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
   const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith("/admin")) {
+    if (isPublicAdminRoute(request)) {
+      return;
+    }
+    if (!(await convexAuth.isAuthenticated())) {
+      return nextjsMiddlewareRedirect(request, "/admin/login");
+    }
+    return;
+  }
+
   if (!pathname.startsWith("/client")) {
     return;
   }
@@ -26,5 +42,5 @@ export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
 });
 
 export const config = {
-  matcher: ["/client/:path*", "/api/auth"],
+  matcher: ["/client/:path*", "/admin/:path*", "/api/auth"],
 };

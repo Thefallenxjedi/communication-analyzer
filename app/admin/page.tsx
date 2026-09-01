@@ -6,19 +6,17 @@ import {
   useMemo,
   useState,
   type FormEvent,
-  type ReactNode,
-} from "react";
+  type ReactNode} from "react";
 import Link from "next/link";
+import { AdminHeader } from "@/components/AdminHeader";
+import { useAdminStaff } from "@/components/AdminShell";
 import type { AnalysisListItem, AnalysisStats } from "@/lib/analyses";
 import type { SurveyStats } from "@/lib/surveys";
 import {
   captureMethodBadgeClass,
   formatCaptureMethodLabel,
-  normalizeCaptureMethod,
-} from "@/lib/capture-method";
+  normalizeCaptureMethod} from "@/lib/capture-method";
 import { formatUsd } from "@/lib/llm-cost";
-
-const ADMIN_SESSION_KEY = "ca_admin_password";
 
 /** Admin-only palette — calm teal/emerald, not funnel red. */
 const adminUi = {
@@ -34,16 +32,14 @@ const adminUi = {
   failedBadge: "bg-slate-100 text-slate-700",
   failedText: "text-slate-600",
   dangerText: "text-rose-600",
-  dangerBtn: "text-rose-700 hover:text-rose-800",
-} as const;
+  dangerBtn: "text-rose-700 hover:text-rose-800"} as const;
 
 /** Sticky contact column — name + email stay visible while scrolling. */
 const adminSticky = {
   contact:
     "sticky left-0 z-10 w-[10rem] min-w-[10rem] max-w-[10rem] bg-card shadow-[4px_0_8px_-2px_rgba(17,24,39,0.12)]",
   headContact:
-    "sticky left-0 z-20 w-[10rem] min-w-[10rem] max-w-[10rem] bg-track/95 shadow-[4px_0_8px_-2px_rgba(17,24,39,0.12)] backdrop-blur-sm",
-} as const;
+    "sticky left-0 z-20 w-[10rem] min-w-[10rem] max-w-[10rem] bg-track/95 shadow-[4px_0_8px_-2px_rgba(17,24,39,0.12)] backdrop-blur-sm"} as const;
 
 function formatDuration(sec: number | null): string {
   if (sec == null || !Number.isFinite(sec)) return "—";
@@ -85,8 +81,7 @@ function formatWhenCompact(iso: string): string {
     month: "numeric",
     day: "numeric",
     hour: "numeric",
-    minute: "2-digit",
-  });
+    minute: "2-digit"});
 }
 
 function shortId(id: string): string {
@@ -144,8 +139,7 @@ function dayStacksFromRows(
     }
     out.push({
       date: new Date(start).toISOString().slice(0, 10),
-      stacks,
-    });
+      stacks});
   }
   return out;
 }
@@ -156,8 +150,7 @@ function dayLabel(isoDate: string): string {
   return d.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
-    timeZone: "UTC",
-  });
+    timeZone: "UTC"});
 }
 
 /** Roll daily stacks into calendar weeks (Mon–Sun UTC). */
@@ -183,20 +176,17 @@ function weeksFromDayStacks(
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([, w]) => ({
       label: `W/o ${dayLabel(w.start)}`,
-      stacks: w.stacks,
-    }));
+      stacks: w.stacks}));
 }
 
 const stackColors = {
   completed: "bg-emerald-500",
   incomplete: "bg-amber-400",
-  failed: "bg-rose-500",
-} as const;
+  failed: "bg-rose-500"} as const;
 
 function StackedAttemptsChart({
   title,
-  bars,
-}: {
+  bars}: {
   title: string;
   bars: StackBar[];
 }) {
@@ -360,8 +350,7 @@ function focusBreakdown(rows: AnalysisListItem[]): BreakdownRow[] {
     .map(([label, count]) => ({
       label,
       count,
-      percent: total === 0 ? 0 : Math.round((count / total) * 100),
-    }))
+      percent: total === 0 ? 0 : Math.round((count / total) * 100)}))
     .sort((a, b) => b.count - a.count)
     .slice(0, 15);
 }
@@ -377,8 +366,7 @@ function levelBreakdown(rows: AnalysisListItem[]): BreakdownRow[] {
     .map(([label, count]) => ({
       label,
       count,
-      percent: total === 0 ? 0 : Math.round((count / total) * 100),
-    }))
+      percent: total === 0 ? 0 : Math.round((count / total) * 100)}))
     .sort((a, b) => b.count - a.count);
 }
 
@@ -390,8 +378,7 @@ function InsightsDateFilter({
   onCustomFromChange,
   onCustomToChange,
   completedCount,
-  countLabel = "completed in range",
-}: {
+  countLabel = "completed in range"}: {
   range: InsightsRange;
   customFrom: string;
   customTo: string;
@@ -477,8 +464,7 @@ function AttemptsCharts({ rows }: { rows: AnalysisListItem[] }) {
   );
   const dayBars: StackBar[] = dayData.map((d) => ({
     label: dayLabel(d.date),
-    stacks: d.stacks,
-  }));
+    stacks: d.stacks}));
   const weekBars = useMemo(() => weeksFromDayStacks(dayData), [dayData]);
   const chartTitle =
     mode === "week"
@@ -590,8 +576,7 @@ function StatCard({
   value,
   hint,
   valueClass = "",
-  title,
-}: {
+  title}: {
   label: string;
   mobileLabel?: string;
   value: ReactNode;
@@ -620,8 +605,7 @@ function StatCard({
 }
 
 export default function AdminPage() {
-  const [password, setPassword] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
+  const { canEdit } = useAdminStaff();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [rows, setRows] = useState<AnalysisListItem[]>([]);
@@ -659,7 +643,6 @@ export default function AdminPage() {
 
   const loadSurveys = useCallback(
     async (
-      pwd: string,
       range: InsightsRange,
       from: string,
       to: string,
@@ -672,9 +655,7 @@ export default function AdminPage() {
         if (toBound) params.set("to", toBound.toISOString().slice(0, 10));
         const qs = params.toString();
         const res = await fetch(
-          `/api/admin/surveys${qs ? `?${qs}` : ""}`,
-          { headers: { "x-admin-password": pwd } },
-        );
+          `/api/admin/surveys${qs ? `?${qs}` : ""}`);
         const data = (await res.json()) as { stats?: SurveyStats | null };
         if (res.ok) setSurveyStats(data.stats ?? null);
       } catch {
@@ -686,14 +667,12 @@ export default function AdminPage() {
     [],
   );
 
-  const load = useCallback(async (pwd: string) => {
+  const load = useCallback(async () => {
     setBusy(true);
     setError("");
     try {
-      const headers = { "x-admin-password": pwd };
       const analysesRes = await fetch(
         "/api/admin/analyses?limit=200&backfillTiming=1",
-        { headers },
       );
 
       let data: {
@@ -717,74 +696,24 @@ export default function AdminPage() {
       setRows(data.analyses || []);
       setStats(data.stats ?? null);
       setSelectedIds(new Set());
-      setPassword(pwd);
-      setUnlocked(true);
-
-      try {
-        sessionStorage.setItem(ADMIN_SESSION_KEY, pwd);
-      } catch {
-        // ignore
-      }
     } catch (err) {
-      setUnlocked(false);
       setRows([]);
       setStats(null);
       setSurveyStats(null);
       setSelectedIds(new Set());
-      try {
-        sessionStorage.removeItem(ADMIN_SESSION_KEY);
-      } catch {
-        // ignore
-      }
-      setError(err instanceof Error ? err.message : "Unauthorized.");
+      setError(err instanceof Error ? err.message : "Could not load.");
     } finally {
       setBusy(false);
     }
   }, []);
 
   useEffect(() => {
-    const id = window.setTimeout(() => {
-      try {
-        const saved = sessionStorage.getItem(ADMIN_SESSION_KEY)?.trim();
-        if (saved) void load(saved);
-      } catch {
-        // ignore
-      }
-    }, 0);
-    return () => window.clearTimeout(id);
+    void load();
   }, [load]);
 
   useEffect(() => {
-    if (!unlocked || !password) return;
-    void loadSurveys(password, feedbackRange, feedbackFrom, feedbackTo);
-  }, [
-    unlocked,
-    password,
-    feedbackRange,
-    feedbackFrom,
-    feedbackTo,
-    loadSurveys,
-  ]);
-
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    void load(password.trim());
-  };
-
-  const logout = () => {
-    try {
-      sessionStorage.removeItem(ADMIN_SESSION_KEY);
-    } catch {
-      // ignore
-    }
-    setUnlocked(false);
-    setRows([]);
-    setStats(null);
-    setSurveyStats(null);
-    setSelectedIds(new Set());
-    setPassword("");
-    setError("");
-  };
+    void loadSurveys(feedbackRange, feedbackFrom, feedbackTo);
+  }, [feedbackRange, feedbackFrom, feedbackTo, loadSurveys]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -821,9 +750,7 @@ export default function AdminPage() {
       const res = await fetch(
         `/api/admin/analyses?id=${encodeURIComponent(row.id)}`,
         {
-          method: "DELETE",
-          headers: { "x-admin-password": password },
-        },
+          method: "DELETE"},
       );
       const data = (await res.json()) as { error?: string; ok?: boolean };
       if (!res.ok || !data.ok) {
@@ -835,7 +762,7 @@ export default function AdminPage() {
         next.delete(row.id);
         return next;
       });
-      void load(password);
+      void load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed.");
     } finally {
@@ -859,11 +786,8 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/analyses", {
         method: "DELETE",
         headers: {
-          "x-admin-password": password,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ ids }),
-      });
+          "Content-Type": "application/json"},
+        body: JSON.stringify({ ids })});
       const data = (await res.json()) as {
         error?: string;
         ok?: boolean;
@@ -873,7 +797,7 @@ export default function AdminPage() {
         throw new Error(data.error || "Bulk delete failed.");
       }
       setSelectedIds(new Set());
-      void load(password);
+      void load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bulk delete failed.");
     } finally {
@@ -883,12 +807,8 @@ export default function AdminPage() {
 
   return (
     <div className="app-shell">
-      <main
-        className={`mx-auto w-full px-4 py-10 ${unlocked ? "max-w-[90rem]" : "max-w-5xl"}`}
-      >
-        <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${adminUi.brand}`}>
-          EliteSpeak
-        </p>
+      <main className="mx-auto w-full max-w-[90rem] px-4 py-10">
+        <AdminHeader />
         <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
           Analysis admin
         </h1>
@@ -898,38 +818,14 @@ export default function AdminPage() {
           after the report. Audio is never saved.
         </p>
 
-        {!unlocked ? (
-          <form
-            onSubmit={onSubmit}
-            className="card-surface mt-8 max-w-md space-y-4 p-5 sm:p-6"
-          >
-            <label className="block text-sm font-semibold">
-              Admin password
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={`mt-2 w-full rounded-xl border border-border bg-background px-3 py-2.5 text-sm outline-none ring-0 ${adminUi.focus}`}
-                autoComplete="current-password"
-                required
-              />
-            </label>
-            {error ? (
-              <p className={`text-sm ${adminUi.dangerText}`}>{error}</p>
-            ) : null}
-            <button type="submit" disabled={busy} className={adminUi.primaryBtn}>
-              {busy ? "Checking…" : "Unlock"}
-            </button>
-          </form>
-        ) : (
-          <div className="mt-8 space-y-8">
+        <div className="mt-8 space-y-8">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-muted">
                 {rows.length} recent{" "}
                 {rows.length === 1 ? "analysis" : "analyses"}
               </p>
               <div className="flex flex-wrap gap-2">
-                {someSelected ? (
+                {someSelected && canEdit ? (
                   <button
                     type="button"
                     disabled={bulkDeleting || busy}
@@ -962,17 +858,10 @@ export default function AdminPage() {
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => void load(password)}
+                  onClick={() => void load()}
                   className="btn-secondary !w-auto px-4"
                 >
                   {busy ? "Refreshing…" : "Refresh"}
-                </button>
-                <button
-                  type="button"
-                  onClick={logout}
-                  className="btn-secondary !w-auto px-4"
-                >
-                  Lock
                 </button>
               </div>
             </div>
@@ -1535,7 +1424,6 @@ export default function AdminPage() {
               </div>
             ) : null}
           </div>
-        )}
       </main>
     </div>
   );

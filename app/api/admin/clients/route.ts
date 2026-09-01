@@ -1,4 +1,4 @@
-import { checkAdminAuth, isAdminConfigured } from "@/lib/admin-auth";
+import { adminApiGuard } from "@/lib/admin-route";
 import {
   createCoachingClient,
   listCoachingClients,
@@ -6,32 +6,13 @@ import {
   updateCoachingClient,
   type CoachingClientStatus,
 } from "@/lib/coaching-clients";
-import { formatConvexError, isConvexConfigured } from "@/lib/convex-server";
+import { formatConvexError } from "@/lib/convex-server";
 
 export const runtime = "nodejs";
 
-function adminGate() {
-  if (!isAdminConfigured()) {
-    return Response.json(
-      { error: "ADMIN_PASSWORD is not configured." },
-      { status: 503 },
-    );
-  }
-  return null;
-}
-
 export async function GET(request: Request) {
-  const denied = adminGate();
+  const denied = await adminApiGuard(request, "viewer");
   if (denied) return denied;
-  if (!checkAdminAuth(request)) {
-    return Response.json({ error: "Wrong admin password." }, { status: 401 });
-  }
-  if (!isConvexConfigured()) {
-    return Response.json(
-      { error: "Convex is not configured.", clients: [] },
-      { status: 503 },
-    );
-  }
 
   try {
     const clients = await listCoachingClients();
@@ -45,14 +26,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const denied = adminGate();
+  const denied = await adminApiGuard(request, "editor");
   if (denied) return denied;
-  if (!checkAdminAuth(request)) {
-    return Response.json({ error: "Wrong admin password." }, { status: 401 });
-  }
-  if (!isConvexConfigured()) {
-    return Response.json({ error: "Convex is not configured." }, { status: 503 });
-  }
 
   let body: {
     name?: string;
@@ -85,14 +60,8 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const denied = adminGate();
+  const denied = await adminApiGuard(request, "editor");
   if (denied) return denied;
-  if (!checkAdminAuth(request)) {
-    return Response.json({ error: "Wrong admin password." }, { status: 401 });
-  }
-  if (!isConvexConfigured()) {
-    return Response.json({ error: "Convex is not configured." }, { status: 503 });
-  }
 
   let body: {
     id?: string;
@@ -129,14 +98,8 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const denied = adminGate();
+  const denied = await adminApiGuard(request, "editor");
   if (denied) return denied;
-  if (!checkAdminAuth(request)) {
-    return Response.json({ error: "Wrong admin password." }, { status: 401 });
-  }
-  if (!isConvexConfigured()) {
-    return Response.json({ error: "Convex is not configured." }, { status: 503 });
-  }
 
   const url = new URL(request.url);
   const id = url.searchParams.get("id")?.trim() || "";

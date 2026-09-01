@@ -20,11 +20,15 @@ export default defineSchema({
     role: v.optional(
       v.union(v.literal("client"), v.literal("coach"), v.literal("admin")),
     ),
+    staffRole: v.optional(
+      v.union(v.literal("viewer"), v.literal("editor"), v.literal("admin")),
+    ),
     passwordHash: v.optional(v.string()),
     createdAt: v.optional(v.number()),
     updatedAt: v.optional(v.number()),
   })
     .index("email", ["email"])
+    .index("by_staffRole", ["staffRole"])
     .index("by_role_createdAt", ["role", "createdAt"]),
 
   analyses: defineTable({

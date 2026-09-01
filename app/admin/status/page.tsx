@@ -12,8 +12,7 @@ const adminUi = {
   focus: "focus:border-teal-500 focus:ring-teal-500/20",
   primaryBtn:
     "inline-flex min-h-12 w-full items-center justify-center rounded-full bg-teal-600 px-6 font-bold text-white shadow-sm transition hover:bg-teal-700 disabled:opacity-55 sm:w-auto sm:min-w-[12rem]",
-  dangerText: "text-rose-600",
-} as const;
+  dangerText: "text-rose-600"} as const;
 
 function formatWhen(iso: string): string {
   if (!iso) return "—";
@@ -25,8 +24,7 @@ function formatWhen(iso: string): string {
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
-    timeZoneName: "short",
-  });
+    timeZoneName: "short"});
 }
 
 function statusBadge(status: ServiceCheck["status"]) {
@@ -35,20 +33,17 @@ function statusBadge(status: ServiceCheck["status"]) {
       return {
         label: "Operational",
         className: "bg-emerald-100 text-emerald-800",
-        dot: "bg-emerald-500",
-      };
+        dot: "bg-emerald-500"};
     case "not_configured":
       return {
         label: "Not configured",
         className: "bg-amber-100 text-amber-900",
-        dot: "bg-amber-500",
-      };
+        dot: "bg-amber-500"};
     case "error":
       return {
         label: "Error",
         className: "bg-rose-100 text-rose-800",
-        dot: "bg-rose-500",
-      };
+        dot: "bg-rose-500"};
   }
 }
 
@@ -65,7 +60,7 @@ function overallStyles(overall: SystemStatusReport["overall"]) {
 
 export default function AdminStatusPage() {
   const [password, setPassword] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [report, setReport] = useState<SystemStatusReport | null>(null);
@@ -75,9 +70,7 @@ export default function AdminStatusPage() {
     setError("");
     try {
       const res = await fetch("/api/admin/status", {
-        headers: { "x-admin-password": pwd },
-        cache: "no-store",
-      });
+        cache: "no-store"});
       const data = (await res.json()) as SystemStatusReport & { error?: string };
       if (!res.ok) {
         throw new Error(data.error || "Wrong admin password.");
@@ -100,15 +93,7 @@ export default function AdminStatusPage() {
   }, []);
 
   useEffect(() => {
-    const id = window.setTimeout(() => {
-      try {
-        const saved = sessionStorage.getItem(ADMIN_SESSION_KEY)?.trim();
-        if (saved) void load(saved);
-      } catch {
-        // ignore
-      }
-    }, 0);
-    return () => window.clearTimeout(id);
+    void load("");
   }, [load]);
 
   const onSubmit = (e: FormEvent) => {
