@@ -7,6 +7,21 @@ export const PROGRAM_SLOTS = [
   FINAL_SESSION,
 ] as const;
 
+/** Live coaching calls the client can book (Intro + Sessions 1–9). */
+export const LIVE_CALL_TOTAL = 10;
+export const LIVE_CALL_SESSIONS = [
+  INTRO_SESSION,
+  ...Array.from({ length: WORK_SESSION_COUNT }, (_, i) => i + 1),
+] as const;
+
+export const PRIVATE_SESSION_BOOK_URL =
+  process.env.NEXT_PUBLIC_PRIVATE_SESSION_URL?.trim() ||
+  "https://calendly.com/contact-josephtsar/elitespeak-private-session";
+
+export function isLiveCallSession(sessionNumber: number): boolean {
+  return (LIVE_CALL_SESSIONS as readonly number[]).includes(sessionNumber);
+}
+
 export function isValidSessionNumber(n: number): boolean {
   return Number.isInteger(n) && n >= INTRO_SESSION && n <= FINAL_SESSION;
 }

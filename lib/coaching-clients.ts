@@ -4,6 +4,13 @@ import {
   getConvexHttpClient,
   isConvexConfigured,
 } from "@/lib/convex-server";
+import { isSampleClientEmail } from "@/lib/sample-client";
+
+type ConvexClientLike = NonNullable<ReturnType<typeof getConvexHttpClient>>;
+
+function resolveClient(provided?: ConvexClientLike | null) {
+  return provided ?? getConvexHttpClient();
+}
 
 export type CoachingClientStatus = "pending" | "active" | "paused" | "completed";
 
@@ -33,9 +40,10 @@ export type CoachingClient = {
 
 export async function getCoachingClientByEmail(
   email: string,
+  convex?: ConvexClientLike | null,
 ): Promise<CoachingClient | null> {
   if (!isConvexConfigured()) return null;
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return null;
 
   try {
@@ -50,9 +58,10 @@ export async function getCoachingClientByEmail(
 
 export async function getCoachingClient(
   id: string,
+  convex?: ConvexClientLike | null,
 ): Promise<CoachingClient | null> {
   if (!isConvexConfigured()) return null;
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return null;
 
   try {
@@ -65,9 +74,11 @@ export async function getCoachingClient(
   }
 }
 
-export async function listCoachingClients(): Promise<CoachingClient[]> {
+export async function listCoachingClients(
+  convex?: ConvexClientLike | null,
+): Promise<CoachingClient[]> {
   if (!isConvexConfigured()) return [];
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return [];
 
   try {
@@ -84,9 +95,14 @@ export async function createCoachingClient(input: {
   startDate?: string;
   currentFocus?: string;
   meetingLink?: string;
-}): Promise<{ ok: boolean; id?: string; error?: string }> {
+}, convex?: ConvexClientLike | null): Promise<{
+  ok: boolean;
+  id?: string;
+  alreadyExisted?: boolean;
+  error?: string;
+}> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {
@@ -96,8 +112,12 @@ export async function createCoachingClient(input: {
       startDate: input.startDate,
       currentFocus: input.currentFocus,
       meetingLink: input.meetingLink,
-    })) as { ok?: boolean; id?: string };
-    return { ok: Boolean(result?.ok), id: result?.id };
+    })) as { ok?: boolean; id?: string; alreadyExisted?: boolean };
+    return {
+      ok: Boolean(result?.ok),
+      id: result?.id,
+      alreadyExisted: Boolean(result?.alreadyExisted),
+    };
   } catch (err) {
     const error = formatConvexError(err);
     console.error("[coaching] create failed", error, err);
@@ -111,9 +131,9 @@ export async function updateCoachingClient(input: {
   status?: CoachingClientStatus;
   startDate?: string;
   meetingLink?: string;
-}): Promise<{ ok: boolean; error?: string }> {
+}, convex?: ConvexClientLike | null): Promise<{ ok: boolean; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {
@@ -134,15 +154,30 @@ export async function updateCoachingClient(input: {
 
 export async function removeCoachingClient(
   id: string,
+  convex?: ConvexClientLike | null,
 ): Promise<{ ok: boolean; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {
+    const row = await getCoachingClient(id, client);
+    if (row && isSampleClientEmail(row.email)) {
+      return {
+        ok: false,
+        error: "The sample demo client cannot be removed.",
+      };
+    }
+
     const result = (await client.mutation(coachingApi.removeClient, {
       id: id as never,
-    })) as { ok?: boolean };
+    })) as { ok?: boolean; reason?: string };
+    if (!result?.ok && result?.reason === "sample_client") {
+      return {
+        ok: false,
+        error: "The sample demo client cannot be removed.",
+      };
+    }
     return { ok: Boolean(result?.ok) };
   } catch (err) {
     const error = formatConvexError(err);
@@ -153,9 +188,10 @@ export async function removeCoachingClient(
 
 export async function getCoachingStorageUrl(
   storageId: string,
+  convex?: ConvexClientLike | null,
 ): Promise<string | null> {
   if (!isConvexConfigured()) return null;
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return null;
   try {
     return ((await client.query(coachingApi.getStorageUrl, {
@@ -172,12 +208,12 @@ export async function saveClientOnboarding(input: {
   role?: string;
   company?: string;
   goal?: string;
-  linkedinStorageId: string;
+  linkedinStorageId?: string;
   linkedinText: string;
   linkedinProfileJson: string;
-}): Promise<{ ok: boolean; error?: string }> {
+}, convex?: ConvexClientLike | null): Promise<{ ok: boolean; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {
@@ -186,7 +222,9 @@ export async function saveClientOnboarding(input: {
       role: input.role,
       company: input.company,
       goal: input.goal,
-      linkedinStorageId: input.linkedinStorageId as never,
+      ...(input.linkedinStorageId
+        ? { linkedinStorageId: input.linkedinStorageId as never }
+        : {}),
       linkedinText: input.linkedinText,
       linkedinProfileJson: input.linkedinProfileJson,
     })) as { ok?: boolean; reason?: string };

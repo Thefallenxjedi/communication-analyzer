@@ -22,11 +22,11 @@ export function ChallengeVisual({ imageKey }: { imageKey: string }) {
           alt={CHALLENGE_LABELS[key]}
           fill
           className="object-contain p-2 sm:p-3"
-          sizes="(max-width: 672px) 100vw, 672px"
+          sizes="(max-width: 672px) 100vw, (max-width: 1024px) 768px, 896px"
           priority
         />
       </div>
-      <p className="mt-3 text-center text-xs leading-relaxed text-muted sm:text-sm">
+      <p className="mt-3 text-center text-xs leading-relaxed text-muted sm:text-sm lg:text-base">
         {CHALLENGE_BLURBS[key]}
       </p>
     </div>

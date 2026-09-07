@@ -1,5 +1,8 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { requireStaffRole } from "./adminAccess";
+import { markCallCompleted } from "./liveCalls";
+import { INTRO_SESSION } from "./coachingProgram";
 
 const TEXT_MAX = 12000;
 const TITLE_MAX = 200;
@@ -83,6 +86,7 @@ export const upsert = mutation({
     reps: v.array(titledItem),
   },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const client = await ctx.db.get(args.clientId);
     if (!client) throw new Error("client not found");
 
@@ -103,6 +107,7 @@ export const upsert = mutation({
 
     if (existing) {
       await ctx.db.patch(existing._id, fields);
+      await markCallCompleted(ctx, args.clientId, INTRO_SESSION, now);
       return { ok: true as const, id: existing._id };
     }
 
@@ -110,6 +115,7 @@ export const upsert = mutation({
       clientId: args.clientId,
       ...fields,
     });
+    await markCallCompleted(ctx, args.clientId, INTRO_SESSION, now);
     return { ok: true as const, id };
   },
 });

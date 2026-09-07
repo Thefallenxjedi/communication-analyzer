@@ -1,6 +1,15 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { FINAL_SESSION, SLOT_COUNT, isValidSessionNumber } from "./coachingProgram";
+import {
+  FINAL_SESSION,
+  LIVE_CALL_SESSIONS,
+  LIVE_CALL_TOTAL,
+  SLOT_COUNT,
+  isValidSessionNumber,
+  stageLabel,
+} from "./coachingProgram";
+import { markCallCompleted } from "./liveCalls";
+import { requireStaffRole } from "./adminAccess";
 
 export const listForClient = query({
   args: { clientId: v.id("clients") },
@@ -27,8 +36,57 @@ export const listForClient = query({
         sessionNumber,
         ready: row?.ready === true,
         taskCount,
+        callCompleted: Boolean(row?.callCompletedAt),
+        callCompletedAt: row?.callCompletedAt
+          ? new Date(row.callCompletedAt).toISOString()
+          : "",
       };
     });
+  },
+});
+
+export const getLiveCallProgress = query({
+  args: { clientId: v.id("clients") },
+  handler: async (ctx, args) => {
+    const client = await ctx.db.get(args.clientId);
+    if (!client) {
+      return {
+        total: LIVE_CALL_TOTAL,
+        completed: 0,
+        remaining: LIVE_CALL_TOTAL,
+        calls: [] as {
+          sessionNumber: number;
+          label: string;
+          completed: boolean;
+          completedAt: string;
+        }[],
+      };
+    }
+
+    const rows = await ctx.db
+      .query("coachingSessions")
+      .withIndex("by_clientId", (q) => q.eq("clientId", args.clientId))
+      .collect();
+
+    const calls = LIVE_CALL_SESSIONS.map((sessionNumber) => {
+      const row = rows.find((item) => item.sessionNumber === sessionNumber);
+      return {
+        sessionNumber,
+        label: stageLabel(sessionNumber),
+        completed: Boolean(row?.callCompletedAt),
+        completedAt: row?.callCompletedAt
+          ? new Date(row.callCompletedAt).toISOString()
+          : "",
+      };
+    });
+
+    const completed = calls.filter((call) => call.completed).length;
+    return {
+      total: LIVE_CALL_TOTAL,
+      completed,
+      remaining: Math.max(0, LIVE_CALL_TOTAL - completed),
+      calls,
+    };
   },
 });
 
@@ -38,6 +96,7 @@ export const markReady = mutation({
     sessionNumber: v.number(),
   },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const client = await ctx.db.get(args.clientId);
     if (!client) throw new Error("client not found");
 
@@ -107,6 +166,10 @@ export const getRecap = query({
       recapSummary: row.recapSummary,
       recapUpdatedAt: row.recapUpdatedAt ?? row.updatedAt,
       sourceTranscript: row.sourceTranscript ?? undefined,
+      callCompleted: Boolean(row.callCompletedAt),
+      callCompletedAt: row.callCompletedAt
+        ? new Date(row.callCompletedAt).toISOString()
+        : "",
     };
   },
 });
@@ -119,6 +182,7 @@ export const upsertRecap = mutation({
     sourceTranscript: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const client = await ctx.db.get(args.clientId);
     if (!client) throw new Error("client not found");
 
@@ -132,6 +196,8 @@ export const upsertRecap = mutation({
 
     const sourceTranscript = args.sourceTranscript?.trim().slice(0, TRANSCRIPT_MAX);
     const now = Date.now();
+    /** Saving a session recap means the live call concluded. */
+    const concludeCall = true;
 
     const existing = await ctx.db
       .query("coachingSessions")
@@ -146,6 +212,9 @@ export const upsertRecap = mutation({
         ...(sourceTranscript !== undefined ? { sourceTranscript } : {}),
         recapUpdatedAt: now,
         updatedAt: now,
+        ...(concludeCall && !existing.callCompletedAt
+          ? { callCompletedAt: now }
+          : {}),
       });
     } else {
       await ctx.db.insert("coachingSessions", {
@@ -156,9 +225,33 @@ export const upsertRecap = mutation({
         ...(sourceTranscript ? { sourceTranscript } : {}),
         recapUpdatedAt: now,
         updatedAt: now,
+        ...(concludeCall ? { callCompletedAt: now } : {}),
       });
     }
 
+    await ctx.db.patch(args.clientId, { lastActivityAt: now, updatedAt: now });
+    return { ok: true as const };
+  },
+});
+
+/** Mark Intro Call complete when admin saves the intro overview (or any live call). */
+export const markLiveCallComplete = mutation({
+  args: {
+    clientId: v.id("clients"),
+    sessionNumber: v.number(),
+  },
+  handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
+    const client = await ctx.db.get(args.clientId);
+    if (!client) throw new Error("client not found");
+
+    const sessionNumber = Math.round(args.sessionNumber);
+    if (!isValidSessionNumber(sessionNumber)) {
+      throw new Error("invalid sessionNumber");
+    }
+
+    const now = Date.now();
+    await markCallCompleted(ctx, args.clientId, sessionNumber, now);
     await ctx.db.patch(args.clientId, { lastActivityAt: now, updatedAt: now });
     return { ok: true as const };
   },

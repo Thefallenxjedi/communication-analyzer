@@ -1,4 +1,3 @@
-import { adminApiGuard } from "@/lib/admin-route";
 import { listCoachingSessions } from "@/lib/coaching-sessions";
 import {
   completeCoachingTask,
@@ -11,12 +10,13 @@ import {
   updateCoachingTask,
 } from "@/lib/coaching-tasks";
 import { formatConvexError } from "@/lib/convex-server";
+import { requireStaffConvex } from "@/lib/staff-auth";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const denied = await adminApiGuard(request, "viewer");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "viewer");
+  if (convex instanceof Response) return convex;
 
   const clientId = new URL(request.url).searchParams.get("clientId")?.trim() || "";
   if (!clientId) {
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const tasks = await listCoachingTasks(clientId);
+    const tasks = await listCoachingTasks(clientId, convex);
     return Response.json({ tasks });
   } catch (err) {
     return Response.json(
@@ -35,8 +35,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const denied = await adminApiGuard(request, "editor");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "editor");
+  if (convex instanceof Response) return convex;
 
   let body: {
     clientId?: string;
@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     recordingRequired: body.recordingRequired,
     reviewRequired: body.reviewRequired,
     expectedMinutes: body.expectedMinutes,
-  });
+  }, convex);
   if (!result.ok) {
     return Response.json(
       { error: result.error || "Could not create workout." },
@@ -73,15 +73,15 @@ export async function POST(request: Request) {
     );
   }
   const [tasks, sessions] = await Promise.all([
-    listCoachingTasks(body.clientId),
-    listCoachingSessions(body.clientId),
+    listCoachingTasks(body.clientId, convex),
+    listCoachingSessions(body.clientId, convex),
   ]);
   return Response.json({ ok: true, id: result.id, tasks, sessions });
 }
 
 export async function PATCH(request: Request) {
-  const denied = await adminApiGuard(request, "editor");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "editor");
+  if (convex instanceof Response) return convex;
 
   let body: {
     id?: string;
@@ -112,7 +112,7 @@ export async function PATCH(request: Request) {
   }
 
   if (completing) {
-    const task = await getCoachingTask(body.id);
+    const task = await getCoachingTask(body.id, convex);
     if (task && !needsCoachReview(task)) {
       return Response.json(
         { error: "The client marks this complete from their session." },
@@ -122,7 +122,7 @@ export async function PATCH(request: Request) {
   }
 
   const result = completing
-    ? await completeCoachingTask(body.id)
+    ? await completeCoachingTask(body.id, convex)
     : editingCopy
       ? await updateCoachingTask({
           id: body.id,
@@ -130,26 +130,26 @@ export async function PATCH(request: Request) {
           instructions: body.instructions,
           recordingRequired: body.recordingRequired,
           reviewRequired: body.reviewRequired,
-        })
+        }, convex)
       : await rateCoachingTask({
           id: body.id,
           rating: body.rating as number,
           comment: body.comment,
-        });
+        }, convex);
   if (!result.ok) {
     return Response.json(
       { error: result.error || "Could not update task." },
       { status: 400 },
     );
   }
-  const tasks = body.clientId ? await listCoachingTasks(body.clientId) : [];
-  const sessions = body.clientId ? await listCoachingSessions(body.clientId) : [];
+  const tasks = body.clientId ? await listCoachingTasks(body.clientId, convex) : [];
+  const sessions = body.clientId ? await listCoachingSessions(body.clientId, convex) : [];
   return Response.json({ ok: true, tasks, sessions });
 }
 
 export async function DELETE(request: Request) {
-  const denied = await adminApiGuard(request, "editor");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "editor");
+  if (convex instanceof Response) return convex;
 
   const url = new URL(request.url);
   const id = url.searchParams.get("id")?.trim() || "";
@@ -158,14 +158,14 @@ export async function DELETE(request: Request) {
     return Response.json({ error: "id required." }, { status: 400 });
   }
 
-  const result = await removeCoachingTask(id);
+  const result = await removeCoachingTask(id, convex);
   if (!result.ok) {
     return Response.json(
       { error: result.error || "Could not delete workout." },
       { status: 400 },
     );
   }
-  const tasks = clientId ? await listCoachingTasks(clientId) : [];
-  const sessions = clientId ? await listCoachingSessions(clientId) : [];
+  const tasks = clientId ? await listCoachingTasks(clientId, convex) : [];
+  const sessions = clientId ? await listCoachingSessions(clientId, convex) : [];
   return Response.json({ ok: true, tasks, sessions });
 }

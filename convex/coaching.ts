@@ -12,6 +12,7 @@ import {
 } from "./coachingProgram";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { requireStaffRole } from "./adminAccess";
 
 const NAME_MAX = 80;
 const EMAIL_MAX = 200;
@@ -180,9 +181,7 @@ async function toClientView(
   const bySession = (a: Doc<"tasks">, b: Doc<"tasks">) =>
     (a.sessionNumber ?? INTRO_SESSION) - (b.sessionNumber ?? INTRO_SESSION);
   const pendingReviews = tasks
-    .filter(
-      (task) => task.status === "submitted" && task.reviewRequired !== false,
-    )
+    .filter((task) => task.status === "submitted")
     .sort(bySession);
   const currentStage = stageLabel(attentionSessionNumber(tasks));
 
@@ -215,6 +214,7 @@ async function toClientView(
 export const listClients = query({
   args: {},
   handler: async (ctx) => {
+    await requireStaffRole(ctx, "viewer");
     const now = Date.now();
     const rows = await ctx.db
       .query("clients")
@@ -254,6 +254,7 @@ export const getClientByEmail = query({
 export const getClient = query({
   args: { id: v.id("clients") },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "viewer");
     const row = await ctx.db.get(args.id);
     if (!row) return null;
     return toClientView(ctx, row, Date.now(), true);
@@ -292,6 +293,7 @@ export const getMyClient = query({
 export const listPendingClients = query({
   args: {},
   handler: async (ctx) => {
+    await requireStaffRole(ctx, "viewer");
     const rows = await ctx.db
       .query("clients")
       .withIndex("by_status_lastActivityAt", (q) => q.eq("status", "pending"))
@@ -350,6 +352,7 @@ export const registerClientSignup = mutation({
 export const approveClientSignup = mutation({
   args: { id: v.id("clients") },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const row = await ctx.db.get(args.id);
     if (!row) throw new Error("client not found");
     if (row.status !== "pending") {
@@ -378,29 +381,63 @@ export const createClient = mutation({
     meetingLink: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const name = normalizeName(args.name);
     const email = normalizeEmail(args.email);
     if (!name) throw new Error("name required");
     if (!email || !email.includes("@")) throw new Error("valid email required");
-
-    const existingUser = await ctx.db
-      .query("users")
-      .withIndex("email", (q) => q.eq("email", email))
-      .unique();
-    if (existingUser) throw new Error("A user with this email already exists");
 
     const now = Date.now();
     const startDate = parseStartDate(args.startDate, now);
     const currentFocus = normalizeFocus(args.currentFocus);
     const meetingLink = normalizeMeetingLink(args.meetingLink);
 
-    const userId = await ctx.db.insert("users", {
-      name,
-      email,
-      role: "client",
-      createdAt: now,
-      updatedAt: now,
-    });
+    const existingUser = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", email))
+      .unique();
+
+    const userId = existingUser
+      ? existingUser._id
+      : await ctx.db.insert("users", {
+          name,
+          email,
+          role: "client",
+          createdAt: now,
+          updatedAt: now,
+        });
+
+    if (existingUser) {
+      await ctx.db.patch(existingUser._id, {
+        name,
+        email,
+        role: "client",
+        updatedAt: now,
+      });
+    }
+
+    const existingClient = await ctx.db
+      .query("clients")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+
+    if (existingClient) {
+      const wasPending = existingClient.status === "pending";
+      await ctx.db.patch(existingClient._id, {
+        ...(currentFocus ? { currentFocus } : {}),
+        ...(meetingLink ? { meetingLink } : {}),
+        ...(wasPending ? { status: "active" as const } : {}),
+        updatedAt: now,
+        lastActivityAt: now,
+      });
+      await seedProgramTasks(ctx, existingClient._id, now);
+      return {
+        ok: true as const,
+        id: existingClient._id,
+        userId,
+        alreadyExisted: true as const,
+      };
+    }
 
     const clientId = await ctx.db.insert("clients", {
       userId,
@@ -415,7 +452,12 @@ export const createClient = mutation({
 
     await seedProgramTasks(ctx, clientId, now);
 
-    return { ok: true as const, id: clientId, userId };
+    return {
+      ok: true as const,
+      id: clientId,
+      userId,
+      alreadyExisted: Boolean(existingUser),
+    };
   },
 });
 
@@ -428,6 +470,7 @@ export const updateClient = mutation({
     meetingLink: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const existing = await ctx.db.get(args.id);
     if (!existing) return { ok: false as const, reason: "not_found" as const };
 
@@ -459,13 +502,19 @@ export const updateClient = mutation({
   },
 });
 
+const SAMPLE_CLIENT_EMAIL = "sample@gmail.com";
+
 export const removeClient = mutation({
   args: { id: v.id("clients") },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const existing = await ctx.db.get(args.id);
     if (!existing) return { ok: false as const, reason: "not_found" as const };
 
     const user = await ctx.db.get(existing.userId);
+    if (user?.email?.trim().toLowerCase() === SAMPLE_CLIENT_EMAIL) {
+      return { ok: false as const, reason: "sample_client" as const };
+    }
     const intro = await ctx.db
       .query("introCallReports")
       .withIndex("by_clientId", (q) => q.eq("clientId", args.id))
@@ -487,7 +536,8 @@ export const removeClient = mutation({
       await ctx.db.delete(task._id);
     }
     await ctx.db.delete(args.id);
-    if (user?.role === "client") {
+    const keepUser = Boolean(user?.staffRole);
+    if (user && user.role === "client" && !keepUser) {
       await ctx.db.delete(existing.userId);
     }
     return { ok: true as const };
@@ -537,6 +587,7 @@ export const listTasksForClient = query({
 export const getTask = query({
   args: { id: v.id("tasks") },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "viewer");
     const row = await ctx.db.get(args.id);
     if (!row) return null;
     const client = await ctx.db.get(row.clientId);
@@ -552,6 +603,7 @@ export const getTask = query({
 export const ensureProgramTasks = mutation({
   args: { clientId: v.id("clients") },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const client = await ctx.db.get(args.clientId);
     if (!client) throw new Error("client not found");
     await seedProgramTasks(ctx, args.clientId, Date.now());
@@ -570,6 +622,7 @@ export const createTask = mutation({
     expectedMinutes: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const client = await ctx.db.get(args.clientId);
     if (!client) throw new Error("client not found");
 
@@ -631,7 +684,7 @@ export const saveOnboarding = mutation({
     role: v.optional(v.string()),
     company: v.optional(v.string()),
     goal: v.optional(v.string()),
-    linkedinStorageId: v.id("_storage"),
+    linkedinStorageId: v.optional(v.id("_storage")),
     linkedinText: v.string(),
     linkedinProfileJson: v.string(),
   },
@@ -647,7 +700,11 @@ export const saveOnboarding = mutation({
     const goal = (args.goal ?? "").replace(/\s+/g, " ").trim().slice(0, GOAL_MAX);
 
     const now = Date.now();
-    if (existing.linkedinStorageId && existing.linkedinStorageId !== args.linkedinStorageId) {
+    if (
+      existing.linkedinStorageId &&
+      args.linkedinStorageId &&
+      existing.linkedinStorageId !== args.linkedinStorageId
+    ) {
       await ctx.storage.delete(existing.linkedinStorageId);
     }
 
@@ -656,7 +713,9 @@ export const saveOnboarding = mutation({
       ...(role ? { onboardingRole: role } : {}),
       ...(company ? { onboardingCompany: company } : {}),
       ...(goal ? { onboardingGoal: goal } : {}),
-      linkedinStorageId: args.linkedinStorageId,
+      ...(args.linkedinStorageId
+        ? { linkedinStorageId: args.linkedinStorageId }
+        : {}),
       linkedinText: args.linkedinText.slice(0, LINKEDIN_TEXT_MAX),
       linkedinProfileJson: args.linkedinProfileJson.slice(0, PROFILE_JSON_MAX),
       lastActivityAt: now,
@@ -694,7 +753,8 @@ export const submitTask = mutation({
       throw new Error("Record audio first.");
     }
     const now = Date.now();
-    const needsReview = existing.reviewRequired !== false;
+    const needsReview =
+      existing.reviewRequired !== false || existing.recordingRequired === true;
     const responseText = args.responseText?.trim().slice(0, RESPONSE_TEXT_MAX);
     await ctx.db.patch(args.id, {
       status: needsReview ? "submitted" : "done",
@@ -780,6 +840,7 @@ export const rateTask = mutation({
     comment: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const existing = await ctx.db.get(args.id);
     if (!existing) return { ok: false as const, reason: "not_found" as const };
     if (existing.status === "open") {
@@ -816,6 +877,7 @@ export const updateTask = mutation({
     reviewRequired: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const existing = await ctx.db.get(args.id);
     if (!existing) return { ok: false as const, reason: "not_found" as const };
 
@@ -856,6 +918,7 @@ export const updateTask = mutation({
 export const completeTask = mutation({
   args: { id: v.id("tasks") },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const existing = await ctx.db.get(args.id);
     if (!existing) return { ok: false as const, reason: "not_found" as const };
     if (existing.recordingRequired && existing.status === "open") {
@@ -878,11 +941,9 @@ export const completeTask = mutation({
 export const removeTask = mutation({
   args: { id: v.id("tasks") },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const existing = await ctx.db.get(args.id);
     if (!existing) return { ok: false as const, reason: "not_found" as const };
-    if (existing.status !== "open") {
-      throw new Error("Submitted tasks cannot be deleted.");
-    }
     await ctx.db.delete(args.id);
     return { ok: true as const };
   },

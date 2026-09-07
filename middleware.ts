@@ -8,6 +8,7 @@ const isPublicClientRoute = createRouteMatcher([
   "/client/login",
   "/client/register",
   "/client/waiting",
+  "/client/demo",
 ]);
 
 const isPublicAdminRoute = createRouteMatcher([
@@ -42,5 +43,5 @@ export default convexAuthNextjsMiddleware(async (request, { convexAuth }) => {
 });
 
 export const config = {
-  matcher: ["/client/:path*", "/admin/:path*", "/api/auth"],
+  matcher: ["/client/:path*", "/admin/:path*", "/api/auth", "/api/auth/:path*"],
 };

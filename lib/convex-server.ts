@@ -64,6 +64,12 @@ export const diagnosisCorePromptApi = {
   clear: makeFunctionReference<"mutation">("diagnosisCorePrompt:clear"),
 };
 
+export const transcriptPromptsApi = {
+  get: makeFunctionReference<"query">("transcriptPrompts:get"),
+  set: makeFunctionReference<"mutation">("transcriptPrompts:set"),
+  clear: makeFunctionReference<"mutation">("transcriptPrompts:clear"),
+};
+
 /** Paid coaching clients — not the free analyzer funnel. */
 export const coachingApi = {
   approveClientSignup: makeFunctionReference<"mutation">("coaching:approveClientSignup"),
@@ -84,6 +90,12 @@ export const coachingApi = {
   markSessionReady: makeFunctionReference<"mutation">("coachingSessions:markReady"),
   getSessionRecap: makeFunctionReference<"query">("coachingSessions:getRecap"),
   upsertSessionRecap: makeFunctionReference<"mutation">("coachingSessions:upsertRecap"),
+  getLiveCallProgress: makeFunctionReference<"query">(
+    "coachingSessions:getLiveCallProgress",
+  ),
+  markLiveCallComplete: makeFunctionReference<"mutation">(
+    "coachingSessions:markLiveCallComplete",
+  ),
   generateUploadUrl: makeFunctionReference<"mutation">("coaching:generateUploadUrl"),
   getStorageUrl: makeFunctionReference<"query">("coaching:getStorageUrl"),
   saveOnboarding: makeFunctionReference<"mutation">("coaching:saveOnboarding"),
@@ -99,6 +111,7 @@ export const staffApi = {
   getMyStaff: makeFunctionReference<"query">("staff:getMyStaff"),
   listStaff: makeFunctionReference<"query">("staff:listStaff"),
   setStaffRole: makeFunctionReference<"mutation">("staff:setStaffRole"),
+  tryBootstrapAdmin: makeFunctionReference<"mutation">("staff:tryBootstrapAdmin"),
 };
 
 export const introCallApi = {
@@ -106,15 +119,41 @@ export const introCallApi = {
   upsert: makeFunctionReference<"mutation">("introCall:upsert"),
 };
 
+export const demoSeedApi = {
+  seedSampleClient: makeFunctionReference<"action">("demoSeed:seedSampleClient"),
+  ensureSampleSessionRecaps: makeFunctionReference<"action">(
+    "demoSeed:ensureSampleSessionRecaps",
+  ),
+};
+
+export const workoutCatalogApi = {
+  list: makeFunctionReference<"query">("workoutCatalog:list"),
+  getBySlug: makeFunctionReference<"query">("workoutCatalog:getBySlug"),
+  upsert: makeFunctionReference<"mutation">("workoutCatalog:upsert"),
+  setEnabled: makeFunctionReference<"mutation">("workoutCatalog:setEnabled"),
+  remove: makeFunctionReference<"mutation">("workoutCatalog:remove"),
+  seedBatch: makeFunctionReference<"mutation">("workoutCatalog:seedBatch"),
+};
+
+export const clientDiagnosesApi = {
+  listMine: makeFunctionReference<"query">("clientDiagnoses:listMine"),
+  createMine: makeFunctionReference<"mutation">("clientDiagnoses:createMine"),
+};
+
 export function formatConvexError(err: unknown): string {
   if (err == null) return "Unknown Convex error";
   if (typeof err === "string") return err;
   if (err instanceof Error) {
+    const message = err.message || err.name || "Error";
+    const cleaned = message
+      .replace(/^\[Request ID: [^\]]+\]\s*/i, "")
+      .replace(/^Server Error\s*/i, "")
+      .trim();
     const extra =
       "data" in err && (err as { data?: unknown }).data != null
         ? ` ${JSON.stringify((err as { data?: unknown }).data)}`
         : "";
-    return `${err.message || err.name || "Error"}${extra}`.trim();
+    return `${cleaned || message}${extra}`.trim();
   }
   try {
     return JSON.stringify(err);

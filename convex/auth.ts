@@ -1,6 +1,6 @@
 import Google from "@auth/core/providers/google";
 import { convexAuth } from "@convex-dev/auth/server";
-import { applyBootstrapAdmin } from "./staff";
+import { applyBootstrapAdmin, applyStaffInvite } from "./staff";
 
 const NAME_MAX = 80;
 const EMAIL_MAX = 200;
@@ -32,10 +32,23 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         updatedAt: now,
       };
 
+      async function applyStaff(userId: typeof existingUserId) {
+        if (!email || !userId) return;
+        try {
+          await applyBootstrapAdmin(ctx, userId, email);
+          await applyStaffInvite(ctx, userId, email);
+        } catch (err) {
+          console.error("[auth] staff apply failed", err);
+        }
+      }
+
       if (existingUserId) {
-        await ctx.db.patch(existingUserId, patch);
-        if (email) await applyBootstrapAdmin(ctx, existingUserId, email);
-        return existingUserId;
+        const existing = await ctx.db.get(existingUserId);
+        if (existing) {
+          await ctx.db.patch(existingUserId, patch);
+          await applyStaff(existingUserId);
+          return existingUserId;
+        }
       }
 
       if (email) {
@@ -45,18 +58,16 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           .first();
         if (byEmail) {
           await ctx.db.patch(byEmail._id, patch);
-          await applyBootstrapAdmin(ctx, byEmail._id, email);
+          await applyStaff(byEmail._id);
           return byEmail._id;
         }
       }
 
       const userId = await ctx.db.insert("users", {
         ...patch,
-        role: "client",
         createdAt: now,
       });
-
-      if (email) await applyBootstrapAdmin(ctx, userId, email);
+      await applyStaff(userId);
       return userId;
     },
   },

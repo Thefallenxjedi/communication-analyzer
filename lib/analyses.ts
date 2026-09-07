@@ -6,6 +6,12 @@ import {
   isConvexConfigured,
 } from "@/lib/convex-server";
 
+type ConvexClientLike = NonNullable<ReturnType<typeof getConvexHttpClient>>;
+
+function resolveClient(provided?: ConvexClientLike | null) {
+  return provided ?? getConvexHttpClient();
+}
+
 export type AnalysisRecord = {
   anonymousId: string;
   overallScore: number;
@@ -177,9 +183,12 @@ export async function attachLeadToAnalysis(input: {
   }
 }
 
-export async function deleteAnalysis(id: string): Promise<boolean> {
+export async function deleteAnalysis(
+  id: string,
+  convex?: ConvexClientLike | null,
+): Promise<boolean> {
   if (!isConvexConfigured()) return false;
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return false;
   const trimmed = id.trim();
   if (!trimmed) return false;
@@ -197,9 +206,10 @@ export async function deleteAnalysis(id: string): Promise<boolean> {
 
 export async function deleteAnalyses(
   ids: string[],
+  convex?: ConvexClientLike | null,
 ): Promise<{ deleted: number; missing: number } | null> {
   if (!isConvexConfigured()) return null;
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return null;
   const cleaned = [...new Set(ids.map((id) => id.trim()).filter(Boolean))].slice(
     0,
@@ -221,9 +231,12 @@ export async function deleteAnalyses(
   }
 }
 
-export async function listAnalyses(limit = 100): Promise<AnalysisListItem[]> {
+export async function listAnalyses(
+  limit = 100,
+  convex?: ConvexClientLike | null,
+): Promise<AnalysisListItem[]> {
   if (!isConvexConfigured()) return [];
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return [];
 
   try {
@@ -249,9 +262,11 @@ export async function listAnalyses(limit = 100): Promise<AnalysisListItem[]> {
   }
 }
 
-export async function getAnalysisStats(): Promise<AnalysisStats | null> {
+export async function getAnalysisStats(
+  convex?: ConvexClientLike | null,
+): Promise<AnalysisStats | null> {
   if (!isConvexConfigured()) return null;
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return null;
 
   try {
@@ -265,9 +280,10 @@ export async function getAnalysisStats(): Promise<AnalysisStats | null> {
 /** Fill estimated generation times for recent rows missing wall-clock data. */
 export async function backfillAnalysisDuration(
   limit = 20,
+  convex?: ConvexClientLike | null,
 ): Promise<{ patched: number } | null> {
   if (!isConvexConfigured()) return null;
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return null;
 
   try {

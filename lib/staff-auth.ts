@@ -1,6 +1,5 @@
 import { convexAuthNextjsToken } from "@convex-dev/auth/nextjs/server";
-import { checkAdminAuth } from "@/lib/admin-auth";
-import { coachingApi, getConvexHttpClient, staffApi } from "@/lib/convex-server";
+import { getConvexHttpClient, staffApi } from "@/lib/convex-server";
 import type { StaffRole, StaffSession } from "@/lib/staff-types";
 import { staffMeetsMinimum } from "@/lib/staff-types";
 
@@ -23,11 +22,23 @@ export async function fetchMyStaffFromConvex(): Promise<MyStaffResponse> {
   }
 
   convex.setAuth(token);
-  return (await convex.query(staffApi.getMyStaff, {})) as MyStaffResponse;
+  let data = (await convex.query(staffApi.getMyStaff, {})) as MyStaffResponse;
+
+  if (data.authenticated && !data.staffRole) {
+    const bootstrap = (await convex.mutation(staffApi.tryBootstrapAdmin, {})) as {
+      applied?: boolean;
+      staffRole?: StaffRole;
+    };
+    if (bootstrap.applied && bootstrap.staffRole) {
+      data = (await convex.query(staffApi.getMyStaff, {})) as MyStaffResponse;
+    }
+  }
+
+  return data;
 }
 
 export async function resolveStaffAccess(
-  request: Request,
+  _request: Request,
 ): Promise<StaffSession | null> {
   const data = await fetchMyStaffFromConvex();
   if (data.authenticated && data.staffRole) {
@@ -35,13 +46,6 @@ export async function resolveStaffAccess(
       email: data.email ?? "",
       name: data.name,
       staffRole: data.staffRole,
-    };
-  }
-
-  if (checkAdminAuth(request)) {
-    return {
-      email: "legacy-admin",
-      staffRole: "admin",
     };
   }
 
@@ -68,5 +72,20 @@ export async function getAuthedConvexClient() {
   const token = await convexAuthNextjsToken();
   if (!token) return null;
   convex.setAuth(token);
+  return convex;
+}
+
+export async function requireStaffConvex(
+  request: Request,
+  minimum: StaffRole = "viewer",
+) {
+  const access = await requireStaff(request, minimum);
+  if (access instanceof Response) return access;
+
+  const convex = await getAuthedConvexClient();
+  if (!convex) {
+    return Response.json({ error: "Sign in required." }, { status: 401 });
+  }
+
   return convex;
 }

@@ -1,13 +1,37 @@
 "use client";
 
 import { useAuthActions } from "@convex-dev/auth/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { GoogleMark } from "@/components/ClientAuthShell";
 
 export default function AdminLoginPage() {
   const { signIn } = useAuthActions();
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/staff");
+        const data = (await res.json()) as {
+          authenticated?: boolean;
+          staffRole?: string | null;
+        };
+        if (cancelled) return;
+        if (data.authenticated && data.staffRole) {
+          router.replace("/admin");
+        }
+      } catch {
+        // stay on login
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   async function onGoogleSignIn() {
     setBusy(true);

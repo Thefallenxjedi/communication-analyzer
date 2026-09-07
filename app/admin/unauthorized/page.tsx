@@ -3,17 +3,46 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function AdminUnauthorizedPage() {
   const router = useRouter();
   const { signOut } = useAuthActions();
   const [busy, setBusy] = useState(false);
+  const [checkingBootstrap, setCheckingBootstrap] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/staff");
+        const data = (await res.json()) as { staffRole?: string | null };
+        if (!cancelled && data.staffRole) {
+          router.replace("/admin");
+          return;
+        }
+      } catch {
+        // ignore
+      }
+      if (!cancelled) setCheckingBootstrap(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   async function onSignOut() {
     setBusy(true);
     await signOut();
     router.replace("/admin/login");
+  }
+
+  if (checkingBootstrap) {
+    return (
+      <main className="mx-auto max-w-lg px-6 py-20 text-center text-sm text-muted">
+        Checking admin access…
+      </main>
+    );
   }
 
   return (

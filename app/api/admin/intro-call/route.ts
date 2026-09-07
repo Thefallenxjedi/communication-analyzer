@@ -1,4 +1,3 @@
-import { adminApiGuard } from "@/lib/admin-route";
 import {
   getIntroCallReport,
   saveIntroCallReport,
@@ -7,12 +6,13 @@ import {
   type IntroCallRep,
 } from "@/lib/intro-call";
 import { formatConvexError } from "@/lib/convex-server";
+import { requireStaffConvex } from "@/lib/staff-auth";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const denied = await adminApiGuard(request, "viewer");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "viewer");
+  if (convex instanceof Response) return convex;
 
   const clientId = new URL(request.url).searchParams.get("clientId")?.trim() || "";
   if (!clientId) {
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const report = await getIntroCallReport(clientId);
+    const report = await getIntroCallReport(clientId, convex);
     return Response.json({ report });
   } catch (err) {
     return Response.json({ error: formatConvexError(err) }, { status: 500 });
@@ -28,8 +28,8 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const denied = await adminApiGuard(request, "editor");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "editor");
+  if (convex instanceof Response) return convex;
 
   let body: {
     clientId?: string;
@@ -56,13 +56,13 @@ export async function PUT(request: Request) {
     coachingSchedule: body.coachingSchedule ?? "",
     osItems: body.osItems ?? [],
     reps: body.reps ?? [],
-  });
+  }, convex);
   if (!result.ok) {
     return Response.json(
       { error: result.error || "Could not save intro call." },
       { status: 400 },
     );
   }
-  const report = await getIntroCallReport(body.clientId);
+  const report = await getIntroCallReport(body.clientId, convex);
   return Response.json({ ok: true, report });
 }

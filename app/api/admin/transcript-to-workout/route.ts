@@ -1,16 +1,16 @@
-import { adminApiGuard } from "@/lib/admin-route";
 import { getCoachingClient } from "@/lib/coaching-clients";
 import { FINAL_SESSION, INTRO_SESSION } from "@/lib/coaching-program";
 import { getIntroCallReport } from "@/lib/intro-call";
 import { formatConvexError } from "@/lib/convex-server";
+import { requireStaffConvex } from "@/lib/staff-auth";
 import { generateWorkoutFromTranscript } from "@/lib/transcript-to-workout";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
 export async function POST(request: Request) {
-  const denied = await adminApiGuard(request, "editor");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "editor");
+  if (convex instanceof Response) return convex;
 
   let body: {
     clientId?: string;
@@ -58,12 +58,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const client = await getCoachingClient(clientId);
+    const client = await getCoachingClient(clientId, convex);
     if (!client) {
       return Response.json({ error: "Client not found." }, { status: 404 });
     }
 
-    const intro = await getIntroCallReport(clientId);
+    const intro = await getIntroCallReport(clientId, convex);
     const draft = await generateWorkoutFromTranscript({
       transcript,
       sourceSessionNumber,

@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { requireStaffRole } from "./adminAccess";
 import { estimateAnalysisDurationMs } from "./estimateAnalysisDuration";
 
 function displayAnalysisDurationMs(row: {
@@ -200,6 +201,7 @@ export const attachLead = mutation({
 export const remove = mutation({
   args: { id: v.id("analyses") },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const existing = await ctx.db.get(args.id);
     if (!existing) {
       return { ok: false as const, reason: "not_found" };
@@ -213,6 +215,7 @@ export const remove = mutation({
 export const removeMany = mutation({
   args: { ids: v.array(v.id("analyses")) },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const unique = [...new Set(args.ids)].slice(0, 500);
     let deleted = 0;
     let missing = 0;
@@ -232,6 +235,7 @@ export const removeMany = mutation({
 export const listRecent = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "viewer");
     const limit = Math.min(500, Math.max(1, args.limit ?? 100));
     const rows = await ctx.db
       .query("analyses")
@@ -270,6 +274,7 @@ export const listRecent = query({
 export const getStats = query({
   args: {},
   handler: async (ctx) => {
+    await requireStaffRole(ctx, "viewer");
     const rows = await ctx.db
       .query("analyses")
       .withIndex("by_createdAt")
@@ -456,6 +461,7 @@ export const scoreTopPercent = query({
 export const backfillAnalysisDuration = mutation({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const limit = Math.min(100, Math.max(1, args.limit ?? 20));
     const rows = await ctx.db
       .query("analyses")

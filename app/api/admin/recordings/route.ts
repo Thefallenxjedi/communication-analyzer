@@ -1,10 +1,10 @@
-import { adminApiGuard } from "@/lib/admin-route";
 import {
   extFromContentType,
   recordingDownloadName,
 } from "@/lib/coaching-program";
 import { getCoachingTask } from "@/lib/coaching-tasks";
 import { formatConvexError } from "@/lib/convex-server";
+import { requireStaffConvex } from "@/lib/staff-auth";
 
 export const runtime = "nodejs";
 
@@ -13,8 +13,8 @@ function asciiFilename(name: string): string {
 }
 
 export async function GET(request: Request) {
-  const denied = await adminApiGuard(request, "viewer");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "viewer");
+  if (convex instanceof Response) return convex;
 
   const id = new URL(request.url).searchParams.get("id")?.trim() || "";
   if (!id) {
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const task = await getCoachingTask(id);
+    const task = await getCoachingTask(id, convex);
     if (!task) {
       return Response.json({ error: "Recording not found." }, { status: 404 });
     }

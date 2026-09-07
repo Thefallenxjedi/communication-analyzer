@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import { requireStaffRole } from "./adminAccess";
 
 const TITLE_MAX = 120;
 const BODY_MAX = 2000;
@@ -49,6 +50,7 @@ export const create = mutation({
     enabled: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const title = args.title.replace(/\s+/g, " ").trim().slice(0, TITLE_MAX);
     const body = args.body.trim().slice(0, BODY_MAX);
     if (!title) throw new Error("title required");
@@ -74,6 +76,7 @@ export const update = mutation({
     enabled: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const existing = await ctx.db.get(args.id);
     if (!existing) return { ok: false as const, reason: "not_found" as const };
 
@@ -109,6 +112,7 @@ export const setEnabled = mutation({
     enabled: v.boolean(),
   },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const existing = await ctx.db.get(args.id);
     if (!existing) return { ok: false as const, reason: "not_found" as const };
     await ctx.db.patch(args.id, {
@@ -122,6 +126,7 @@ export const setEnabled = mutation({
 export const remove = mutation({
   args: { id: v.id("promptAddOns") },
   handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
     const existing = await ctx.db.get(args.id);
     if (!existing) return { ok: false as const, reason: "not_found" as const };
     await ctx.db.delete(args.id);

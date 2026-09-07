@@ -220,7 +220,7 @@ function TranscriptReview({
             </p>
           ) : null}
           <p
-            className={`text-sm leading-relaxed sm:text-base ${
+            className={`text-sm leading-relaxed sm:text-base lg:text-lg ${
               line.hasFocus ? "text-foreground/55" : ""
             }`}
           >
@@ -258,12 +258,12 @@ function TranscriptReview({
       <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
         <div className="min-w-0">
           <StoryHeading>Your words</StoryHeading>
-          <p className="mt-1 text-xs font-medium text-muted">
+          <p className="mt-1 text-xs font-medium text-muted lg:text-sm">
             {sourceLabel}
             {wordCount > 0 ? ` · ${wordCount.toLocaleString()} words` : ""}
           </p>
           {showBody ? (
-            <p className="mt-2 text-sm leading-relaxed text-muted">
+            <p className="mt-2 text-sm leading-relaxed text-muted lg:text-base">
               {hasFocus
                 ? `Soft red highlights = what we flagged for ${challengeLabel}.`
                 : hasTags
@@ -271,7 +271,7 @@ function TranscriptReview({
                   : "Full transcript used for your diagnosis."}
             </p>
           ) : (
-            <p className="mt-2 text-sm leading-relaxed text-muted">
+            <p className="mt-2 text-sm leading-relaxed text-muted lg:text-base">
               Long transcript — expand only if you want to read every line.
             </p>
           )}
@@ -280,7 +280,7 @@ function TranscriptReview({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="shrink-0 rounded-full border border-border bg-track/80 px-3 py-1.5 text-xs font-bold text-foreground transition hover:border-accent/40 hover:bg-accent-soft"
+            className="shrink-0 rounded-full border border-border bg-track/80 px-3 py-1.5 text-xs font-bold text-foreground transition hover:border-accent/40 hover:bg-accent-soft lg:text-sm"
             aria-expanded={expanded}
           >
             {expanded ? "Hide transcript" : "Show full transcript"}
@@ -288,13 +288,13 @@ function TranscriptReview({
         ) : null}
       </div>
 
-      <div className="px-4 py-4 sm:px-5">
+      <div className="px-4 py-4 sm:px-5 lg:px-6 lg:py-5">
         {focusQuotes.length > 0 ? (
           <div className="mb-4 flex flex-wrap gap-2">
             {focusQuotes.map((q) => (
               <span
                 key={q}
-                className="max-w-full rounded-md border border-accent/30 bg-accent-soft px-2.5 py-1.5 text-xs font-bold leading-snug text-foreground"
+                className="max-w-full rounded-md border border-accent/30 bg-accent-soft px-2.5 py-1.5 text-xs font-bold leading-snug text-foreground lg:text-sm"
               >
                 “{q}”
               </span>
@@ -303,7 +303,7 @@ function TranscriptReview({
         ) : null}
 
         {!showBody ? (
-          <p className="text-sm leading-relaxed text-muted/90">
+          <p className="text-sm leading-relaxed text-muted/90 lg:text-base">
             {preview}
             {transcript.length > preview.length ? "…" : ""}
           </p>
@@ -325,7 +325,7 @@ function TranscriptReview({
 
 function StoryHeading({ children }: { children: ReactNode }) {
   return (
-    <h2 className="text-xl font-extrabold tracking-tight text-foreground sm:text-2xl">
+    <h2 className="text-xl font-extrabold tracking-tight text-foreground sm:text-2xl lg:text-3xl">
       {children}
     </h2>
   );
@@ -353,14 +353,14 @@ function InsightCard({
 
   return (
     <article
-      className={`rounded-2xl border p-5 shadow-sm ring-1 ring-black/[0.04] ${shell}`}
+      className={`rounded-2xl border p-5 shadow-sm ring-1 ring-black/[0.04] lg:p-6 ${shell}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted">
+        <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-muted lg:text-xs">
           {title}
         </p>
         {badge ? (
-          <span className="rounded-full border border-accent/30 bg-white/70 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-accent">
+          <span className="rounded-full border border-accent/30 bg-white/70 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-accent lg:text-xs">
             {badge}
           </span>
         ) : null}
@@ -380,14 +380,14 @@ function ScoreSummaryBlock({
   topPercent?: number;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm ring-1 ring-black/[0.04] sm:p-6">
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm ring-1 ring-black/[0.04] sm:p-6 lg:p-8">
       <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
         <div className="text-center sm:text-left">
-          <p className="text-4xl font-extrabold tabular-nums sm:text-5xl">
+          <p className="text-4xl font-extrabold tabular-nums sm:text-5xl lg:text-6xl">
             {overall}
           </p>
-          <p className="text-sm font-semibold text-muted">out of 100</p>
-          <p className="mt-2 text-base font-extrabold sm:text-lg">{level}</p>
+          <p className="text-sm font-semibold text-muted lg:text-base">out of 100</p>
+          <p className="mt-2 text-base font-extrabold sm:text-lg lg:text-xl">{level}</p>
         </div>
         <div className="sm:max-w-xs sm:flex-1">
           <LevelLadder level={level} overall={overall} />
@@ -425,7 +425,7 @@ function LevelLadder({ level, overall }: { level: string; overall: number }) {
               }`}
             >
               <div
-                className={`flex items-center gap-2 text-xs sm:text-sm ${
+                className={`flex items-center gap-2 text-xs sm:text-sm lg:text-base ${
                   on ? "font-extrabold text-foreground" : "text-muted"
                 }`}
               >
@@ -435,12 +435,12 @@ function LevelLadder({ level, overall }: { level: string; overall: number }) {
                   }`}
                 />
                 <span className="min-w-0 flex-1 leading-snug">{row.name}</span>
-                <span className="shrink-0 tabular-nums text-[10px] font-bold uppercase tracking-wide">
+                <span className="shrink-0 tabular-nums text-[10px] font-bold uppercase tracking-wide lg:text-xs">
                   {levelBandLabel(row.min, row.max)}
                 </span>
               </div>
               {on ? (
-                <p className="mt-1 pl-4 text-[10px] font-extrabold uppercase tracking-[0.12em] text-accent">
+                <p className="mt-1 pl-4 text-[10px] font-extrabold uppercase tracking-[0.12em] text-accent lg:text-xs">
                   You are here
                 </p>
               ) : null}
@@ -473,7 +473,7 @@ function TopPercentMeter({ topPercent }: { topPercent: number }) {
 
   return (
     <div className="mt-6 w-full">
-      <p className="text-sm font-extrabold text-accent">
+      <p className="text-sm font-extrabold text-accent lg:text-base">
         You outscored {beatPct}%{" "}
         <span className="font-semibold text-muted">of communicators</span>
       </p>
@@ -556,21 +556,21 @@ function CircularMarker({ stat }: { stat: DiagnosisStat }) {
             strokeDashoffset={offset}
           />
         </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-sm font-extrabold tabular-nums text-foreground">
+        <span className="absolute inset-0 flex items-center justify-center text-sm font-extrabold tabular-nums text-foreground lg:text-base">
           {clamped}
         </span>
       </div>
-      <p className="mt-2 w-full text-[11px] font-extrabold leading-snug text-foreground sm:text-xs">
+      <p className="mt-2 w-full text-[11px] font-extrabold leading-snug text-foreground sm:text-xs lg:text-sm">
         {stat.label}
       </p>
       {hint ? (
-        <p className="mt-1 w-full text-[10px] leading-snug text-muted sm:text-[11px]">
+        <p className="mt-1 w-full text-[10px] leading-snug text-muted sm:text-[11px] lg:text-xs">
           {hint}
         </p>
       ) : null}
       {example ? (
-        <p className="mt-2 w-full rounded-md border border-accent/25 bg-accent-soft px-2 py-1.5 text-left text-[11px] font-bold leading-snug text-foreground not-italic">
-          <span className="mb-0.5 block text-[9px] font-extrabold uppercase tracking-wide text-accent">
+        <p className="mt-2 w-full rounded-md border border-accent/25 bg-accent-soft px-2 py-1.5 text-left text-[11px] font-bold leading-snug text-foreground not-italic lg:text-xs">
+          <span className="mb-0.5 block text-[9px] font-extrabold uppercase tracking-wide text-accent lg:text-[10px]">
             From your words
           </span>
           “{example.replace(/^["“]|["”]$/g, "")}”
@@ -590,42 +590,42 @@ function TopGapsCard({ stats }: { stats: DiagnosisStat[] }) {
 
   return (
     <div id="report-gaps" className="scroll-mt-24 mt-10">
-      <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">
+      <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted lg:text-xs">
         Start here
       </p>
-      <h2 className="mt-1 text-xl font-extrabold tracking-tight sm:text-2xl">
+      <h2 className="mt-1 text-xl font-extrabold tracking-tight sm:text-2xl lg:text-3xl">
         Your 3 biggest gaps
       </h2>
-      <p className="mt-2 text-sm text-muted">
+      <p className="mt-2 text-sm text-muted lg:text-base">
         Lowest scores from your clip — full breakdown with 29 skills below.
       </p>
-      <ul className="mt-4 space-y-3">
+      <ul className="mt-4 space-y-3 lg:mt-5 lg:space-y-4">
         {gaps.map((stat, index) => {
           const hint = STAT_HINTS[stat.id as StatId];
           const example = stat.example?.trim();
           return (
             <li
               key={stat.id}
-              className="rounded-2xl border border-border bg-card p-4 shadow-sm ring-1 ring-black/[0.04]"
+              className="rounded-2xl border border-border bg-card p-4 shadow-sm ring-1 ring-black/[0.04] lg:p-5"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted">
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-muted lg:text-xs">
                     Gap {index + 1}
                   </p>
-                  <p className="mt-1 text-base font-extrabold text-foreground">
+                  <p className="mt-1 text-base font-extrabold text-foreground lg:text-lg">
                     {stat.label}
                   </p>
                   {hint ? (
-                    <p className="mt-1 text-sm text-muted">{hint}</p>
+                    <p className="mt-1 text-sm text-muted lg:text-base">{hint}</p>
                   ) : null}
                 </div>
-                <p className="shrink-0 text-2xl font-extrabold tabular-nums text-accent">
+                <p className="shrink-0 text-2xl font-extrabold tabular-nums text-accent lg:text-3xl">
                   {Math.round(stat.score)}
                 </p>
               </div>
               {example ? (
-                <p className="mt-3 rounded-xl border border-accent/20 bg-accent-soft/50 px-3 py-2 text-sm font-semibold leading-relaxed text-foreground">
+                <p className="mt-3 rounded-xl border border-accent/20 bg-accent-soft/50 px-3 py-2 text-sm font-semibold leading-relaxed text-foreground lg:text-base">
                   “{example.replace(/^["“]|["”]$/g, "")}”
                 </p>
               ) : null}
@@ -640,7 +640,7 @@ function TopGapsCard({ stats }: { stats: DiagnosisStat[] }) {
 function ProfileDepthTeaser({ onJump }: { onJump: () => void }) {
   return (
     <div className="mt-4 flex flex-col gap-3 rounded-xl border border-dashed border-border bg-track/35 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm leading-relaxed text-muted">
+      <p className="text-sm leading-relaxed text-muted lg:text-base">
         <span className="font-extrabold text-foreground">Still in your report:</span>
         {" "}
         15 main skills · 14 supporting skills · quoted examples · practice plan in
@@ -649,7 +649,7 @@ function ProfileDepthTeaser({ onJump }: { onJump: () => void }) {
       <button
         type="button"
         onClick={onJump}
-        className="shrink-0 text-sm font-extrabold text-accent hover:underline"
+        className="shrink-0 text-sm font-extrabold text-accent hover:underline lg:text-base"
       >
         See full breakdown ↓
       </button>
@@ -668,7 +668,7 @@ function RankBlock({
 }) {
   return (
     <div id={sectionId} className={sectionId ? "scroll-mt-24" : undefined}>
-      <h2 className="border-b border-foreground pb-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+      <h2 className="border-b border-foreground pb-2 text-2xl font-extrabold tracking-tight sm:text-3xl lg:text-4xl">
         {heading}
       </h2>
       <div className="mt-10 space-y-14">
@@ -678,14 +678,14 @@ function RankBlock({
             id={`profile-${section.id}`}
             className="scroll-mt-24"
           >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted lg:text-xs">
               Section {index + 1} of {sections.length}
             </p>
             <div className="mt-1 flex items-end justify-between gap-3">
-              <h3 className="text-xl font-extrabold tracking-tight sm:text-2xl">
+              <h3 className="text-xl font-extrabold tracking-tight sm:text-2xl lg:text-3xl">
                 {section.title}
               </h3>
-              <p className="shrink-0 text-lg font-extrabold tabular-nums">
+              <p className="shrink-0 text-lg font-extrabold tabular-nums lg:text-xl">
                 {section.score}/100
               </p>
             </div>
@@ -868,13 +868,20 @@ export function DiagnosisPage({
 
   return (
     <>
-    <ReportSectionNav sections={navSections} />
-    <section className="mx-auto w-full max-w-2xl px-4 pb-24 pt-2 animate-fade-up">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <ReportSectionNav
+      sections={navSections}
+      summary={{
+        score: overall,
+        level: report.level || "Communicator",
+        challenge,
+      }}
+    />
+    <section className="mx-auto w-full max-w-2xl px-4 pb-24 pt-2 animate-fade-up lg:max-w-3xl lg:px-6 2xl:max-w-4xl">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 lg:mb-6">
         <button
           type="button"
           onClick={onHome}
-          className="text-sm font-semibold text-accent hover:underline"
+          className="text-sm font-semibold text-accent hover:underline lg:text-base"
         >
           ← EliteSpeak Home
         </button>
@@ -884,7 +891,7 @@ export function DiagnosisPage({
               type="button"
               onClick={copyShareLink}
               title={shareUrl}
-              className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground transition hover:border-accent/40 hover:bg-accent-soft"
+              className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground transition hover:border-accent/40 hover:bg-accent-soft lg:px-4 lg:py-2 lg:text-base"
             >
               {linkCopied ? "Link copied" : "Copy report link"}
             </button>
@@ -893,14 +900,14 @@ export function DiagnosisPage({
             type="button"
             onClick={onRequestPdf}
             disabled={pdfBusy}
-            className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-semibold text-muted transition hover:border-foreground/20 hover:text-foreground disabled:opacity-55"
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-semibold text-muted transition hover:border-foreground/20 hover:text-foreground disabled:opacity-55 lg:px-4 lg:py-2 lg:text-base"
           >
             {pdfBusy ? "Preparing PDF…" : "Download PDF"}
           </button>
         </div>
       </div>
       {sharePath ? (
-        <p className="mb-6 text-xs text-muted">
+        <p className="mb-6 text-xs text-muted lg:mb-8 lg:text-sm">
           Save or share this page — your report stays here when you return.
         </p>
       ) : null}
@@ -955,7 +962,7 @@ export function DiagnosisPage({
       ) : null}
 
       <div id="report-score" className="scroll-mt-24">
-      <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">
+      <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted lg:text-xs">
         Your results
         {report.transcriptOnly ? (
           <span className="ml-2 normal-case tracking-normal text-muted/80">
@@ -963,7 +970,7 @@ export function DiagnosisPage({
           </span>
         ) : null}
       </p>
-      <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
+      <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl lg:text-5xl lg:leading-tight">
         {highPerformer && focusGeneric ? (
           <>
             You communicated{" "}
@@ -1004,13 +1011,13 @@ export function DiagnosisPage({
       (report.mainChallenge.upside?.trim() && !(highPerformer && focusGeneric))
         ? (
         <div className="mt-10">
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-muted lg:text-xs">
             Your diagnosis
           </p>
-          <div className="mt-4 space-y-4">
+          <div className="mt-4 space-y-4 lg:mt-5 lg:space-y-5">
             {report.comesAcross?.trim() ? (
               <InsightCard title="How you sound to others" variant="quote">
-                <p className="text-lg font-semibold leading-snug text-foreground sm:text-xl">
+                <p className="text-lg font-semibold leading-snug text-foreground sm:text-xl lg:text-2xl">
                   {report.comesAcross}
                 </p>
               </InsightCard>
@@ -1029,7 +1036,7 @@ export function DiagnosisPage({
                     : challenge.replace(/\.$/, "")
                 }
               >
-                <p className="text-base leading-relaxed text-foreground/90">
+                <p className="text-base leading-relaxed text-foreground/90 lg:text-lg lg:text-lg">
                   {noticed}
                 </p>
               </InsightCard>
@@ -1037,7 +1044,7 @@ export function DiagnosisPage({
 
             {report.mainChallenge.mechanism?.trim() ? (
               <InsightCard title="Why this happens">
-                <p className="text-base leading-relaxed text-foreground/90">
+                <p className="text-base leading-relaxed text-foreground/90 lg:text-lg">
                   {report.mainChallenge.mechanism}
                 </p>
               </InsightCard>
@@ -1048,7 +1055,7 @@ export function DiagnosisPage({
                 title="From your clip"
                 badge={challenge.replace(/\.$/, "")}
               >
-                <p className="text-sm text-muted">
+                <p className="text-sm text-muted lg:text-base">
                   Exact phrases we flagged. Same spots are marked in Your words
                   next.
                 </p>
@@ -1056,7 +1063,7 @@ export function DiagnosisPage({
                   {quotes.map((q) => (
                     <li
                       key={q}
-                      className="rounded-xl border border-accent/20 bg-white/70 px-3 py-2.5 text-sm font-semibold leading-relaxed text-foreground"
+                      className="rounded-xl border border-accent/20 bg-white/70 px-3 py-2.5 text-sm font-semibold leading-relaxed text-foreground lg:text-base"
                     >
                       “{q}”
                     </li>
@@ -1071,14 +1078,14 @@ export function DiagnosisPage({
               <div className="grid gap-4 sm:grid-cols-2">
                 {report.mainChallenge.whyItMatters?.trim() ? (
                   <InsightCard title="Why this costs you" variant="warning">
-                    <p className="text-base leading-relaxed text-foreground/90">
+                    <p className="text-base leading-relaxed text-foreground/90 lg:text-lg">
                       {report.mainChallenge.whyItMatters}
                     </p>
                   </InsightCard>
                 ) : null}
                 {report.mainChallenge.upside?.trim() ? (
                   <InsightCard title="If you fix this" variant="positive">
-                    <p className="text-base leading-relaxed text-foreground/90">
+                    <p className="text-base leading-relaxed text-foreground/90 lg:text-lg">
                       {report.mainChallenge.upside}
                     </p>
                   </InsightCard>
@@ -1116,7 +1123,7 @@ export function DiagnosisPage({
             <h3 className="text-base font-extrabold text-emerald-700">
               What went well
             </h3>
-            <p className="mt-2 text-base leading-relaxed text-foreground/90">
+            <p className="mt-2 text-base leading-relaxed text-foreground/90 lg:text-lg">
               {report.mainChallenge.strengths}
             </p>
           </div>
@@ -1127,7 +1134,7 @@ export function DiagnosisPage({
             <h3 className="text-base font-extrabold text-accent">
               What to improve
             </h3>
-            <p className="mt-2 text-base leading-relaxed text-foreground/90">
+            <p className="mt-2 text-base leading-relaxed text-foreground/90 lg:text-lg">
               {report.mainChallenge.improvements}
             </p>
           </div>
@@ -1164,7 +1171,7 @@ export function DiagnosisPage({
       {report.minorChallenges?.trim() ? (
         <div className="mt-16">
           <StoryHeading>Secondary notes</StoryHeading>
-          <p className="mt-3 text-base leading-relaxed text-foreground/90">
+          <p className="mt-3 text-base leading-relaxed text-foreground/90 lg:text-lg">
             {report.minorChallenges}
           </p>
         </div>
@@ -1179,13 +1186,13 @@ export function DiagnosisPage({
 
       <div
         id="report-next"
-        className="scroll-mt-24 mt-16 border border-border p-5 sm:p-7"
+        className="scroll-mt-24 mt-16 border border-border p-5 sm:p-7 lg:p-8"
       >
         <StoryHeading>What&apos;s next</StoryHeading>
-        <h3 className="mt-3 text-lg font-extrabold sm:text-xl">
+        <h3 className="mt-3 text-lg font-extrabold sm:text-xl lg:text-2xl">
           Want a coach, or want to work it yourself?
         </h3>
-        <p className="mt-2 text-sm leading-relaxed text-foreground/85">
+        <p className="mt-2 text-sm leading-relaxed text-foreground/85 lg:text-base">
           Book a diagnosis call with an EliteSpeak coach to get feedback and put a
           plan together. If you want more solutions on your own, download the PDF.
           It includes your practice plan so you can start today.
@@ -1202,13 +1209,13 @@ export function DiagnosisPage({
           type="button"
           onClick={onRequestPdf}
           disabled={pdfBusy}
-          className="mt-3 w-full text-center text-sm font-semibold text-muted underline-offset-2 hover:text-foreground hover:underline"
+          className="mt-3 w-full text-center text-sm font-semibold text-muted underline-offset-2 hover:text-foreground hover:underline lg:text-base"
         >
           Download PDF with your practice plan
         </button>
       </div>
 
-      <p className="mt-10 text-center text-xs text-muted">
+      <p className="mt-10 text-center text-xs text-muted lg:text-sm">
         Free coaching diagnosis for practice. Not a clinical assessment.
       </p>
     </section>

@@ -101,8 +101,8 @@ export function stubLinkedInProfile(input: {
   };
 }
 
-const EXTRACT_PROMPT = `Extract a LinkedIn-style profile from this PDF (LinkedIn "Save to PDF").
-Use the extracted text if the file is messy. Leave a field empty rather than inventing it.
+const EXTRACT_PROMPT = `Extract a LinkedIn-style profile from this LinkedIn profile content.
+It may come from a LinkedIn PDF or pasted LinkedIn text. Leave a field empty rather than inventing it.
 Experience: most recent first. Skills: short list, max 20.`;
 
 export async function profileFromLinkedInPdf(input: {
@@ -203,5 +203,60 @@ ${input.text.slice(0, 24_000) || "(no extractable text)"}`,
   }
 
   console.error("[linkedin] profile extract exhausted", lastError);
+  return fallback;
+}
+
+export async function profileFromLinkedInText(input: {
+  text: string;
+  name: string;
+  role: string;
+  company: string;
+  goal: string;
+}): Promise<LinkedInProfile> {
+  const fallback = stubLinkedInProfile(input);
+  const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim();
+  if (!apiKey) return fallback;
+
+  const google = createGoogle({ apiKey });
+  const preferred = resolveModelId(process.env.GOOGLE_GENERATIVE_AI_MODEL);
+  let lastError: unknown;
+
+  for (const modelId of modelFallbackChain(preferred)) {
+    try {
+      const result = await generateObject({
+        model: google(modelId),
+        schema: linkedInProfileSchema,
+        schemaName: "LinkedInProfile",
+        maxRetries: 0,
+        temperature: 0.1,
+        messages: [
+          {
+            role: "user",
+            content: `${EXTRACT_PROMPT}
+
+Client name: ${input.name}
+Role they entered: ${input.role}
+Company they entered: ${input.company}
+Program goal they entered: ${input.goal}
+
+Pasted LinkedIn profile text:
+${input.text.slice(0, 24_000) || "(no pasted text)"}`,
+          },
+        ],
+      });
+      const parsed = linkedInProfileSchema.safeParse(result.object);
+      if (!parsed.success) return fallback;
+      return {
+        ...parsed.data,
+        fullName: parsed.data.fullName.trim() || fallback.fullName,
+        headline: parsed.data.headline.trim() || fallback.headline,
+      };
+    } catch (err) {
+      lastError = err;
+      if (!isRetryableModelError(err)) break;
+    }
+  }
+
+  console.error("[linkedin] pasted-text extract exhausted", lastError);
   return fallback;
 }

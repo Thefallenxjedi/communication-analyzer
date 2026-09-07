@@ -3,6 +3,17 @@ export const FINAL_SESSION = 10;
 export const WORK_SESSION_COUNT = 9;
 export const SLOT_COUNT = WORK_SESSION_COUNT + 1;
 
+/** Intro + Sessions 1–9 — the 10 live calls clients book. */
+export const LIVE_CALL_TOTAL = 10;
+export const LIVE_CALL_SESSIONS = [
+  INTRO_SESSION,
+  ...Array.from({ length: WORK_SESSION_COUNT }, (_, i) => i + 1),
+] as const;
+
+export function isLiveCallSession(sessionNumber: number): boolean {
+  return (LIVE_CALL_SESSIONS as readonly number[]).includes(sessionNumber);
+}
+
 export function isValidSessionNumber(n: number): boolean {
   return Number.isInteger(n) && n >= INTRO_SESSION && n <= FINAL_SESSION;
 }
@@ -45,11 +56,7 @@ export function attentionSessionNumber(
 ): number {
   for (let n = INTRO_SESSION; n <= FINAL_SESSION; n++) {
     const list = tasks.filter((task) => (task.sessionNumber ?? INTRO_SESSION) === n);
-    if (
-      list.some(
-        (task) => task.status === "submitted" && task.reviewRequired !== false,
-      )
-    ) {
+    if (list.some((task) => task.status === "submitted")) {
       return n;
     }
     if (list.some((task) => task.status === "open")) return n;

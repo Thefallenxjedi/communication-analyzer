@@ -6,6 +6,12 @@ import {
   isConvexConfigured,
 } from "@/lib/convex-server";
 
+type ConvexClientLike = NonNullable<ReturnType<typeof getConvexHttpClient>>;
+
+function resolveClient(provided?: ConvexClientLike | null) {
+  return provided ?? getConvexHttpClient();
+}
+
 export type DiagnosisCorePromptState = {
   /** Effective text shown/edited in admin (override or code default). */
   body: string;
@@ -15,7 +21,9 @@ export type DiagnosisCorePromptState = {
   codeDefault: string;
 };
 
-export async function getDiagnosisCorePromptState(): Promise<DiagnosisCorePromptState> {
+export async function getDiagnosisCorePromptState(
+  convex?: ConvexClientLike | null,
+): Promise<DiagnosisCorePromptState> {
   const codeDefault = DIAGNOSIS_PROMPT;
   if (!isConvexConfigured()) {
     return {
@@ -25,7 +33,7 @@ export async function getDiagnosisCorePromptState(): Promise<DiagnosisCorePrompt
       codeDefault,
     };
   }
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) {
     return {
       body: codeDefault,
@@ -73,9 +81,10 @@ export async function resolveDiagnosisCorePrompt(): Promise<string> {
 
 export async function saveDiagnosisCorePrompt(
   body: string,
+  convex?: ConvexClientLike | null,
 ): Promise<{ ok: boolean; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex not configured" };
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex not configured" };
 
   try {
@@ -91,9 +100,11 @@ export async function saveDiagnosisCorePrompt(
   }
 }
 
-export async function resetDiagnosisCorePrompt(): Promise<boolean> {
+export async function resetDiagnosisCorePrompt(
+  convex?: ConvexClientLike | null,
+): Promise<boolean> {
   if (!isConvexConfigured()) return false;
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return false;
 
   try {

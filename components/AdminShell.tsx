@@ -16,6 +16,7 @@ import {
   type StaffRole,
   type StaffSession,
 } from "@/lib/staff-types";
+import { AdminHeader } from "@/components/AdminHeader";
 
 type StaffContextValue = {
   staff: StaffSession;
@@ -46,32 +47,37 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const [staff, setStaff] = useState<StaffSession | null>(null);
 
   const refresh = useCallback(async () => {
-    const res = await fetch("/api/admin/staff");
-    const data = (await res.json()) as {
-      authenticated?: boolean;
-      staffRole?: StaffRole | null;
-      email?: string;
-      name?: string;
-    };
+    try {
+      const res = await fetch("/api/admin/staff");
+      const data = (await res.json()) as {
+        authenticated?: boolean;
+        staffRole?: StaffRole | null;
+        email?: string;
+        name?: string;
+      };
 
-    if (!data.authenticated) {
+      if (!data.authenticated) {
+        setStatus("login");
+        setStaff(null);
+        return;
+      }
+
+      if (!data.staffRole) {
+        setStatus("forbidden");
+        setStaff(null);
+        return;
+      }
+
+      setStaff({
+        email: data.email ?? "",
+        name: data.name,
+        staffRole: data.staffRole,
+      });
+      setStatus("ready");
+    } catch {
       setStatus("login");
       setStaff(null);
-      return;
     }
-
-    if (!data.staffRole) {
-      setStatus("forbidden");
-      setStaff(null);
-      return;
-    }
-
-    setStaff({
-      email: data.email ?? "",
-      name: data.name,
-      staffRole: data.staffRole,
-    });
-    setStatus("ready");
   }, []);
 
   useEffect(() => {
@@ -109,5 +115,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   if (!value) return null;
 
-  return <StaffContext.Provider value={value}>{children}</StaffContext.Provider>;
+  return (
+    <StaffContext.Provider value={value}>
+      <AdminHeader />
+      {children}
+    </StaffContext.Provider>
+  );
 }

@@ -8,8 +8,10 @@
  * @module
  */
 
+import type * as adminAccess from "../adminAccess.js";
 import type * as analyses from "../analyses.js";
 import type * as auth from "../auth.js";
+import type * as clientDiagnoses from "../clientDiagnoses.js";
 import type * as coaching from "../coaching.js";
 import type * as coachingProgram from "../coachingProgram.js";
 import type * as coachingSessions from "../coachingSessions.js";
@@ -19,10 +21,13 @@ import type * as diagnosisCorePrompt from "../diagnosisCorePrompt.js";
 import type * as estimateAnalysisDuration from "../estimateAnalysisDuration.js";
 import type * as http from "../http.js";
 import type * as introCall from "../introCall.js";
+import type * as liveCalls from "../liveCalls.js";
 import type * as promptAddOns from "../promptAddOns.js";
 import type * as reports from "../reports.js";
 import type * as staff from "../staff.js";
 import type * as surveys from "../surveys.js";
+import type * as transcriptPrompts from "../transcriptPrompts.js";
+import type * as workoutCatalog from "../workoutCatalog.js";
 
 import type {
   ApiFromModules,
@@ -31,8 +36,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  adminAccess: typeof adminAccess;
   analyses: typeof analyses;
   auth: typeof auth;
+  clientDiagnoses: typeof clientDiagnoses;
   coaching: typeof coaching;
   coachingProgram: typeof coachingProgram;
   coachingSessions: typeof coachingSessions;
@@ -42,10 +49,13 @@ declare const fullApi: ApiFromModules<{
   estimateAnalysisDuration: typeof estimateAnalysisDuration;
   http: typeof http;
   introCall: typeof introCall;
+  liveCalls: typeof liveCalls;
   promptAddOns: typeof promptAddOns;
   reports: typeof reports;
   staff: typeof staff;
   surveys: typeof surveys;
+  transcriptPrompts: typeof transcriptPrompts;
+  workoutCatalog: typeof workoutCatalog;
 }>;
 
 /**

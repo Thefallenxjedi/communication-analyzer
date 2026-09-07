@@ -4,7 +4,10 @@ import {
   saveClientOnboarding,
 } from "@/lib/coaching-clients";
 import { formatConvexError, isConvexConfigured } from "@/lib/convex-server";
-import { profileFromLinkedInPdf } from "@/lib/linkedin-profile";
+import {
+  profileFromLinkedInPdf,
+  profileFromLinkedInText,
+} from "@/lib/linkedin-profile";
 import { pdfToText } from "@/lib/pdf-text";
 
 export const runtime = "nodejs";
@@ -23,7 +26,7 @@ export async function POST(request: Request) {
   }
   const row = active.client;
 
-  let body: { storageId?: string };
+  let body: { storageId?: string; profileText?: string };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -31,8 +34,12 @@ export async function POST(request: Request) {
   }
 
   const storageId = body.storageId?.trim() || "";
-  if (!storageId) {
-    return Response.json({ error: "Upload your LinkedIn PDF." }, { status: 400 });
+  const profileText = body.profileText?.trim() || "";
+  if (!storageId && !profileText) {
+    return Response.json(
+      { error: "Upload your LinkedIn PDF or paste your LinkedIn profile text." },
+      { status: 400 },
+    );
   }
 
   try {
@@ -40,32 +47,51 @@ export async function POST(request: Request) {
       return Response.json({ error: "LinkedIn is already submitted." }, { status: 400 });
     }
 
-    const fileUrl = await getCoachingStorageUrl(storageId);
-    if (!fileUrl) {
-      return Response.json({ error: "Could not read the uploaded PDF." }, { status: 400 });
-    }
-    const fileRes = await fetch(fileUrl);
-    if (!fileRes.ok) {
-      return Response.json({ error: "Could not download the PDF." }, { status: 400 });
-    }
-    const buffer = new Uint8Array(await fileRes.arrayBuffer());
-    if (buffer.byteLength > PDF_MAX_BYTES) {
-      return Response.json({ error: "PDF must be under 8 MB." }, { status: 400 });
-    }
+    let text = profileText;
+    let profile;
 
-    const text = await pdfToText(buffer);
-    const profile = await profileFromLinkedInPdf({
-      bytes: buffer,
-      text,
-      name: row.name,
-      role: row.onboardingRole || "",
-      company: row.onboardingCompany || "",
-      goal: row.onboardingGoal || "",
-    });
+    if (storageId) {
+      const fileUrl = await getCoachingStorageUrl(storageId);
+      if (!fileUrl) {
+        return Response.json(
+          { error: "Could not read the uploaded PDF." },
+          { status: 400 },
+        );
+      }
+      const fileRes = await fetch(fileUrl);
+      if (!fileRes.ok) {
+        return Response.json(
+          { error: "Could not download the PDF." },
+          { status: 400 },
+        );
+      }
+      const buffer = new Uint8Array(await fileRes.arrayBuffer());
+      if (buffer.byteLength > PDF_MAX_BYTES) {
+        return Response.json({ error: "PDF must be under 8 MB." }, { status: 400 });
+      }
+
+      text = await pdfToText(buffer);
+      profile = await profileFromLinkedInPdf({
+        bytes: buffer,
+        text,
+        name: row.name,
+        role: row.onboardingRole || "",
+        company: row.onboardingCompany || "",
+        goal: row.onboardingGoal || "",
+      });
+    } else {
+      profile = await profileFromLinkedInText({
+        text,
+        name: row.name,
+        role: row.onboardingRole || "",
+        company: row.onboardingCompany || "",
+        goal: row.onboardingGoal || "",
+      });
+    }
 
     const saved = await saveClientOnboarding({
       clientId: row.id,
-      linkedinStorageId: storageId,
+      linkedinStorageId: storageId || undefined,
       linkedinText: text,
       linkedinProfileJson: JSON.stringify(profile),
     });

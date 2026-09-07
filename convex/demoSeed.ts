@@ -1,13 +1,17 @@
 import { v } from "convex/values";
 import { anyApi } from "convex/server";
-import { action, internalMutation } from "./_generated/server";
+import { action, internalMutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { INTRO_SESSION } from "./coachingProgram";
+import { INTRO_SESSION, WORK_SESSION_COUNT } from "./coachingProgram";
 
 const SAMPLE_EMAIL = "sample@gmail.com";
 const SAMPLE_NAME = "Sample";
 const SAMPLE_FOCUS = "Sound like a VP on investor calls";
 const YOUTUBE_DEMO = "https://www.youtube.com/watch?v=jNQXAC9IVRw";
+
+/** Same call summary on every work session in the public demo. */
+const SAMPLE_SESSION_RECAP =
+  "We focused on your campfire sentence and the 90-second pre-speak. When you lead with the point, the room tracks you faster.\n\nKeep the daily 4-minute routine between calls. One clean open, one breath after the claim — do not fill the pause.";
 
 const LINKEDIN_PROFILE = {
   fullName: "Sample",
@@ -286,6 +290,73 @@ const SESSION_PLAN: SessionPlan[] = [
   },
 ];
 
+async function upsertSampleSessionRecaps(
+  ctx: MutationCtx,
+  clientId: Id<"clients">,
+  now: number,
+) {
+  // Intro + sessions 1–8 complete; session 9 still open for booking.
+  const completedSessions = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+
+  for (const sessionNumber of completedSessions) {
+    const existing = await ctx.db
+      .query("coachingSessions")
+      .withIndex("by_clientId_sessionNumber", (q) =>
+        q.eq("clientId", clientId).eq("sessionNumber", sessionNumber),
+      )
+      .unique();
+
+    const callCompletedAt = now - (9 - Math.min(sessionNumber, 8)) * 6 * 86_400_000;
+    const patch = {
+      updatedAt: now,
+      callCompletedAt,
+      ...(sessionNumber >= 1
+        ? {
+            ready: true,
+            recapSummary: SAMPLE_SESSION_RECAP,
+            recapUpdatedAt: callCompletedAt,
+          }
+        : {}),
+    };
+
+    if (existing) {
+      await ctx.db.patch(existing._id, patch);
+    } else {
+      await ctx.db.insert("coachingSessions", {
+        clientId,
+        sessionNumber,
+        ready: sessionNumber >= 1,
+        ...patch,
+      });
+    }
+  }
+
+  // Session 9: recap not yet — still bookable
+  const session9 = await ctx.db
+    .query("coachingSessions")
+    .withIndex("by_clientId_sessionNumber", (q) =>
+      q.eq("clientId", clientId).eq("sessionNumber", 9),
+    )
+    .unique();
+  if (session9) {
+    await ctx.db.patch(session9._id, {
+      ready: true,
+      recapSummary: SAMPLE_SESSION_RECAP,
+      recapUpdatedAt: now,
+      updatedAt: now,
+    });
+  } else {
+    await ctx.db.insert("coachingSessions", {
+      clientId,
+      sessionNumber: 9,
+      ready: true,
+      recapSummary: SAMPLE_SESSION_RECAP,
+      recapUpdatedAt: now,
+      updatedAt: now,
+    });
+  }
+}
+
 export const seedSampleClient = action({
   args: {},
   handler: async (ctx) => {
@@ -521,11 +592,40 @@ export const applySampleClient = internalMutation({
       updatedAt: daysAgo(2),
     });
 
+    await upsertSampleSessionRecaps(ctx, clientId, now);
+
     return {
       ok: true as const,
       email: SAMPLE_EMAIL,
       name: SAMPLE_NAME,
       clientId,
     };
+  },
+});
+
+export const applySampleSessionRecaps = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", SAMPLE_EMAIL))
+      .unique();
+    if (!user) return { ok: false as const, reason: "no_sample" as const };
+
+    const client = await ctx.db
+      .query("clients")
+      .withIndex("by_userId", (q) => q.eq("userId", user._id))
+      .unique();
+    if (!client) return { ok: false as const, reason: "no_client" as const };
+
+    await upsertSampleSessionRecaps(ctx, client._id, Date.now());
+    return { ok: true as const };
+  },
+});
+
+export const ensureSampleSessionRecaps = action({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.runMutation(anyApi.demoSeed.applySampleSessionRecaps, {});
   },
 });

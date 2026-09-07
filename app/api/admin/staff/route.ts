@@ -31,7 +31,12 @@ export async function GET(request: Request) {
     }
 
     const team = await client.query(staffApi.listStaff, {});
-    return Response.json({ ...data, team });
+    return Response.json({
+      ...data,
+      team: [...team.members, ...team.pending],
+      teamMembers: team.members,
+      teamPending: team.pending,
+    });
   } catch (err) {
     return Response.json(
       { error: formatConvexError(err), authenticated: false },

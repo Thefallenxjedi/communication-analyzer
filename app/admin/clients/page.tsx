@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
-import { AdminHeader } from "@/components/AdminHeader";
+import { AdminReadOnly, ViewerReadOnlyBanner } from "@/components/AdminReadOnly";
 import { useAdminStaff } from "@/components/AdminShell";
 import type { CoachingClient, CoachingClientStatus } from "@/lib/coaching-clients";
+import { isSampleClientEmail } from "@/lib/sample-client";
 
 const adminUi = {
   brand: "text-teal-700",
@@ -47,6 +48,22 @@ function statusClass(status: CoachingClientStatus): string {
   return "bg-slate-100 text-slate-700";
 }
 
+async function readApiJson<T>(res: Response): Promise<T> {
+  const text = await res.text();
+  if (!text.trim()) {
+    throw new Error(
+      res.ok
+        ? "Empty response from the server."
+        : `Request failed (${res.status}).`,
+    );
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error("Server returned an invalid response. Try again.");
+  }
+}
+
 export default function AdminClientsPage() {
   const { canEdit } = useAdminStaff();
   const [busy, setBusy] = useState(false);
@@ -60,6 +77,7 @@ export default function AdminClientsPage() {
   const [currentFocus, setCurrentFocus] = useState("");
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState("");
+  const [createNotice, setCreateNotice] = useState("");
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editFocus, setEditFocus] = useState("");
@@ -74,13 +92,13 @@ export default function AdminClientsPage() {
     try {
       const res = await fetch("/api/admin/clients");
       const pendingRes = await fetch("/api/admin/clients/pending");
-      const data = (await res.json()) as {
+      const data = await readApiJson<{
         error?: string;
         clients?: CoachingClient[];
-      };
-      const pendingData = (await pendingRes.json()) as {
+      }>(res);
+      const pendingData = await readApiJson<{
         clients?: CoachingClient[];
-      };
+      }>(pendingRes);
       if (!res.ok) {
         throw new Error(data.error || "Could not load clients.");
       }
@@ -101,6 +119,7 @@ export default function AdminClientsPage() {
     e.preventDefault();
     setCreateBusy(true);
     setCreateError("");
+    setCreateNotice("");
     try {
       const res = await fetch("/api/admin/clients", {
         method: "POST",
@@ -111,10 +130,17 @@ export default function AdminClientsPage() {
           email: email.trim(),
           startDate,
           currentFocus: currentFocus.trim()})});
-      const data = (await res.json()) as {
+      const data = await readApiJson<{
         error?: string;
         clients?: CoachingClient[];
-      };
+        alreadyExisted?: boolean;
+        invite?: {
+          configured?: boolean;
+          sent?: boolean;
+          enrolled?: boolean;
+          error?: string;
+        };
+      }>(res);
       if (!res.ok) {
         throw new Error(data.error || "Could not create client.");
       }
@@ -123,6 +149,26 @@ export default function AdminClientsPage() {
       setEmail("");
       setStartDate(todayInputValue());
       setCurrentFocus("");
+      const saved = data.alreadyExisted
+        ? "They already have platform access."
+        : "They now have platform access.";
+      if (data.invite?.sent) {
+        setCreateNotice(
+          `${saved} Welcome email sent. They can sign in at /client/login with that Google account.`,
+        );
+      } else if (data.invite?.error) {
+        setCreateNotice(
+          `${saved} Email failed (${data.invite.error}). Share https://app.elitespeakprogram.com/client/login — they do not need the email to get in.`,
+        );
+      } else if (!data.invite?.configured) {
+        setCreateNotice(
+          `${saved} Email is not configured. Share https://app.elitespeakprogram.com/client/login.`,
+        );
+      } else {
+        setCreateNotice(
+          `${saved} Share https://app.elitespeakprogram.com/client/login.`,
+        );
+      }
     } catch (err) {
       setCreateError(err instanceof Error ? err.message : "Create failed.");
     } finally {
@@ -177,9 +223,17 @@ export default function AdminClientsPage() {
         headers: {
           "content-type": "application/json"},
         body: JSON.stringify({ clientId: id })});
-      const data = (await res.json()) as { error?: string };
+      const data = (await res.json()) as {
+        error?: string;
+        invite?: { sent?: boolean; error?: string };
+      };
       if (!res.ok) {
         throw new Error(data.error || "Could not approve client.");
+      }
+      if (data.invite?.error) {
+        setError(
+          `${clientName} is approved. Welcome email did not send: ${data.invite.error}`,
+        );
       }
       setPendingClients((prev) => prev.filter((row) => row.id !== id));
       await load();
@@ -219,7 +273,6 @@ export default function AdminClientsPage() {
   return (
     <div className="app-shell">
       <main className="mx-auto w-full max-w-[90rem] px-4 py-10 lg:px-8">
-        <AdminHeader />
         <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
@@ -231,6 +284,12 @@ export default function AdminClientsPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
+            <Link
+              href="/client/demo"
+              className={`text-sm font-semibold ${adminUi.link} hover:underline`}
+            >
+              View sample demo
+            </Link>
             <Link
               href="/client/login"
               className={`text-sm font-semibold ${adminUi.link} hover:underline`}
@@ -247,6 +306,8 @@ export default function AdminClientsPage() {
         </div>
 
         <div className="mt-8 space-y-8">
+            <ViewerReadOnlyBanner canEdit={canEdit} />
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-muted">
                 {clients.length}{" "}
@@ -267,6 +328,7 @@ export default function AdminClientsPage() {
             ) : null}
 
             {pendingClients.length > 0 ? (
+              <AdminReadOnly canEdit={canEdit}>
               <section className="card-surface space-y-4 p-5 sm:p-6">
                 <div>
                   <h2 className="text-lg font-extrabold tracking-tight">
@@ -299,8 +361,10 @@ export default function AdminClientsPage() {
                   ))}
                 </ul>
               </section>
+              </AdminReadOnly>
             ) : null}
 
+            <AdminReadOnly canEdit={canEdit}>
             <form
               onSubmit={(e) => void onCreate(e)}
               className="card-surface space-y-4 p-5 sm:p-6"
@@ -309,8 +373,9 @@ export default function AdminClientsPage() {
                 Add client
               </h2>
               <p className="text-base text-muted">
-                Creates their coaching record. Login invites come in the next
-                slice.
+                Saves their access first. The welcome email is extra — if it
+                fails they can still sign in at /client/login with this Google
+                email.
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block text-base font-semibold">
@@ -360,6 +425,9 @@ export default function AdminClientsPage() {
               {createError ? (
                 <p className={`text-sm ${adminUi.dangerText}`}>{createError}</p>
               ) : null}
+              {createNotice ? (
+                <p className="text-sm text-muted">{createNotice}</p>
+              ) : null}
               <button
                 type="submit"
                 disabled={createBusy || !name.trim() || !email.trim()}
@@ -368,6 +436,7 @@ export default function AdminClientsPage() {
                 {createBusy ? "Saving…" : "Add client"}
               </button>
             </form>
+            </AdminReadOnly>
 
             <div className="card-surface overflow-x-auto">
               <table className="min-w-full text-left text-base">
@@ -393,17 +462,41 @@ export default function AdminClientsPage() {
                       </td>
                     </tr>
                   ) : (
-                    clients.map((row) => {
+                    [...clients]
+                      .sort((a, b) => {
+                        const aSample = isSampleClientEmail(a.email);
+                        const bSample = isSampleClientEmail(b.email);
+                        if (aSample && !bSample) return -1;
+                        if (!aSample && bSample) return 1;
+                        return 0;
+                      })
+                      .map((row) => {
                       const editing = editingId === row.id;
                       const rowBusy = rowBusyId === row.id;
+                      const sampleRow = isSampleClientEmail(row.email);
                       return (
                         <tr
                           key={row.id}
                           className="border-t border-border align-top"
                         >
                           <td className="px-3 py-3.5">
-                            <p className="text-lg font-bold">{row.name}</p>
+                            <p className="text-lg font-bold">
+                              {row.name}
+                              {sampleRow ? (
+                                <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-amber-900">
+                                  Sample demo
+                                </span>
+                              ) : null}
+                            </p>
                             <p className="mt-0.5 text-sm text-muted">{row.email}</p>
+                            {sampleRow ? (
+                              <Link
+                                href="/client/demo"
+                                className={`mt-1 inline-block text-sm font-semibold ${adminUi.link}`}
+                              >
+                                Open public demo →
+                              </Link>
+                            ) : null}
                           </td>
                           <td className="px-3 py-3">
                             {editing ? (
@@ -464,6 +557,13 @@ export default function AdminClientsPage() {
                           </td>
                           <td className="px-3 py-3 text-right">
                             <div className="flex flex-wrap items-center justify-end gap-3">
+                              <Link
+                                href={`/admin/clients/${row.id}`}
+                                className="inline-flex min-h-11 items-center rounded-full bg-teal-600 px-5 text-base font-bold text-white no-underline hover:bg-teal-700"
+                              >
+                                Open
+                              </Link>
+                              <AdminReadOnly canEdit={canEdit} className="inline-flex flex-wrap items-center gap-3">
                               {editing ? (
                                 <>
                                   <button
@@ -484,31 +584,24 @@ export default function AdminClientsPage() {
                                   </button>
                                 </>
                               ) : (
-                                <>
-                                  <Link
-                                    href={`/admin/clients/${row.id}`}
-                                    className="inline-flex min-h-11 items-center rounded-full bg-teal-600 px-5 text-base font-bold text-white no-underline hover:bg-teal-700"
-                                  >
-                                    Open
-                                  </Link>
-                                  <button
-                                    type="button"
-                                    disabled={rowBusy}
-                                    onClick={() => startEdit(row)}
-                                    className="text-base font-semibold text-slate-600 hover:text-slate-900"
-                                  >
-                                    Edit
-                                  </button>
-                                </>
+                                <button
+                                  type="button"
+                                  disabled={rowBusy}
+                                  onClick={() => startEdit(row)}
+                                  className="text-base font-semibold text-slate-600 hover:text-slate-900"
+                                >
+                                  Edit
+                                </button>
                               )}
                               <button
                                 type="button"
-                                disabled={rowBusy}
+                                disabled={rowBusy || sampleRow}
                                 onClick={() => void onDelete(row.id, row.name)}
-                                className={`ml-1 text-base font-semibold ${adminUi.dangerBtn}`}
+                                className={`text-base font-semibold ${adminUi.dangerBtn} disabled:opacity-40`}
                               >
                                 Remove
                               </button>
+                              </AdminReadOnly>
                             </div>
                           </td>
                         </tr>

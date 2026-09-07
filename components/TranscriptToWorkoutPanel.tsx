@@ -18,9 +18,10 @@ type DraftTask = GeneratedWorkoutTask & { key: string };
 function emptyTask(): DraftTask {
   return {
     key: `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    exerciseId: "pre-speak-routine",
+    exerciseId: "p01-e1-i-believe-that",
     title: "",
     instructions: "",
+    example: "",
     recordingRequired: false,
     reviewRequired: false};
 }
@@ -66,6 +67,90 @@ function StatusBanner({
   );
 }
 
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        aria-label="What this does"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-teal-200 bg-white text-teal-800 shadow-sm transition hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+      >
+        <span className="text-sm font-extrabold">i</span>
+      </button>
+      <span className="pointer-events-none invisible absolute right-0 top-10 z-20 w-72 rounded-2xl border border-slate-200 bg-slate-950 px-3.5 py-3 text-xs font-medium leading-relaxed text-white opacity-0 shadow-xl transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+        {text}
+      </span>
+    </span>
+  );
+}
+
+function RequirementToggles({
+  recordingRequired,
+  reviewRequired,
+  video,
+  disabled,
+  onRecordingRequired,
+  onReviewRequired,
+}: {
+  recordingRequired: boolean;
+  reviewRequired: boolean;
+  video: boolean;
+  disabled?: boolean;
+  onRecordingRequired: (value: boolean) => void;
+  onReviewRequired: (value: boolean) => void;
+}) {
+  const recordHint = video
+    ? "Client pastes a Drive or YouTube link."
+    : "Client records audio in the app.";
+
+  return (
+    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+      <label className="rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm">
+        <span className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={recordingRequired}
+            disabled={disabled}
+            onChange={(e) => onRecordingRequired(e.target.checked)}
+            className="mt-1 h-4 w-4 accent-slate-900"
+          />
+          <span>
+            <span className="block font-extrabold text-slate-900">
+              Audio required
+            </span>
+            <span className="mt-1 block text-muted">
+              {recordingRequired
+                ? recordHint
+                : "Written task only. No recording required."}
+            </span>
+          </span>
+        </span>
+      </label>
+      <label className="rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm">
+        <span className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={reviewRequired}
+            disabled={disabled}
+            onChange={(e) => onReviewRequired(e.target.checked)}
+            className="mt-1 h-4 w-4 accent-slate-900"
+          />
+          <span>
+            <span className="block font-extrabold text-slate-900">
+              Coach review required
+            </span>
+            <span className="mt-1 block text-muted">
+              {reviewRequired
+                ? "Admin will review after submission."
+                : "Client can complete it without review."}
+            </span>
+          </span>
+        </span>
+      </label>
+    </div>
+  );
+}
+
 export function TranscriptToWorkoutPanel({
   clientId,
   targetSessionNumber,
@@ -93,6 +178,7 @@ export function TranscriptToWorkoutPanel({
   const [recapDraft, setRecapDraft] = useState("");
   const [showRecapEditor, setShowRecapEditor] = useState(false);
   const [draftTasks, setDraftTasks] = useState<DraftTask[]>([]);
+  const [expandedDraftTaskKeys, setExpandedDraftTaskKeys] = useState<string[]>([]);
   const [workspaceRecap, setWorkspaceRecap] = useState<SessionRecap | null>(null);
   const [summarySavedMsg, setSummarySavedMsg] = useState("");
   const [tasksSavedMsg, setTasksSavedMsg] = useState("");
@@ -133,6 +219,7 @@ export function TranscriptToWorkoutPanel({
     setShowRecapEditor(false);
     setRecapDraft("");
     setDraftTasks([]);
+    setExpandedDraftTaskKeys([]);
   }, [targetSessionNumber]);
 
   useEffect(() => {
@@ -251,6 +338,7 @@ export function TranscriptToWorkoutPanel({
           ...task,
           key: `t-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`})),
       );
+      setExpandedDraftTaskKeys([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generate failed.");
     } finally {
@@ -297,6 +385,7 @@ export function TranscriptToWorkoutPanel({
 
       await onSaved(lastData);
       setDraftTasks([]);
+      setExpandedDraftTaskKeys([]);
       setTasksSavedMsg(
         `Tasks added to ${sessionLabel(targetSession)}.`,
       );
@@ -314,17 +403,62 @@ export function TranscriptToWorkoutPanel({
   const hasStoredTranscript = Boolean(workspaceRecap?.sourceTranscript?.trim());
   const recapGenerated = showRecapEditor && recapDraft.trim().length > 0;
   const tasksGenerated = draftTasks.length > 0;
+  const readOnly = !canEdit;
 
   return (
-    <div className="mt-6 space-y-4 rounded-2xl border border-teal-200 bg-teal-50/40 p-4">
-      <div>
-        <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-teal-800">
-          Transcript → workout
-        </p>
-        <p className="mt-1 text-sm text-muted">
-          Paste the call transcript below. Create a client-visible summary for one
-          session and lesson tasks for another — separately.
-        </p>
+    <div className="mt-6 space-y-4 rounded-[1.6rem] border-2 border-teal-200 bg-gradient-to-br from-teal-50 via-white to-slate-50 p-4 shadow-[0_18px_44px_-28px_rgba(15,118,110,0.45)]">
+      <div className="rounded-[1.35rem] border border-teal-100 bg-white/95 p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-teal-100 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-teal-800">
+                AI workflow
+              </span>
+              <span className="rounded-full border border-teal-100 bg-teal-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-teal-700">
+                Coach tool
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <p className="text-base font-extrabold uppercase tracking-[0.18em] text-slate-900 sm:text-lg">
+                Transcript → workout
+              </p>
+              <InfoTooltip text="Turns one call transcript into two coach assets: a client-visible session summary for the source session and draft lesson tasks for the target session. Nothing is saved until you review and confirm it." />
+            </div>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
+              Turn one transcript into a polished client summary and draft follow-up tasks for the next session.
+            </p>
+          </div>
+          <div className="grid min-w-[13rem] gap-2 sm:w-auto sm:grid-cols-2">
+            <div className="rounded-2xl border border-teal-100 bg-teal-50/70 px-3.5 py-3">
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-teal-800">
+                1. Summary
+              </p>
+              <p className="mt-1 text-sm font-semibold text-slate-700">
+                Create the client-facing recap.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-3">
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-slate-700">
+                2. Tasks
+              </p>
+              <p className="mt-1 text-sm font-semibold text-slate-700">
+                Draft lesson tasks for the next session.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-600">
+          <span className="rounded-full bg-slate-100 px-2.5 py-1">
+            Uses saved recap when available
+          </span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1">
+            Review before saving
+          </span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1">
+            No auto-save
+          </span>
+        </div>
       </div>
 
       {workspaceRecap?.recapSummary && !showRecapEditor ? (
@@ -352,6 +486,12 @@ export function TranscriptToWorkoutPanel({
         </div>
       ) : null}
 
+      {readOnly ? (
+        <StatusBanner tone="info">
+          View-only mode. Editors and admins can run transcript generation and save results.
+        </StatusBanner>
+      ) : null}
+
       <label className="block text-sm font-semibold">
         Google Meet transcript
         {hasStoredTranscript ? (
@@ -363,8 +503,9 @@ export function TranscriptToWorkoutPanel({
           value={transcript}
           onChange={(e) => setTranscript(e.target.value)}
           rows={6}
+          disabled={readOnly}
           placeholder="Paste transcript here…"
-          className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-3 text-base outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20"
+          className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-3 text-base outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
         />
       </label>
 
@@ -374,7 +515,8 @@ export function TranscriptToWorkoutPanel({
           <select
             value={sourceSession}
             onChange={(e) => setSourceSession(Number(e.target.value))}
-            className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-3 text-base"
+            disabled={readOnly}
+            className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-3 text-base disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
           >
             {PROGRAM_SLOTS.filter((n) => n >= 1 && n < FINAL_SESSION).map((n) => (
               <option key={n} value={n}>
@@ -388,7 +530,8 @@ export function TranscriptToWorkoutPanel({
           <select
             value={targetSession}
             onChange={(e) => setTargetSession(Number(e.target.value))}
-            className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-3 text-base"
+            disabled={readOnly}
+            className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-3 text-base disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
           >
             {PROGRAM_SLOTS.filter((n) => n >= 1 && n !== INTRO_SESSION).map((n) => (
               <option key={n} value={n}>
@@ -402,7 +545,7 @@ export function TranscriptToWorkoutPanel({
       <div className="flex flex-wrap gap-3">
         <button
           type="button"
-          disabled={generatingRecap || !transcript.trim()}
+          disabled={readOnly || generatingRecap || !transcript.trim()}
           onClick={() => void onCreateSummary()}
           className="inline-flex min-h-11 items-center justify-center rounded-full bg-teal-700 px-5 text-sm font-bold text-white disabled:opacity-55"
         >
@@ -414,7 +557,7 @@ export function TranscriptToWorkoutPanel({
         </button>
         <button
           type="button"
-          disabled={generatingTasks || !transcript.trim()}
+          disabled={readOnly || generatingTasks || !transcript.trim()}
           onClick={() => void onGenerateTasks()}
           className="inline-flex min-h-11 items-center justify-center rounded-full border border-teal-700 bg-white px-5 text-sm font-bold text-teal-800 disabled:opacity-55"
         >
@@ -442,12 +585,13 @@ export function TranscriptToWorkoutPanel({
             value={recapDraft}
             onChange={(e) => setRecapDraft(e.target.value)}
             rows={6}
-            className="w-full rounded-xl border border-border px-3.5 py-3 text-base"
+            disabled={readOnly}
+            className="w-full rounded-xl border border-border px-3.5 py-3 text-base disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
           />
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              disabled={savingRecap}
+              disabled={readOnly || savingRecap}
               onClick={() => void onSaveSummary()}
               className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-900 px-5 text-sm font-bold text-white disabled:opacity-55"
             >
@@ -477,64 +621,133 @@ export function TranscriptToWorkoutPanel({
             Tasks generated for {sessionLabel(targetSession)}.
           </StatusBanner>
           <div className="space-y-4 pt-1">
-            {draftTasks.map((task, i) => (
-              <div
-                key={task.key}
-                className="rounded-xl border border-slate-200 bg-slate-50/60 p-4"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-extrabold text-slate-900">
-                    Task {i + 1}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setDraftTasks((prev) => prev.filter((_, j) => j !== i))
-                    }
-                    className="text-sm font-semibold text-rose-700"
-                  >
-                    Remove
-                  </button>
+            {draftTasks.map((task, i) => {
+              const expanded = expandedDraftTaskKeys.includes(task.key);
+              return (
+                <div
+                  key={task.key}
+                  className="rounded-xl border border-slate-200 bg-slate-50/60 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setExpandedDraftTaskKeys((prev) =>
+                          prev.includes(task.key)
+                            ? prev.filter((key) => key !== task.key)
+                            : [...prev, task.key],
+                        )
+                      }
+                      className="flex min-w-0 flex-1 items-start justify-between gap-3 text-left"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-extrabold text-slate-900">
+                          Task {i + 1}
+                        </p>
+                        <p className="mt-1 truncate text-sm font-semibold text-slate-600">
+                          {task.title.trim() || "Untitled task"}
+                        </p>
+                      </div>
+                      <span className="text-2xl leading-none text-slate-500">
+                        {expanded ? "−" : "+"}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={readOnly}
+                      onClick={() => {
+                        setDraftTasks((prev) => prev.filter((_, j) => j !== i));
+                        setExpandedDraftTaskKeys((prev) =>
+                          prev.filter((key) => key !== task.key),
+                        );
+                      }}
+                      className="text-sm font-semibold text-rose-700 disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                    <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-slate-700">
+                      Exercise: {task.exerciseId}
+                    </span>
+                    <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-slate-700">
+                      Audio required: {task.recordingRequired ? "Yes" : "No"}
+                    </span>
+                    <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-slate-700">
+                      Coach review: {task.reviewRequired ? "Yes" : "No"}
+                    </span>
+                  </div>
+                  {expanded ? (
+                    <>
+                      <input
+                        value={task.title}
+                        onChange={(e) =>
+                          setDraftTasks((prev) => {
+                            const next = [...prev];
+                            next[i] = { ...task, title: e.target.value };
+                            return next;
+                          })
+                        }
+                        disabled={readOnly}
+                        placeholder="Task title"
+                        className="mt-3 w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-base disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                      />
+                      <textarea
+                        value={task.instructions}
+                        onChange={(e) =>
+                          setDraftTasks((prev) => {
+                            const next = [...prev];
+                            next[i] = { ...task, instructions: e.target.value };
+                            return next;
+                          })
+                        }
+                        rows={5}
+                        disabled={readOnly}
+                        placeholder="Instructions"
+                        className="mt-2 w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-base disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                      />
+                      <RequirementToggles
+                        recordingRequired={task.recordingRequired}
+                        reviewRequired={task.reviewRequired}
+                        video={targetSession === INTRO_SESSION}
+                        disabled={readOnly}
+                        onRecordingRequired={(value) =>
+                          setDraftTasks((prev) => {
+                            const next = [...prev];
+                            next[i] = { ...task, recordingRequired: value };
+                            return next;
+                          })
+                        }
+                        onReviewRequired={(value) =>
+                          setDraftTasks((prev) => {
+                            const next = [...prev];
+                            next[i] = { ...task, reviewRequired: value };
+                            return next;
+                          })
+                        }
+                      />
+                    </>
+                  ) : null}
                 </div>
-                <input
-                  value={task.title}
-                  onChange={(e) =>
-                    setDraftTasks((prev) => {
-                      const next = [...prev];
-                      next[i] = { ...task, title: e.target.value };
-                      return next;
-                    })
-                  }
-                  placeholder="Task title"
-                  className="mt-2 w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-base"
-                />
-                <textarea
-                  value={task.instructions}
-                  onChange={(e) =>
-                    setDraftTasks((prev) => {
-                      const next = [...prev];
-                      next[i] = { ...task, instructions: e.target.value };
-                      return next;
-                    })
-                  }
-                  rows={5}
-                  placeholder="Instructions"
-                  className="mt-2 w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-base"
-                />
-              </div>
-            ))}
+              );
+            })}
           </div>
           <button
             type="button"
-            onClick={() => setDraftTasks((prev) => [...prev, emptyTask()])}
-            className="text-sm font-semibold text-teal-800"
+            disabled={readOnly}
+            onClick={() => {
+              const nextTask = emptyTask();
+              setDraftTasks((prev) => [...prev, nextTask]);
+              setExpandedDraftTaskKeys((prev) => [...prev, nextTask.key]);
+            }}
+            className="text-sm font-semibold text-teal-800 disabled:opacity-50"
           >
             + Add task
           </button>
           <div className="flex flex-wrap gap-2 pt-1">
             <button
               type="button"
-              disabled={savingTasks}
+              disabled={readOnly || savingTasks}
               onClick={() => void onAddTasks()}
               className="inline-flex min-h-10 items-center justify-center rounded-full bg-slate-900 px-5 text-sm font-bold text-white disabled:opacity-55"
             >
@@ -544,7 +757,10 @@ export function TranscriptToWorkoutPanel({
             </button>
             <button
               type="button"
-              onClick={() => setDraftTasks([])}
+              onClick={() => {
+                setDraftTasks([]);
+                setExpandedDraftTaskKeys([]);
+              }}
               className="text-sm font-semibold text-muted"
             >
               Cancel

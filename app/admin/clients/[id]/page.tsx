@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { IntroCallView } from "@/components/IntroCallView";
-import { AdminHeader } from "@/components/AdminHeader";
+import { AdminReadOnly, ViewerReadOnlyBanner } from "@/components/AdminReadOnly";
 import { useAdminStaff } from "@/components/AdminShell";
 import { TranscriptToWorkoutPanel } from "@/components/TranscriptToWorkoutPanel";
 import type { CoachingClient } from "@/lib/coaching-clients";
@@ -21,14 +21,11 @@ import {
   sessionMilestoneLine} from "@/lib/coaching-program";
 import type { CoachingSessionSlot } from "@/lib/coaching-sessions";
 import {
-  isTaskLocked,
   isTaskFinished,
   needsCoachReview,
-  taskResponseKind,
   taskStatusLabel,
   usesVideoLink,
-  type CoachingTask,
-  type TaskResponseKind} from "@/lib/coaching-tasks";
+  type CoachingTask} from "@/lib/coaching-tasks";
 import { videoShareKind } from "@/lib/google-drive";
 import {
   emptyIntroCall,
@@ -215,45 +212,61 @@ function AdminLinkedInDrawer({
   );
 }
 
-function ResponseTypeField({
-  kind,
-  onChange,
+function TaskRequirementsField({
+  recordingRequired,
+  onRecordingRequired,
+  reviewRequired,
+  onReviewRequired,
   video}: {
-  kind: TaskResponseKind;
-  onChange: (kind: TaskResponseKind) => void;
+  recordingRequired: boolean;
+  onRecordingRequired: (value: boolean) => void;
+  reviewRequired: boolean;
+  onReviewRequired: (value: boolean) => void;
   video: boolean;
 }) {
   const recordHint = video
     ? "Client pastes a Drive or YouTube link."
     : "Client records audio in the app.";
-  const selected =
-    "rounded-xl border-2 border-slate-900 bg-slate-50 px-4 py-3.5 text-left";
-  const idle =
-    "rounded-xl border border-border bg-white px-4 py-3.5 text-left hover:bg-slate-50";
   return (
     <fieldset>
-      <legend className="text-base font-semibold">Task type</legend>
-      <div className="mt-2 grid grid-cols-2 gap-3">
-        <button
-          type="button"
-          onClick={() => onChange("record")}
-          className={kind === "record" ? selected : idle}
-        >
-          <span className="block text-base font-extrabold">Record audio</span>
-          <span className="mt-1 block text-sm font-normal text-muted">
-            {recordHint}
+      <legend className="text-base font-semibold">Task requirements</legend>
+      <div className="mt-3 space-y-3 rounded-xl border border-border bg-slate-50/60 px-4 py-4">
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            checked={recordingRequired}
+            onChange={(e) => onRecordingRequired(e.target.checked)}
+            className="mt-1 h-4 w-4 accent-slate-900"
+          />
+          <span>
+            <span className="block font-extrabold text-slate-900">
+              Audio required
+            </span>
+            <span className="mt-1 block text-muted">
+              {recordingRequired
+                ? recordHint
+                : "Client does written practice only. No recording required."}
+            </span>
           </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange("lesson")}
-          className={kind === "lesson" ? selected : idle}
-        >
-          <span className="block text-base font-extrabold">Self lesson</span>
-          <span className="mt-1 block text-sm font-normal text-muted">
-            Written work. Client marks complete. No recording.
+        </label>
+        <label className="flex items-start gap-3 text-sm">
+          <input
+            type="checkbox"
+            checked={reviewRequired}
+            onChange={(e) => onReviewRequired(e.target.checked)}
+            className="mt-1 h-4 w-4 accent-slate-900"
+          />
+          <span>
+            <span className="block font-extrabold text-slate-900">
+              Coach review required
+            </span>
+            <span className="mt-1 block text-muted">
+              {reviewRequired
+                ? "Admin will review this task after the client submits it."
+                : "Client can complete it without a coach review step."}
+            </span>
           </span>
-        </button>
+        </label>
       </div>
     </fieldset>
   );
@@ -354,15 +367,18 @@ export default function AdminClientDetailPage() {
 
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [responseKind, setResponseKind] = useState<TaskResponseKind>("record");
+  const [recordingRequired, setRecordingRequired] = useState(false);
+  const [reviewRequired, setReviewRequired] = useState(false);
 
   const [rateId, setRateId] = useState<string | null>(null);
   const [rating, setRating] = useState("8");
   const [comment, setComment] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null | undefined>();
   const [editTitle, setEditTitle] = useState("");
   const [editInstructions, setEditInstructions] = useState("");
-  const [editKind, setEditKind] = useState<TaskResponseKind>("record");
+  const [editRecordingRequired, setEditRecordingRequired] = useState(false);
+  const [editReviewRequired, setEditReviewRequired] = useState(false);
 
   const load = useCallback(async () => {
       setBusy(true);
@@ -471,8 +487,8 @@ export default function AdminClientDetailPage() {
           sessionNumber: assignSession ?? 1,
           title: title.trim(),
           instructions: instructions.trim(),
-          recordingRequired: responseKind === "record",
-          reviewRequired: responseKind === "record"})});
+          recordingRequired,
+          reviewRequired})});
       const data = (await res.json()) as {
         error?: string;
         tasks?: CoachingTask[];
@@ -482,6 +498,8 @@ export default function AdminClientDetailPage() {
       await refreshTasks(data);
       setTitle("");
       setInstructions("");
+      setRecordingRequired(false);
+      setReviewRequired(false);
       setAssignSession(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Assign failed.");
@@ -536,8 +554,8 @@ export default function AdminClientDetailPage() {
           clientId,
           title: editTitle.trim(),
           instructions: editInstructions.trim(),
-          recordingRequired: editKind === "record",
-          reviewRequired: editKind === "record"})});
+          recordingRequired: editRecordingRequired,
+          reviewRequired: editReviewRequired})});
       const data = (await res.json()) as {
         error?: string;
         tasks?: CoachingTask[];
@@ -577,12 +595,15 @@ export default function AdminClientDetailPage() {
   }
 
   async function onDelete(id: string) {
-    if (!window.confirm("Remove this open task?")) return;
+    if (!window.confirm("Remove this task? This also deletes any submission.")) return;
     setBusy(true);
     setError("");
     try {
       const res = await fetch(
         `/api/admin/tasks?id=${encodeURIComponent(id)}&clientId=${encodeURIComponent(clientId)}`,
+        {
+          method: "DELETE",
+        },
       );
       const data = (await res.json()) as {
         error?: string;
@@ -672,9 +693,10 @@ export default function AdminClientDetailPage() {
   const row = client;
   const here = parseCurrentStage(row.currentStage);
 
-  function renderTask(task: CoachingTask, sessionLocked: boolean) {
-    const lesson = taskResponseKind(task) === "lesson";
+  function renderTask(task: CoachingTask, sessionLocked: boolean, open = true) {
+    const lesson = !task.recordingRequired;
     const finished = isTaskFinished(task.status);
+    const needsFeedback = task.recordingRequired || needsCoachReview(task);
     const kindLabel =
       lesson
         ? "Self lesson"
@@ -692,9 +714,28 @@ export default function AdminClientDetailPage() {
       <article key={task.id} className="rounded-2xl border border-border bg-white p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h3 className="text-lg font-extrabold text-slate-900">{task.title}</h3>
+            <button
+              type="button"
+              onClick={() =>
+                setExpandedTaskId((current) => (current === task.id ? null : task.id))
+              }
+              className="flex w-full items-start justify-between gap-3 text-left"
+            >
+              <span className="min-w-0">
+                <h3 className="text-base font-extrabold text-slate-900">{task.title}</h3>
+              </span>
+              <span className="pt-0.5 text-2xl leading-none text-slate-500">
+                {open ? "−" : "+"}
+              </span>
+            </button>
             <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
               <span className="text-muted">{kindLabel}</span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 font-semibold text-slate-700">
+                Audio required: {task.recordingRequired ? "Yes" : "No"}
+              </span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 font-semibold text-slate-700">
+                Coach review: {task.reviewRequired ? "Yes" : "No"}
+              </span>
               <span
                 className={
                   finished
@@ -707,6 +748,7 @@ export default function AdminClientDetailPage() {
             </p>
           </div>
           {editId === task.id ? null : (
+            <AdminReadOnly canEdit={canEdit} className="flex shrink-0 flex-wrap gap-2">
             <div className="flex shrink-0 flex-wrap gap-2">
               <button
                 type="button"
@@ -714,15 +756,14 @@ export default function AdminClientDetailPage() {
                   setEditId(task.id);
                   setEditTitle(task.title);
                   setEditInstructions(task.instructions);
-                  setEditKind(taskResponseKind(task));
+                  setEditRecordingRequired(task.recordingRequired);
+                  setEditReviewRequired(task.reviewRequired);
                 }}
                 className={adminUi.btnGhost}
               >
                 Edit
               </button>
-              {needsCoachReview(task) &&
-              task.status === "open" &&
-              !task.recordingRequired ? (
+              {task.status === "open" && !task.recordingRequired ? (
                 <button
                   type="button"
                   disabled={busy}
@@ -732,25 +773,25 @@ export default function AdminClientDetailPage() {
                   Mark complete
                 </button>
               ) : null}
-              {!isTaskLocked(task.status) ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void onDelete(task.id)}
-                  className={adminUi.btnDanger}
-                >
-                  Remove
-                </button>
-              ) : null}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void onDelete(task.id)}
+                className={adminUi.btnDanger}
+              >
+                Remove
+              </button>
             </div>
+            </AdminReadOnly>
           )}
         </div>
-        {finished ? (
+        {open && finished ? (
           <p className="mt-3 text-base font-semibold text-slate-700">
             This task has been completed.
           </p>
         ) : null}
-        {editId === task.id ? (
+        {open && editId === task.id ? (
+          <AdminReadOnly canEdit={canEdit}>
           <form onSubmit={(e) => void onSaveTaskEdit(e)} className="mt-3 space-y-3">
             <input
               type="text"
@@ -766,9 +807,11 @@ export default function AdminClientDetailPage() {
               className={`${adminUi.field} ${adminUi.focus}`}
               required
             />
-            <ResponseTypeField
-              kind={editKind}
-              onChange={setEditKind}
+            <TaskRequirementsField
+              recordingRequired={editRecordingRequired}
+              onRecordingRequired={setEditRecordingRequired}
+              reviewRequired={editReviewRequired}
+              onReviewRequired={setEditReviewRequired}
               video={usesVideoLink(task)}
             />
             <div className="flex gap-2">
@@ -784,12 +827,13 @@ export default function AdminClientDetailPage() {
               </button>
             </div>
           </form>
-        ) : (
+          </AdminReadOnly>
+        ) : open ? (
           <p className="mt-4 whitespace-pre-wrap text-base leading-relaxed text-slate-800">
             {task.instructions}
           </p>
-        )}
-        {task.responseText ? (
+        ) : null}
+        {open && task.responseText ? (
           <div className="mt-4 rounded-xl bg-slate-50 px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">
               Client note
@@ -797,7 +841,7 @@ export default function AdminClientDetailPage() {
             <p className="mt-1 whitespace-pre-wrap text-sm">{task.responseText}</p>
           </div>
         ) : null}
-        {task.driveUrl ? (
+        {open && task.driveUrl ? (
           <div className="mt-4">
             <a
               href={task.driveUrl}
@@ -822,14 +866,14 @@ export default function AdminClientDetailPage() {
               {downloadId === task.id ? "Saving…" : "Download"}
             </button>
           </div>
-        ) : task.recordingRequired && task.status !== "open" ? (
+        ) : open && task.recordingRequired && task.status !== "open" ? (
           <p className="mt-4 text-sm text-muted">
             {usesVideoLink(task)
               ? "No Drive or YouTube link yet."
               : "No recording yet."}
           </p>
         ) : null}
-        {task.rating != null && rateId !== task.id ? (
+        {open && task.rating != null && rateId !== task.id ? (
           <div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl border border-border px-4 py-3">
             <p className="text-3xl font-extrabold tabular-nums text-slate-900">
               {task.rating}
@@ -840,12 +884,14 @@ export default function AdminClientDetailPage() {
             </p>
           </div>
         ) : null}
-        {needsCoachReview(task) &&
+        {open &&
+        needsFeedback &&
         !sessionLocked &&
         (task.status === "submitted" ||
           task.status === "reviewed" ||
           task.status === "done") ? (
-          rateId === task.id ? (
+          <AdminReadOnly canEdit={canEdit}>
+          {rateId === task.id ? (
             <form onSubmit={(e) => void onRate(e)} className="mt-4 space-y-3 rounded-xl border border-border p-4">
               <p className="text-base font-extrabold">Coach rating</p>
               <label className="block text-base font-semibold">
@@ -912,7 +958,8 @@ export default function AdminClientDetailPage() {
             >
               {task.rating != null ? "Edit rating" : "Add rating"}
             </button>
-          )
+          )}
+          </AdminReadOnly>
         ) : null}
       </article>
     );
@@ -920,6 +967,12 @@ export default function AdminClientDetailPage() {
 
   function renderWorkspace(sessionNumber: number) {
     const sessionTasks = tasksForSession(tasks, sessionNumber);
+    const activeExpandedTaskId =
+      expandedTaskId === null
+        ? null
+        : sessionTasks.some((task) => task.id === expandedTaskId)
+          ? expandedTaskId
+          : sessionTasks[0]?.id ?? null;
     const adding = assignSession === sessionNumber;
     const sessionLocked =
       sessionTasks.length > 0 &&
@@ -945,6 +998,7 @@ export default function AdminClientDetailPage() {
               </p>
             ) : null}
           </div>
+          <AdminReadOnly canEdit={canEdit}>
           <button
             type="button"
             onClick={() => {
@@ -954,16 +1008,19 @@ export default function AdminClientDetailPage() {
                 setAssignSession(sessionNumber);
                 setTitle(`Task ${sessionTasks.length + 1}`);
                 setInstructions("");
-                setResponseKind("record");
+                setRecordingRequired(false);
+                setReviewRequired(false);
               }
             }}
             className={adminUi.btnGhost}
           >
             {adding ? "Cancel" : "+ Task"}
           </button>
+          </AdminReadOnly>
         </div>
 
         {adding ? (
+          <AdminReadOnly canEdit={canEdit}>
           <form onSubmit={(e) => void onAssign(e)} className="space-y-4 border-t border-border pt-4">
             <input
               type="text"
@@ -981,29 +1038,36 @@ export default function AdminClientDetailPage() {
               className={`${adminUi.field} ${adminUi.focus}`}
               required
             />
-            <ResponseTypeField
-              kind={responseKind}
-              onChange={setResponseKind}
+            <TaskRequirementsField
+              recordingRequired={recordingRequired}
+              onRecordingRequired={setRecordingRequired}
+              reviewRequired={reviewRequired}
+              onReviewRequired={setReviewRequired}
               video={sessionNumber === INTRO_SESSION}
             />
             <button type="submit" disabled={busy} className={adminUi.primaryBtn}>
               {busy ? "Saving…" : "Add task"}
             </button>
           </form>
+          </AdminReadOnly>
         ) : null}
 
         {sessionTasks.length === 0 && !adding ? (
           <p className="text-base text-muted">No tasks yet. Use + Task.</p>
         ) : (
-          sessionTasks.map((task) => renderTask(task, sessionLocked))
+          sessionTasks.map((task) =>
+            renderTask(task, sessionLocked, task.id === activeExpandedTaskId),
+          )
         )}
 
-        <TranscriptToWorkoutPanel
-          clientId={clientId}
-          targetSessionNumber={sessionNumber}
-          canEdit={canEdit}
-          onSaved={refreshTasks}
-        />
+        {sessionNumber !== INTRO_SESSION ? (
+          <TranscriptToWorkoutPanel
+            clientId={clientId}
+            targetSessionNumber={sessionNumber}
+            canEdit={canEdit}
+            onSaved={refreshTasks}
+          />
+        ) : null}
 
         {sessionNumber === INTRO_SESSION ? (
           <div className="space-y-4 border-t border-border pt-4">
@@ -1017,6 +1081,7 @@ export default function AdminClientDetailPage() {
                   the top breakdowns, and sets focus areas.
                 </p>
               </div>
+              <AdminReadOnly canEdit={canEdit}>
               {editingIntro ? (
                 <button
                   type="button"
@@ -1040,8 +1105,10 @@ export default function AdminClientDetailPage() {
                   {isIntroCallEmpty(introSaved) ? "Write" : "Edit"}
                 </button>
               )}
+              </AdminReadOnly>
             </div>
             {editingIntro ? (
+          <AdminReadOnly canEdit={canEdit}>
           <form
             onSubmit={(e) => void onSaveIntro(e)}
             className="space-y-4"
@@ -1225,12 +1292,22 @@ export default function AdminClientDetailPage() {
               {introBusy ? "Saving…" : "Save intro diagnosis"}
             </button>
           </form>
+          </AdminReadOnly>
             ) : (
               <div className="es-admin-intro-preview">
                 <IntroCallView clientName={row.name} report={introSaved} />
               </div>
             )}
           </div>
+        ) : null}
+
+        {sessionNumber === INTRO_SESSION ? (
+          <TranscriptToWorkoutPanel
+            clientId={clientId}
+            targetSessionNumber={sessionNumber}
+            canEdit={canEdit}
+            onSaved={refreshTasks}
+          />
         ) : null}
       </article>
     );
@@ -1340,6 +1417,7 @@ export default function AdminClientDetailPage() {
         </aside>
 
         <section className="min-w-0 flex-1 overflow-y-auto px-6 py-6 lg:px-10">
+          <ViewerReadOnlyBanner canEdit={canEdit} />
           {renderWorkspace(selectedSession)}
         </section>
       </div>

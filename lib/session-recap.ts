@@ -5,6 +5,12 @@ import {
   isConvexConfigured,
 } from "@/lib/convex-server";
 
+type ConvexClientLike = NonNullable<ReturnType<typeof getConvexHttpClient>>;
+
+function resolveClient(provided?: ConvexClientLike | null) {
+  return provided ?? getConvexHttpClient();
+}
+
 export type SessionRecap = {
   sessionNumber: number;
   recapSummary: string;
@@ -15,9 +21,9 @@ export type SessionRecap = {
 export async function getSessionRecap(input: {
   clientId: string;
   sessionNumber: number;
-}): Promise<SessionRecap | null> {
+}, convex?: ConvexClientLike | null): Promise<SessionRecap | null> {
   if (!isConvexConfigured()) return null;
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return null;
 
   try {
@@ -48,11 +54,11 @@ export async function saveSessionRecap(input: {
   sessionNumber: number;
   recapSummary: string;
   sourceTranscript?: string;
-}): Promise<{ ok: boolean; error?: string }> {
+}, convex?: ConvexClientLike | null): Promise<{ ok: boolean; error?: string }> {
   if (!isConvexConfigured()) {
     return { ok: false, error: "Convex is not configured." };
   }
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {

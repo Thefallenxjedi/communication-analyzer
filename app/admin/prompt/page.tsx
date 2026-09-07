@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { AdminReadOnly, ViewerReadOnlyBanner } from "@/components/AdminReadOnly";
+import { useAdminStaff } from "@/components/AdminShell";
 import type { PromptAddOn } from "@/lib/prompt-addons";
 import type { DiagnosisCorePromptState } from "@/lib/diagnosis-core-prompt";
 
@@ -29,6 +31,7 @@ function formatWhenCompact(iso: string): string {
 }
 
 export default function AdminPromptPage() {
+  const { canEdit } = useAdminStaff();
   const [password, setPassword] = useState("");
   const [unlocked, setUnlocked] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -54,8 +57,7 @@ export default function AdminPromptPage() {
     setBusy(true);
     setError("");
     try {
-      const res = await fetch("/api/admin/prompt-addons", {
-      });
+      const res = await fetch("/api/admin/prompt-addons", {});
       const data = (await res.json()) as {
         error?: string;
         addOns?: PromptAddOn[];
@@ -95,8 +97,7 @@ export default function AdminPromptPage() {
   };
 
   const refreshAddOns = async () => {
-    const res = await fetch("/api/admin/prompt-addons", {
-    });
+    const res = await fetch("/api/admin/prompt-addons", {});
     const data = (await res.json()) as {
       addOns?: PromptAddOn[];
       corePrompt?: DiagnosisCorePromptState | null;
@@ -273,22 +274,23 @@ export default function AdminPromptPage() {
   return (
     <div className="app-shell">
       <main className="mx-auto w-full max-w-4xl px-4 py-10">
-        <p className={`text-xs font-semibold uppercase tracking-[0.16em] ${adminUi.brand}`}>
-          EliteSpeak
-        </p>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-rose-700 sm:text-3xl">
-              Diagnosis prompt{" "}
-              <span className="text-base font-extrabold uppercase tracking-wide">
-                (critical)
-              </span>
+              Free diagnosis prompt
             </h1>
             <p className="mt-2 text-sm text-muted">
-              Core scoring rules and optional add-on notes for new analyses.
+              This core prompt is only for the free communication diagnosis
+              tool. Coaching transcript prompts live under AI Tools.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
+            <Link
+              href="/admin/tools"
+              className="text-sm font-semibold text-teal-700 hover:underline"
+            >
+              Coaching AI Tools
+            </Link>
             <Link
               href="/admin/clients"
               className="text-sm font-semibold text-teal-700 hover:underline"
@@ -329,6 +331,8 @@ export default function AdminPromptPage() {
           </form>
         ) : (
           <div className="mt-8 space-y-6">
+            <ViewerReadOnlyBanner canEdit={canEdit} />
+
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -344,9 +348,10 @@ export default function AdminPromptPage() {
             </div>
 
             <p className="rounded-xl border-2 border-rose-500 bg-rose-50 px-4 py-3 text-sm font-semibold leading-relaxed text-rose-800">
-              Do not change the main prompt or delete any part of the red core
-              text unless you are certain. Prefer adding a short note below
-              instead. Saving the core prompt affects every new report.
+              This is the free-tool scoring prompt. Do not change or delete the
+              red core text unless you are certain. Prefer adding a short note
+              below instead. Saving it affects every new free diagnosis report,
+              not coaching transcripts.
             </p>
 
             <div className="rounded-2xl border-2 border-rose-500/70 bg-rose-50/80 p-4 sm:p-5">
@@ -378,10 +383,12 @@ export default function AdminPromptPage() {
                       setCorePromptDraft(e.target.value);
                       setCorePromptDirty(true);
                     }}
+                    readOnly={!canEdit}
                     rows={28}
                     spellCheck={false}
                     className="mt-3 w-full rounded-lg border border-rose-300 bg-white px-3 py-2 font-mono text-[11px] leading-relaxed text-rose-800 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20"
                   />
+                  <AdminReadOnly canEdit={canEdit}>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
@@ -400,10 +407,12 @@ export default function AdminPromptPage() {
                       Reset to code default
                     </button>
                   </div>
+                  </AdminReadOnly>
                 </>
               ) : null}
             </div>
 
+            <AdminReadOnly canEdit={canEdit}>
             <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
               <h2 className="text-sm font-extrabold uppercase tracking-wide">
                 + Add note
@@ -552,6 +561,7 @@ export default function AdminPromptPage() {
                 )}
               </ul>
             </div>
+            </AdminReadOnly>
           </div>
         )}
       </main>

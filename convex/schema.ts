@@ -66,6 +66,28 @@ export default defineSchema({
     .index("by_email", ["email"])
     .index("by_reportSlug", ["reportSlug"]),
 
+  /** Client-only AI diagnosis history inside the paid coaching portal. */
+  clientDiagnoses: defineTable({
+    clientId: v.id("clients"),
+    status: v.union(v.literal("completed"), v.literal("failed")),
+    captureMethod: v.optional(v.string()),
+    storageId: v.optional(v.id("_storage")),
+    durationSec: v.optional(v.number()),
+    promptQuestion: v.optional(v.string()),
+    transcript: v.optional(v.string()),
+    overallScore: v.optional(v.number()),
+    level: v.optional(v.string()),
+    mainFocus: v.optional(v.string()),
+    shareSlug: v.optional(v.string()),
+    reportJson: v.optional(v.string()),
+    failureReason: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_createdAt", ["createdAt"])
+    .index("by_clientId_createdAt", ["clientId", "createdAt"])
+    .index("by_status_createdAt", ["status", "createdAt"]),
+
   /** Full diagnosis payloads for shareable links. */
   sharedReports: defineTable({
     slug: v.string(),
@@ -111,6 +133,13 @@ export default defineSchema({
    * At most one active row (key = "diagnosis"). Empty body = use code default.
    */
   diagnosisCorePrompt: defineTable({
+    key: v.string(),
+    body: v.string(),
+    updatedAt: v.number(),
+  }).index("by_key", ["key"]),
+
+  /** Optional admin overrides for transcript -> workout generation prompts. */
+  transcriptPrompts: defineTable({
     key: v.string(),
     body: v.string(),
     updatedAt: v.number(),
@@ -192,6 +221,8 @@ export default defineSchema({
     /** Raw Meet transcript (admin audit only). */
     sourceTranscript: v.optional(v.string()),
     recapUpdatedAt: v.optional(v.number()),
+    /** Set when the live call is concluded (admin saved transcript/recap). */
+    callCompletedAt: v.optional(v.number()),
   })
     .index("by_clientId", ["clientId"])
     .index("by_clientId_sessionNumber", ["clientId", "sessionNumber"]),
@@ -215,4 +246,45 @@ export default defineSchema({
     reps: v.array(v.object({ title: v.string(), body: v.string() })),
     updatedAt: v.number(),
   }).index("by_clientId", ["clientId"]),
+
+  /** Staff role assigned before the user signs in with Google once. */
+  staffInvites: defineTable({
+    email: v.string(),
+    staffRole: v.union(
+      v.literal("viewer"),
+      v.literal("editor"),
+      v.literal("admin"),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_email", ["email"]),
+
+  /**
+   * Communication Problem Bible + coach-edited workout exercises.
+   * Stable `slug` is the id used in transcript→workout AI picks.
+   */
+  workoutExercises: defineTable({
+    slug: v.string(),
+    name: v.string(),
+    purpose: v.string(),
+    problemItSolves: v.string(),
+    instructions: v.string(),
+    whenToUse: v.string(),
+    tags: v.array(v.string()),
+    timing: v.string(),
+    timingMinutes: v.optional(v.number()),
+    problemNumber: v.optional(v.number()),
+    problemTitle: v.optional(v.string()),
+    exerciseIndex: v.optional(v.number()),
+    timelineSummary: v.optional(v.string()),
+    source: v.optional(v.string()),
+    enabled: v.boolean(),
+    sortOrder: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_slug", ["slug"])
+    .index("by_enabled_sortOrder", ["enabled", "sortOrder"])
+    .index("by_problemNumber", ["problemNumber"])
+    .index("by_sortOrder", ["sortOrder"]),
 });

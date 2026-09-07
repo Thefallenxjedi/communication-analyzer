@@ -285,3 +285,233 @@ body {
   --font-playfair: "Playfair Display", Georgia, "Times New Roman", serif;
   --font-plex: "IBM Plex Mono", ui-monospace, monospace;
 }
+
+.es-admin-intro-preview {
+  margin-top: 1rem;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  border: 1px solid #e2d5bf;
+  background: #f8f3e8;
+}
+
+.es-admin-intro-preview .es-intro-doc {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 1.5rem 1.6rem 1.9rem;
+  border: 1px solid #e3d6c0;
+  border-radius: 1.25rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.2)),
+    #fcf8ee;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 24px 60px rgba(58, 46, 34, 0.06);
+  color: #2a2218;
+}
+
+.es-admin-intro-preview .es-doc-masthead {
+  display: grid;
+  gap: 0.35rem 1.25rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1.75rem;
+  border-bottom: 1px solid rgba(201, 169, 104, 0.28);
+}
+
+.es-admin-intro-preview .es-doc-masthead-guide {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #8a7d68;
+}
+
+.es-admin-intro-preview .es-doc-masthead-title {
+  margin: 0.7rem 0 0;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 3vw, 2.7rem);
+  font-weight: 700;
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  color: #3a2e22;
+}
+
+.es-admin-intro-preview .es-doc-masthead-prepared {
+  margin: 1rem 0 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #7a6f5d;
+}
+
+.es-admin-intro-preview .es-doc-masthead-name {
+  margin: 0.3rem 0 0;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 1.18rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #3a2e22;
+}
+
+.es-admin-intro-preview .es-doc-section + .es-doc-section {
+  margin-top: 1rem;
+}
+
+.es-admin-intro-preview .es-doc-section {
+  padding: 1.35rem 1.4rem 1.45rem;
+  border: 1px solid rgba(201, 169, 104, 0.14);
+  border-radius: 1rem;
+  background: rgba(255, 253, 248, 0.9);
+}
+
+.es-admin-intro-preview .es-doc-head {
+  margin-bottom: 0.85rem;
+}
+
+.es-admin-intro-preview .es-doc-title {
+  margin: 0;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #3a2e22;
+}
+
+.es-admin-intro-preview .es-doc-rule {
+  display: block;
+  width: 4.25rem;
+  height: 1px;
+  margin: 0.55rem 0 0.7rem;
+  background: #c9a968;
+}
+
+.es-admin-intro-preview .es-summary-name {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #2a2218;
+}
+
+.es-admin-intro-preview .es-summary-date {
+  margin: 0.2rem 0 0;
+  font-size: 0.98rem;
+  color: #7a6f5d;
+}
+
+.es-admin-intro-preview .es-summary-body,
+.es-admin-intro-preview .es-doc-copy,
+.es-admin-intro-preview .es-summary-callout,
+.es-admin-intro-preview .es-doc-emphasis {
+  margin: 1rem 0 0;
+  font-size: 1.08rem;
+  line-height: 1.82;
+  color: #2d2720;
+  white-space: pre-wrap;
+}
+
+.es-admin-intro-preview .es-summary-callout,
+.es-admin-intro-preview .es-doc-emphasis {
+  font-style: normal;
+  font-weight: 600;
+}
+
+.es-admin-intro-preview .es-doc-challenges,
+.es-admin-intro-preview .es-doc-os-list,
+.es-admin-intro-preview .es-doc-reps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.es-admin-intro-preview .es-doc-challenge,
+.es-admin-intro-preview .es-doc-os-item,
+.es-admin-intro-preview .es-doc-rep {
+  padding: 1rem 1.05rem;
+  border-radius: 0.95rem;
+  background: #fffaf0;
+  border: 1px solid rgba(201, 169, 104, 0.16);
+}
+
+.es-admin-intro-preview .es-doc-challenge-head,
+.es-admin-intro-preview .es-doc-os-goal,
+.es-admin-intro-preview .es-doc-rep-title {
+  margin: 0;
+  font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: #3a2e22;
+}
+
+.es-admin-intro-preview .es-doc-os-label {
+  margin: 0 0 0.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.es-admin-intro-preview .es-doc-os-name,
+.es-admin-intro-preview .es-doc-rep-num {
+  font-family: var(--font-plex), ui-monospace, monospace;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8a7d68;
+}
+
+.es-admin-intro-preview .es-doc-rep {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+}
+
+.es-admin-intro-preview .es-doc-rep-body {
+  min-width: 0;
+  flex: 1;
+}
+
+@media (min-width: 1100px) {
+  .es-admin-intro-preview .es-doc-masthead {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "guide prepared"
+      "title name";
+    align-items: end;
+  }
+
+  .es-admin-intro-preview .es-doc-masthead-guide {
+    grid-area: guide;
+  }
+
+  .es-admin-intro-preview .es-doc-masthead-title {
+    grid-area: title;
+    margin-top: 0.35rem;
+  }
+
+  .es-admin-intro-preview .es-doc-masthead-prepared {
+    grid-area: prepared;
+    margin: 0;
+    text-align: right;
+  }
+
+  .es-admin-intro-preview .es-doc-masthead-name {
+    grid-area: name;
+    margin: 0.2rem 0 0;
+    text-align: right;
+  }
+
+  .es-admin-intro-preview .es-doc-challenges,
+  .es-admin-intro-preview .es-doc-os-list,
+  .es-admin-intro-preview .es-doc-reps {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}

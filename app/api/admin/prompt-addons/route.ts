@@ -1,4 +1,3 @@
-import { adminApiGuard } from "@/lib/admin-route";
 import { formatConvexError } from "@/lib/convex-server";
 import {
   getDiagnosisCorePromptState,
@@ -12,17 +11,18 @@ import {
   setPromptAddOnEnabled,
   updatePromptAddOn,
 } from "@/lib/prompt-addons";
+import { requireStaffConvex } from "@/lib/staff-auth";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const denied = await adminApiGuard(request, "viewer");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "viewer");
+  if (convex instanceof Response) return convex;
 
   try {
     const [addOns, corePrompt] = await Promise.all([
-      listPromptAddOns(),
-      getDiagnosisCorePromptState(),
+      listPromptAddOns(convex),
+      getDiagnosisCorePromptState(convex),
     ]);
     return Response.json({ addOns, corePrompt });
   } catch (err) {
@@ -34,8 +34,8 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const denied = await adminApiGuard(request, "editor");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "editor");
+  if (convex instanceof Response) return convex;
 
   let body: { body?: string; reset?: boolean };
   try {
@@ -45,14 +45,14 @@ export async function PUT(request: Request) {
   }
 
   if (body.reset) {
-    const ok = await resetDiagnosisCorePrompt();
+    const ok = await resetDiagnosisCorePrompt(convex);
     if (!ok) {
       return Response.json(
         { error: "Could not reset core prompt." },
         { status: 500 },
       );
     }
-    const corePrompt = await getDiagnosisCorePromptState();
+    const corePrompt = await getDiagnosisCorePromptState(convex);
     return Response.json({ ok: true, corePrompt });
   }
 
@@ -64,20 +64,20 @@ export async function PUT(request: Request) {
     );
   }
 
-  const result = await saveDiagnosisCorePrompt(text);
+  const result = await saveDiagnosisCorePrompt(text, convex);
   if (!result.ok) {
     return Response.json(
       { error: result.error || "Could not save core prompt." },
       { status: 500 },
     );
   }
-  const corePrompt = await getDiagnosisCorePromptState();
+  const corePrompt = await getDiagnosisCorePromptState(convex);
   return Response.json({ ok: true, corePrompt });
 }
 
 export async function POST(request: Request) {
-  const denied = await adminApiGuard(request, "editor");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "editor");
+  if (convex instanceof Response) return convex;
 
   let body: { title?: string; body?: string; enabled?: boolean };
   try {
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
     title,
     body: text,
     enabled: body.enabled !== false,
-  });
+  }, convex);
   if (!result.ok) {
     return Response.json(
       { error: "Could not create prompt add-on." },
@@ -110,8 +110,8 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
-  const denied = await adminApiGuard(request, "editor");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "editor");
+  if (convex instanceof Response) return convex;
 
   let body: {
     id?: string;
@@ -135,7 +135,7 @@ export async function PATCH(request: Request) {
     body.title == null &&
     body.body == null
   ) {
-    const ok = await setPromptAddOnEnabled(id, body.enabled);
+    const ok = await setPromptAddOnEnabled(id, body.enabled, convex);
     if (!ok) {
       return Response.json(
         { error: "Could not update add-on." },
@@ -150,7 +150,7 @@ export async function PATCH(request: Request) {
     title: body.title,
     body: body.body,
     enabled: body.enabled,
-  });
+  }, convex);
   if (!ok) {
     return Response.json(
       { error: "Could not update add-on." },
@@ -161,8 +161,8 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const denied = await adminApiGuard(request, "editor");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "editor");
+  if (convex instanceof Response) return convex;
 
   const url = new URL(request.url);
   let id = url.searchParams.get("id")?.trim() || "";
@@ -178,7 +178,7 @@ export async function DELETE(request: Request) {
     return Response.json({ error: "Missing add-on id." }, { status: 400 });
   }
 
-  const ok = await removePromptAddOn(id);
+  const ok = await removePromptAddOn(id, convex);
   if (!ok) {
     return Response.json(
       { error: "Could not delete add-on." },

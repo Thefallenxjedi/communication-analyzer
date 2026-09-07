@@ -10,6 +10,7 @@ type TeamRow = {
   email: string;
   name: string;
   staffRole: StaffRole;
+  pending?: boolean;
 };
 
 export default function AdminTeamPage() {
@@ -86,8 +87,9 @@ export default function AdminTeamPage() {
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900">Team access</h1>
           <p className="mt-1 text-sm text-muted">
-            Assign viewer, editor, or admin by Google email. User must sign in once
-            before you can assign them.
+            Assign viewer, editor, or admin by Google email. If they have not
+            signed in yet, access is saved and applied on their first Google
+            sign-in.
           </p>
         </div>
         <Link href="/admin" className="text-sm font-semibold text-teal-700 hover:text-teal-900">
@@ -151,6 +153,11 @@ export default function AdminTeamPage() {
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-slate-700">
                   {row.staffRole}
                 </span>
+                {row.pending ? (
+                  <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold uppercase tracking-wide text-amber-900">
+                    Pending sign-in
+                  </span>
+                ) : null}
                 <button
                   type="button"
                   disabled={busy}

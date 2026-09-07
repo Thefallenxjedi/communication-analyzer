@@ -4,7 +4,6 @@ import {
 } from "@/lib/intro-call";
 import {
   padRepNumber,
-  padSectionIndex,
   splitCallout,
   splitParagraphs,
 } from "@/lib/intro-call-text";
@@ -35,12 +34,9 @@ function SectionFooter({
   clientName: string;
   index: number;
 }) {
-  return (
-    <p className="es-doc-footer" aria-hidden>
-      ELITESPEAK · INTRO CALL OVERVIEW · {clientName.toUpperCase()} ·{" "}
-      {padSectionIndex(index)}
-    </p>
-  );
+  void clientName;
+  void index;
+  return null;
 }
 
 function ProseBlock({ text, className = "es-doc-copy" }: {
@@ -117,9 +113,8 @@ export function IntroCallView({
       <header className="es-doc-masthead">
         <p className="es-doc-masthead-guide">The EliteSpeak Guide</p>
         <h2 className="es-doc-masthead-title">Intro Call Overview</h2>
-        <p className="es-doc-masthead-prepared">
-          Prepared for <span>{clientName}</span>
-        </p>
+        <p className="es-doc-masthead-prepared">Prepared for</p>
+        <p className="es-doc-masthead-name">{clientName.toUpperCase()}</p>
       </header>
 
       {summary ? (

@@ -5,6 +5,12 @@ import {
   promptAddOnsApi,
 } from "@/lib/convex-server";
 
+type ConvexClientLike = NonNullable<ReturnType<typeof getConvexHttpClient>>;
+
+function resolveClient(provided?: ConvexClientLike | null) {
+  return provided ?? getConvexHttpClient();
+}
+
 export type PromptAddOn = {
   id: string;
   title: string;
@@ -20,9 +26,11 @@ export type EnabledPromptAddOn = {
   body: string;
 };
 
-export async function listPromptAddOns(): Promise<PromptAddOn[]> {
+export async function listPromptAddOns(
+  convex?: ConvexClientLike | null,
+): Promise<PromptAddOn[]> {
   if (!isConvexConfigured()) return [];
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return [];
 
   try {
@@ -35,7 +43,7 @@ export async function listPromptAddOns(): Promise<PromptAddOn[]> {
 
 export async function listEnabledPromptAddOns(): Promise<EnabledPromptAddOn[]> {
   if (!isConvexConfigured()) return [];
-  const client = getConvexHttpClient();
+  const client = resolveClient();
   if (!client) return [];
 
   try {
@@ -67,9 +75,9 @@ export async function createPromptAddOn(input: {
   title: string;
   body: string;
   enabled?: boolean;
-}): Promise<{ ok: boolean; id?: string }> {
+}, convex?: ConvexClientLike | null): Promise<{ ok: boolean; id?: string }> {
   if (!isConvexConfigured()) return { ok: false };
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false };
 
   try {
@@ -90,9 +98,9 @@ export async function updatePromptAddOn(input: {
   title?: string;
   body?: string;
   enabled?: boolean;
-}): Promise<boolean> {
+}, convex?: ConvexClientLike | null): Promise<boolean> {
   if (!isConvexConfigured()) return false;
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return false;
 
   try {
@@ -112,9 +120,10 @@ export async function updatePromptAddOn(input: {
 export async function setPromptAddOnEnabled(
   id: string,
   enabled: boolean,
+  convex?: ConvexClientLike | null,
 ): Promise<boolean> {
   if (!isConvexConfigured()) return false;
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return false;
 
   try {
@@ -133,9 +142,12 @@ export async function setPromptAddOnEnabled(
   }
 }
 
-export async function removePromptAddOn(id: string): Promise<boolean> {
+export async function removePromptAddOn(
+  id: string,
+  convex?: ConvexClientLike | null,
+): Promise<boolean> {
   if (!isConvexConfigured()) return false;
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return false;
 
   try {

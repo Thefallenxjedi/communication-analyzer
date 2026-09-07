@@ -1,16 +1,13 @@
-import { adminApiGuard } from "@/lib/admin-route";
-import { coachingApi, formatConvexError, getConvexHttpClient } from "@/lib/convex-server";
+import { getCoachingClient } from "@/lib/coaching-clients";
+import { coachingApi, formatConvexError } from "@/lib/convex-server";
+import { enrollAndInviteClient } from "@/lib/resend-invite";
+import { requireStaffConvex } from "@/lib/staff-auth";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const denied = await adminApiGuard(request, "viewer");
-  if (denied) return denied;
-
-  const client = getConvexHttpClient();
-  if (!client) {
-    return Response.json({ error: "Convex is not configured.", clients: [] }, { status: 503 });
-  }
+  const client = await requireStaffConvex(request, "viewer");
+  if (client instanceof Response) return client;
 
   try {
     const clients = await client.query(coachingApi.listPendingClients, {});
@@ -24,8 +21,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const denied = await adminApiGuard(request, "editor");
-  if (denied) return denied;
+  const client = await requireStaffConvex(request, "editor");
+  if (client instanceof Response) return client;
 
   let body: { clientId?: string };
   try {
@@ -39,16 +36,33 @@ export async function POST(request: Request) {
     return Response.json({ error: "clientId required." }, { status: 400 });
   }
 
-  const client = getConvexHttpClient();
-  if (!client) {
-    return Response.json({ error: "Convex is not configured." }, { status: 503 });
-  }
-
   try {
     await client.mutation(coachingApi.approveClientSignup, {
       id: clientId as never,
     });
-    return Response.json({ ok: true });
+    const approved = await getCoachingClient(clientId, client);
+    let invite;
+    try {
+      invite = approved
+        ? await enrollAndInviteClient({
+            name: approved.name,
+            email: approved.email,
+          })
+        : {
+            configured: false,
+            sent: false,
+            enrolled: false,
+            error: "Approved, but could not load the client for the invite.",
+          };
+    } catch (inviteErr) {
+      invite = {
+        configured: true,
+        sent: false,
+        enrolled: false,
+        error: formatConvexError(inviteErr) || "Could not send welcome email.",
+      };
+    }
+    return Response.json({ ok: true, invite });
   } catch (err) {
     return Response.json({ error: formatConvexError(err) }, { status: 500 });
   }

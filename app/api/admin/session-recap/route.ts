@@ -1,12 +1,12 @@
-import { adminApiGuard } from "@/lib/admin-route";
 import { getSessionRecap, saveSessionRecap } from "@/lib/session-recap";
 import { formatConvexError } from "@/lib/convex-server";
+import { requireStaffConvex } from "@/lib/staff-auth";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const denied = await adminApiGuard(request, "viewer");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "viewer");
+  if (convex instanceof Response) return convex;
 
   const url = new URL(request.url);
   const clientId = url.searchParams.get("clientId")?.trim() || "";
@@ -16,7 +16,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const recap = await getSessionRecap({ clientId, sessionNumber });
+    const recap = await getSessionRecap({ clientId, sessionNumber }, convex);
     return Response.json({ recap });
   } catch (err) {
     return Response.json(
@@ -27,8 +27,8 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const denied = await adminApiGuard(request, "editor");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "editor");
+  if (convex instanceof Response) return convex;
 
   let body: {
     clientId?: string;
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     sessionNumber: Math.round(body.sessionNumber ?? 0),
     recapSummary: body.recapSummary,
     sourceTranscript: body.sourceTranscript,
-  });
+  }, convex);
 
   if (!result.ok) {
     return Response.json(

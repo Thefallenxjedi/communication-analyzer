@@ -21,12 +21,19 @@ export default function ClientLoginPage() {
   }
 
   return (
-    <ClientAuthShell panelLabel="Sign in">
+    <ClientAuthShell
+      panelLabel="Sign in"
+      footer="Private client portal · ELITESPEAK"
+    >
       <h2 className="es-login-panel-title">Client login</h2>
+      <p className="es-login-panel-kicker">Your private coaching space.</p>
       <p className="es-login-panel-sub">
-        Sign in with Google. Your coach approves new accounts before program
-        access.
+        Sign in with Google to access your coaching program. Your coach approves
+        new accounts before program access.
       </p>
+      <a href="/client/demo" className="es-login-demo-link">
+        View sample client demo (no login)
+      </a>
       <button
         type="button"
         disabled={busy}
@@ -36,9 +43,7 @@ export default function ClientLoginPage() {
         <GoogleMark />
         {busy ? "Redirecting…" : "Continue with Google"}
       </button>
-      {error ? (
-        <p className="es-login-error">{error}</p>
-      ) : null}
+      {error ? <p className="es-login-error">{error}</p> : null}
     </ClientAuthShell>
   );
 }

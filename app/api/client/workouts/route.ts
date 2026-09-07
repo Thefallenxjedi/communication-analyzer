@@ -4,7 +4,6 @@ import {
   completeCoachingTask,
   ensureCoachingProgram,
   listCoachingTasks,
-  needsCoachReview,
   reviseCoachingTask,
   submitCoachingTask,
   usesVideoLink,
@@ -24,7 +23,7 @@ function visibleClientTasks(
   );
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   if (!isConvexConfigured()) {
     return Response.json({ error: "Not configured.", tasks: [], sessions: [] }, { status: 503 });
   }
@@ -101,27 +100,6 @@ export async function POST(request: Request) {
       );
     }
 
-    if (body.complete === true) {
-      if (mine.recordingRequired || needsCoachReview(mine)) {
-        return Response.json(
-          { error: "This task still needs a recording or coach review." },
-          { status: 400 },
-        );
-      }
-      const result = await completeCoachingTask(id);
-      if (!result.ok) {
-        return Response.json(
-          { error: result.error || "Could not complete." },
-          { status: 400 },
-        );
-      }
-      const next = visibleClientTasks(
-        await listCoachingTasks(row.id),
-        row.currentStage,
-      );
-      return Response.json({ ok: true, tasks: next });
-    }
-
     let driveUrl = "";
     if (usesVideoLink(mine)) {
       try {
@@ -139,8 +117,25 @@ export async function POST(request: Request) {
       }
     } else if (mine.recordingRequired && !storageId) {
       return Response.json({ error: "Recording is required to submit." }, { status: 400 });
-    } else if (!mine.recordingRequired && !storageId) {
-      return Response.json({ error: "Nothing to submit." }, { status: 400 });
+    } else if (!mine.recordingRequired) {
+      if (body.complete !== true) {
+        return Response.json(
+          { error: "Use Complete task for this task." },
+          { status: 400 },
+        );
+      }
+      const result = await completeCoachingTask(id);
+      if (!result.ok) {
+        return Response.json(
+          { error: result.error || "Could not complete task." },
+          { status: 400 },
+        );
+      }
+      const next = visibleClientTasks(
+        await listCoachingTasks(row.id),
+        row.currentStage,
+      );
+      return Response.json({ ok: true, tasks: next });
     }
     const result = await submitCoachingTask({
       id,

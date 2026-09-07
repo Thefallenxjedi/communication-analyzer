@@ -1,7 +1,6 @@
 import type { CSSProperties } from "react";
 import {
   isBarMotion,
-  sessionWaiting,
   type WaitMotion,
 } from "@/lib/session-waiting";
 
@@ -29,8 +28,8 @@ function VoiceMark({ motion }: { motion: WaitMotion }) {
   );
 }
 
-const AWAITING_TASKS_MESSAGE =
-  "This section will unlock once EliteSpeak reviews your call and assigns your tasks.";
+const WAITING_MESSAGE =
+  "This section will be here when your coach assigns it. For now, practice the previous sections.";
 
 export function SessionWaiting({
   sessionNumber,
@@ -41,10 +40,12 @@ export function SessionWaiting({
   lockNote?: string;
   awaitingCoach?: boolean;
 }) {
-  const wait = sessionWaiting(sessionNumber);
-  const theme = awaitingCoach ? undefined : wait.theme;
-  const line = awaitingCoach ? AWAITING_TASKS_MESSAGE : wait.line;
-  const motion = awaitingCoach ? "still" : wait.motion;
+  void sessionNumber;
+  void lockNote;
+  void awaitingCoach;
+  const theme = undefined;
+  const line = WAITING_MESSAGE;
+  const motion = "still";
 
   return (
     <div className="es-wait">

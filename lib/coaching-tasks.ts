@@ -6,6 +6,12 @@ import {
 } from "@/lib/convex-server";
 import { INTRO_SESSION } from "@/lib/coaching-program";
 
+type ConvexClientLike = NonNullable<ReturnType<typeof getConvexHttpClient>>;
+
+function resolveClient(provided?: ConvexClientLike | null) {
+  return provided ?? getConvexHttpClient();
+}
+
 export type CoachingTaskStatus = "open" | "submitted" | "reviewed" | "done";
 
 export type CoachingTask = {
@@ -75,9 +81,10 @@ export function isTaskFinished(status: CoachingTaskStatus): boolean {
 
 export async function listCoachingTasks(
   clientId: string,
+  convex?: ConvexClientLike | null,
 ): Promise<CoachingTask[]> {
   if (!isConvexConfigured()) return [];
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return [];
 
   try {
@@ -98,9 +105,9 @@ export async function createCoachingTask(input: {
   recordingRequired?: boolean;
   reviewRequired?: boolean;
   expectedMinutes?: number;
-}): Promise<{ ok: boolean; id?: string; error?: string }> {
+}, convex?: ConvexClientLike | null): Promise<{ ok: boolean; id?: string; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {
@@ -125,9 +132,9 @@ export async function generateCoachingUploadUrl(): Promise<{
   ok: boolean;
   uploadUrl?: string;
   error?: string;
-}> {
+} > {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
-  const client = getConvexHttpClient();
+  const client = resolveClient();
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {
@@ -149,9 +156,9 @@ export async function submitCoachingTask(input: {
   driveUrl?: string;
   durationSec?: number;
   responseText?: string;
-}): Promise<{ ok: boolean; error?: string }> {
+}, convex?: ConvexClientLike | null): Promise<{ ok: boolean; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {
@@ -176,9 +183,9 @@ export async function reviseCoachingTask(input: {
   driveUrl?: string;
   durationSec?: number;
   responseText?: string;
-}): Promise<{ ok: boolean; error?: string }> {
+}, convex?: ConvexClientLike | null): Promise<{ ok: boolean; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {
@@ -203,9 +210,9 @@ export async function updateCoachingTask(input: {
   instructions?: string;
   recordingRequired?: boolean;
   reviewRequired?: boolean;
-}): Promise<{ ok: boolean; error?: string }> {
+}, convex?: ConvexClientLike | null): Promise<{ ok: boolean; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {
@@ -228,9 +235,9 @@ export async function rateCoachingTask(input: {
   id: string;
   rating: number;
   comment?: string;
-}): Promise<{ ok: boolean; error?: string }> {
+}, convex?: ConvexClientLike | null): Promise<{ ok: boolean; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {
@@ -249,9 +256,10 @@ export async function rateCoachingTask(input: {
 
 export async function completeCoachingTask(
   id: string,
+  convex?: ConvexClientLike | null,
 ): Promise<{ ok: boolean; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {
@@ -268,9 +276,10 @@ export async function completeCoachingTask(
 
 export async function ensureCoachingProgram(
   clientId: string,
+  convex?: ConvexClientLike | null,
 ): Promise<{ ok: boolean; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {
@@ -285,12 +294,15 @@ export async function ensureCoachingProgram(
   }
 }
 
-export async function getCoachingTask(id: string): Promise<
+export async function getCoachingTask(
+  id: string,
+  convex?: ConvexClientLike | null,
+): Promise<
   | (CoachingTask & { clientName: string })
   | null
 > {
   if (!isConvexConfigured()) return null;
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return null;
 
   try {
@@ -305,9 +317,10 @@ export async function getCoachingTask(id: string): Promise<
 
 export async function removeCoachingTask(
   id: string,
+  convex?: ConvexClientLike | null,
 ): Promise<{ ok: boolean; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {

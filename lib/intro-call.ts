@@ -5,6 +5,12 @@ import {
   isConvexConfigured,
 } from "@/lib/convex-server";
 
+type ConvexClientLike = NonNullable<ReturnType<typeof getConvexHttpClient>>;
+
+function resolveClient(provided?: ConvexClientLike | null) {
+  return provided ?? getConvexHttpClient();
+}
+
 export type IntroCallChallenge = { title: string; body: string };
 export type IntroCallOsItem = { name: string; goal: string; body: string };
 export type IntroCallRep = { title: string; body: string };
@@ -46,9 +52,10 @@ export function isIntroCallEmpty(report: IntroCallReport | null): boolean {
 
 export async function getIntroCallReport(
   clientId: string,
+  convex?: ConvexClientLike | null,
 ): Promise<IntroCallReport | null> {
   if (!isConvexConfigured()) return null;
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return null;
 
   try {
@@ -68,9 +75,9 @@ export async function saveIntroCallReport(input: {
   coachingSchedule: string;
   osItems: IntroCallOsItem[];
   reps: IntroCallRep[];
-}): Promise<{ ok: boolean; id?: string; error?: string }> {
+}, convex?: ConvexClientLike | null): Promise<{ ok: boolean; id?: string; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
-  const client = getConvexHttpClient();
+  const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {

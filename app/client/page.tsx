@@ -4,6 +4,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Ember } from "@/components/Ember";
+import { ClientDiagnosisPanel } from "@/components/ClientDiagnosisPanel";
 import { HowItWorksRoadmap } from "@/components/HowItWorksRoadmap";
 import { LinkedInMark, LinkedInUpload } from "@/components/LinkedInUpload";
 import { ClipPlayer } from "@/components/ClipPlayer";
@@ -16,8 +17,15 @@ import type { ClientSession } from "@/lib/client-session";
 import {
   emptySessionSlots,
   ensureSessionSlots,
+  emptyLiveCallProgress,
+  callCompletedForSession,
   type CoachingSessionSlot,
+  type LiveCallProgress,
 } from "@/lib/coaching-sessions";
+import {
+  LiveCallProgressBar,
+  SessionBookCard,
+} from "@/components/SessionBookCard";
 import {
   FINAL_SESSION,
   INTRO_SESSION,
@@ -27,7 +35,6 @@ import {
   sessionLabel,
 } from "@/lib/coaching-program";
 import {
-  needsCoachReview,
   usesVideoLink,
   type CoachingTask,
 } from "@/lib/coaching-tasks";
@@ -41,7 +48,7 @@ import {
 
 type Milestone = "complete" | "current" | "upcoming";
 
-type NavId = number | "how-it-works" | "linkedin";
+type NavId = number | "how-it-works" | "linkedin" | "ai-diagnosis";
 
 function stageToNav(stage: string | undefined): NavId {
   return parseCurrentStage(stage);
@@ -98,7 +105,11 @@ function isSessionNav(nav: NavId): nav is number {
 }
 
 function isClientTaskComplete(task: CoachingTask): boolean {
-  return task.status !== "open";
+  return (
+    task.status === "submitted" ||
+    task.status === "reviewed" ||
+    task.status === "done"
+  );
 }
 
 function sessionTaskProgress(tasks: CoachingTask[]) {
@@ -108,9 +119,95 @@ function sessionTaskProgress(tasks: CoachingTask[]) {
   return { completed, total, pct };
 }
 
-function firstOpenTaskIndex(tasks: CoachingTask[]): number {
-  const idx = tasks.findIndex((task) => task.status === "open");
-  return idx === -1 ? tasks.length : idx;
+const TASK_SECTION_LABELS = [
+  ["THIS WEEK", "This week"],
+  ["WHY THIS DRILL", "Why this drill"],
+  ["WHAT TO DO", "What to do"],
+  ["PRACTICE FORMAT", "Practice format"],
+  ["WHAT TO WATCH FOR", "What to watch for"],
+  ["SUCCESS STANDARD", "Success standard"],
+  ["EXAMPLE", "Example"],
+  ["PROBLEM IT SOLVES", "Problem it solves"],
+  ["PURPOSE", "Purpose"],
+  ["INSTRUCTIONS", "Instructions"],
+] as const;
+
+const TASK_SECTION_LABEL_MAP = new Map<string, string>(TASK_SECTION_LABELS);
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function parseTaskInstructionSections(instructions: string) {
+  const sectionPattern = new RegExp(
+    `\\s*(${TASK_SECTION_LABELS.map(([label]) => escapeRegExp(label)).join("|")}):\\s*`,
+    "gi",
+  );
+
+  const normalized = instructions
+    .replace(/\r\n?/g, "\n")
+    .replace(sectionPattern, (_match, label: string) => `\n${label.toUpperCase()}: `)
+    .trim();
+
+  const lines = normalized
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const sections: Array<{ label: string; body: string[] }> = [];
+  let current: { label: string; body: string[] } | null = null;
+
+  for (const line of lines) {
+    const colonSectionMatch = line.match(/^([A-Za-z][A-Za-z ]+):\s*(.*)$/);
+    const bareSectionKey = line.replace(/:$/, "").trim().toUpperCase();
+
+    if (
+      colonSectionMatch &&
+      TASK_SECTION_LABEL_MAP.has(colonSectionMatch[1].trim().toUpperCase())
+    ) {
+      if (current) sections.push(current);
+      current = {
+        label:
+          TASK_SECTION_LABEL_MAP.get(colonSectionMatch[1].trim().toUpperCase()) ??
+          colonSectionMatch[1].trim(),
+        body: colonSectionMatch[2] ? [colonSectionMatch[2].trim()] : [],
+      };
+      continue;
+    }
+
+    if (TASK_SECTION_LABEL_MAP.has(bareSectionKey)) {
+      if (current) sections.push(current);
+      current = {
+        label: TASK_SECTION_LABEL_MAP.get(bareSectionKey) ?? bareSectionKey,
+        body: [],
+      };
+      continue;
+    }
+
+    if (!current) {
+      current = { label: "Instructions", body: [line] };
+      continue;
+    }
+    current.body.push(line);
+  }
+
+  if (current) sections.push(current);
+  return sections;
+}
+
+function TaskInstructionCopy({ instructions }: { instructions: string }) {
+  const sections = parseTaskInstructionSections(instructions);
+
+  return (
+    <div className="es-task-copy">
+      {sections.map((section, index) => (
+        <section key={`${section.label}-${index}`} className="es-task-section">
+          <p className="es-task-section-label">{section.label}</p>
+          <p className="es-task-section-body">{section.body.join("\n")}</p>
+        </section>
+      ))}
+    </div>
+  );
 }
 
 function CompassMark() {
@@ -133,6 +230,19 @@ function CompassMark() {
       <path
         fill="currentColor"
         d="M12.7 7.4 14.8 14l-2.1-.9-.9-2.1-2.1.9 2.1-6.5z"
+      />
+    </svg>
+  );
+}
+
+function HamburgerIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="es-mobile-menu-icon" aria-hidden>
+      <path
+        d="M4 7h16M4 12h16M4 17h16"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
       />
     </svg>
   );
@@ -183,6 +293,7 @@ function TaskScreen({
   showEmber,
   sessionComplete,
   revising,
+  readOnly = false,
   onDriveLink,
   onDraft,
   onSubmit,
@@ -196,6 +307,7 @@ function TaskScreen({
   showEmber: boolean;
   sessionComplete: boolean;
   revising: boolean;
+  readOnly?: boolean;
   onDriveLink: (value: string) => void;
   onDraft: (file: File, durationSec: number) => void;
   onSubmit: (revise: boolean) => void;
@@ -203,6 +315,13 @@ function TaskScreen({
   onCancelRevise: () => void;
 }) {
   const videoLink = usesVideoLink(task);
+  if (readOnly && task.status === "open") {
+    return (
+      <div className="es-task-well">
+        <p className="es-task-hint">Demo preview — sign in to submit your own work.</p>
+      </div>
+    );
+  }
   const linkField = (
     <div className="es-link-panel">
       <p className="es-link-kicker">Your recording</p>
@@ -243,27 +362,21 @@ function TaskScreen({
 
   if (task.status === "open") {
     if (!task.recordingRequired) {
-      if (!needsCoachReview(task)) {
-        return (
-          <div className="es-task-well">
-            <div className="es-task-controls">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => onSubmit(false)}
-                className="es-btn"
-              >
-                {busy ? "Saving…" : "Mark complete"}
-              </button>
-            </div>
-          </div>
-        );
-      }
       return (
         <div className="es-task-well">
           <p className="es-task-hint">
-            Your coach is working on this. You do not need to record.
+            Finish this task, then mark it complete here.
           </p>
+          <div className="es-task-controls">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onSubmit(false)}
+              className="es-btn"
+            >
+              {busy ? "Completing…" : "Complete task"}
+            </button>
+          </div>
         </div>
       );
     }
@@ -345,7 +458,7 @@ function TaskScreen({
     );
   }
 
-  if (!needsCoachReview(task) || task.rating == null) {
+  if (task.rating == null) {
     return (
       <div className="es-task-well es-task-well--done">
         <p className="es-task-done">
@@ -389,7 +502,7 @@ function TaskScreen({
   );
 }
 
-export default function ClientHomePage() {
+export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
   const router = useRouter();
   const { signOut } = useAuthActions();
   const [client, setClient] = useState<ClientSession | null>(null);
@@ -399,6 +512,7 @@ export default function ClientHomePage() {
   const [sessionRecap, setSessionRecap] = useState<SessionRecap | null>(null);
   const [sessionView, setSessionView] = useState<"tasks" | "summary">("tasks");
   const [nav, setNav] = useState<NavId>(INTRO_SESSION);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [driveLinks, setDriveLinks] = useState<Record<string, string>>({});
   const [drafts, setDrafts] = useState<
     Record<string, { file: File; durationSec: number }>
@@ -406,9 +520,34 @@ export default function ClientHomePage() {
   const [revisingId, setRevisingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [callProgress, setCallProgress] = useState<LiveCallProgress | null>(null);
   const sessionNavRef = useRef<HTMLElement>(null);
 
   const load = useCallback(async () => {
+    if (demoMode) {
+      const demoRes = await fetch("/api/client/demo");
+      const demoData = (await demoRes.json()) as {
+        error?: string;
+        client?: ClientSession | null;
+        tasks?: CoachingTask[];
+        sessions?: CoachingSessionSlot[];
+        intro?: IntroCallReport | null;
+        progress?: LiveCallProgress;
+      };
+      if (!demoRes.ok || !demoData.client) {
+        setError(demoData.error || "Could not load demo.");
+        return null;
+      }
+      setClient(demoData.client);
+      setTasks(demoData.tasks || []);
+      setSessions(ensureSessionSlots(demoData.sessions));
+      setIntro(demoData.intro ?? null);
+      setCallProgress(demoData.progress ?? emptyLiveCallProgress());
+      setError("");
+      return demoData.client;
+    }
+
     const sessionRes = await fetch("/api/client/session");
     const sessionData = (await sessionRes.json()) as {
       authenticated?: boolean;
@@ -447,15 +586,35 @@ export default function ClientHomePage() {
       report?: IntroCallReport | null;
     };
     setIntro(introData.report ?? null);
+
+    const progressRes = await fetch("/api/client/live-calls");
+    const progressData = (await progressRes.json()) as {
+      progress?: LiveCallProgress;
+    };
+    if (progressRes.ok && progressData.progress) {
+      setCallProgress(progressData.progress);
+    } else {
+      setCallProgress(emptyLiveCallProgress());
+    }
+
     setError("");
     return sessionData.client;
-  }, [router]);
+  }, [demoMode, router]);
 
   useEffect(() => {
     void load().then((row) => {
       if (row) setNav(stageToNav(row.currentStage));
     });
   }, [load]);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileMenuOpen]);
 
   useEffect(() => {
     const root = sessionNavRef.current;
@@ -472,16 +631,17 @@ export default function ClientHomePage() {
     setSessionView("tasks");
     let cancelled = false;
     void (async () => {
-      const res = await fetch(
-        `/api/client/session-recap?session=${encodeURIComponent(String(nav))}`,
-      );
+      const recapUrl = demoMode
+        ? `/api/client/demo/session-recap?session=${encodeURIComponent(String(nav))}`
+        : `/api/client/session-recap?session=${encodeURIComponent(String(nav))}`;
+      const res = await fetch(recapUrl);
       const data = (await res.json()) as { recap?: SessionRecap | null };
       if (!cancelled) setSessionRecap(data.recap ?? null);
     })();
     return () => {
       cancelled = true;
     };
-  }, [nav]);
+  }, [demoMode, nav]);
 
   async function logout() {
     await signOut();
@@ -493,11 +653,6 @@ export default function ClientHomePage() {
     const driveLink = driveLinks[taskId] ?? "";
     const draft = drafts[taskId];
     const videoLink = task ? usesVideoLink(task) : false;
-    const clientComplete =
-      !revise &&
-      task &&
-      !task.recordingRequired &&
-      !needsCoachReview(task);
     if (!revise && task?.recordingRequired && videoLink && !driveLink.trim()) {
       setError("Paste a Google Drive or YouTube link, then submit.");
       return;
@@ -506,9 +661,8 @@ export default function ClientHomePage() {
       setError("Record audio first, then submit.");
       return;
     }
-    if (!revise && !task?.recordingRequired && !clientComplete) {
-      setError("This task is not ready to submit.");
-      return;
+    if (!revise && !task?.recordingRequired) {
+      setError("");
     }
     if (revise && videoLink && !driveLink.trim()) {
       setError("Paste a Google Drive or YouTube link.");
@@ -548,10 +702,10 @@ export default function ClientHomePage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           id: taskId,
+          complete: !revise && !task?.recordingRequired ? true : undefined,
           driveUrl: videoLink ? driveLink.trim() || undefined : undefined,
           storageId,
           durationSec: draft?.durationSec,
-          complete: clientComplete || undefined,
         }),
       });
       const data = (await res.json()) as { error?: string };
@@ -586,12 +740,17 @@ export default function ClientHomePage() {
   const row = client;
   const here = stageToNav(row.currentStage);
   const sessionLocked =
-    isSessionNav(nav) && !isClientSessionUnlocked(nav, row.currentStage);
+    !demoMode &&
+    isSessionNav(nav) &&
+    !isClientSessionUnlocked(nav, row.currentStage);
   const selectedTasks = sessionLocked
     ? []
     : isSessionNav(nav)
       ? tasksForSession(tasks, nav)
       : [];
+  const activeExpandedTaskId = selectedTasks.some((task) => task.id === expandedTaskId)
+    ? expandedTaskId
+    : null;
   const sessionComplete = isSessionComplete(selectedTasks);
   const emberId = liveTaskId(
     selectedTasks.filter((task) => task.recordingRequired),
@@ -611,9 +770,29 @@ export default function ClientHomePage() {
     return task.title.trim() || `Task ${index + 1}`;
   }
 
+  function taskStatusChip(task: CoachingTask) {
+    if (task.status === "submitted") {
+      return (
+        <span className="es-report-step-status es-report-step-status--review">
+          Coach review pending
+        </span>
+      );
+    }
+    if (task.status === "reviewed" || task.status === "done") {
+      return (
+        <span className="es-report-step-status es-report-step-status--done">
+          Completed
+        </span>
+      );
+    }
+    return <span className="es-report-step-status">Open</span>;
+  }
+
   function sessionKicker() {
+    const waitingMessage =
+      "This section will be here when your coach assigns it. For now, practice the previous sections.";
     if (sessionLocked && isSessionNav(nav)) {
-      return `${row.name}, this session opens after you finish ${sessionLabel(previousProgramSession(nav))}.`;
+      return waitingMessage;
     }
     if (sessionComplete) {
       return `${row.name}, this session has been completed.`;
@@ -625,7 +804,7 @@ export default function ClientHomePage() {
       return `${row.name}, paste a Google Drive or YouTube link for your baseline video. Your coach will write the diagnosis after the call.`;
     }
     if (selectedTasks.length === 0) {
-      return `${row.name}, your coach will assign this session soon.`;
+      return waitingMessage;
     }
     return `${row.name}, work through each step below. Record audio when a task asks for it, then wait for your coach review.`;
   }
@@ -635,6 +814,8 @@ export default function ClientHomePage() {
     index: number,
     stepN?: number,
     locked = false,
+    open = true,
+    onToggle?: () => void,
   ) {
     const expected = formatExpectedTime(
       inferTaskExpectedMinutes({
@@ -649,6 +830,9 @@ export default function ClientHomePage() {
         key={task.id}
         n={stepN ?? index + 1}
         title={stepTitle(task, index)}
+        open={open}
+        onToggle={onToggle}
+        meta={taskStatusChip(task)}
       >
         <div className="es-task-locked">
           <p className="es-task-locked-title">Locked</p>
@@ -664,47 +848,65 @@ export default function ClientHomePage() {
         key={task.id}
         n={stepN ?? index + 1}
         title={stepTitle(task, index)}
+        open={open}
+        onToggle={onToggle}
       >
-        {expected ? (
-          <p className="es-task-expected">Expected time: {expected}</p>
-        ) : null}
-        <p>{task.instructions}</p>
-        <TaskScreen
-          task={task}
-          driveLink={driveLinks[task.id] ?? task.driveUrl ?? ""}
-          draft={drafts[task.id]}
-          busy={busyId === task.id}
-          showEmber={emberId === task.id}
-          sessionComplete={sessionComplete}
-          revising={revisingId === task.id}
-          onDriveLink={(value) =>
-            setDriveLinks((prev) => ({ ...prev, [task.id]: value }))
-          }
-          onDraft={(file, durationSec) =>
-            setDrafts((prev) => ({ ...prev, [task.id]: { file, durationSec } }))
-          }
-          onSubmit={(revise) => void submitTask(task.id, revise)}
-          onStartRevise={() => {
-            setRevisingId(task.id);
-            setDriveLinks((prev) => ({
-              ...prev,
-              [task.id]: prev[task.id] ?? task.driveUrl ?? "",
-            }));
-          }}
-          onCancelRevise={() => {
-            setRevisingId(null);
-            setDriveLinks((prev) => {
-              const next = { ...prev };
-              delete next[task.id];
-              return next;
-            });
-            setDrafts((prev) => {
-              const next = { ...prev };
-              delete next[task.id];
-              return next;
-            });
-          }}
-        />
+        <div className="es-task-sheet">
+          {expected ? (
+            <p className="es-task-expected">Expected time: {expected}</p>
+          ) : null}
+          <div className="es-task-badges">
+            <span
+              className={`es-task-pill ${task.recordingRequired ? "es-task-pill--audio" : ""}`}
+            >
+              {task.recordingRequired ? <span className="es-task-pill-dot" /> : null}
+              Audio required: {task.recordingRequired ? "Yes" : "No"}
+            </span>
+            {task.reviewRequired ? (
+              <span className="es-task-pill es-task-pill--review">
+                Coach review required
+              </span>
+            ) : null}
+          </div>
+          <TaskInstructionCopy instructions={task.instructions} />
+          <TaskScreen
+            task={task}
+            driveLink={driveLinks[task.id] ?? task.driveUrl ?? ""}
+            draft={drafts[task.id]}
+            busy={busyId === task.id}
+            showEmber={emberId === task.id}
+            sessionComplete={sessionComplete}
+            revising={revisingId === task.id}
+            readOnly={demoMode}
+            onDriveLink={(value) =>
+              setDriveLinks((prev) => ({ ...prev, [task.id]: value }))
+            }
+            onDraft={(file, durationSec) =>
+              setDrafts((prev) => ({ ...prev, [task.id]: { file, durationSec } }))
+            }
+            onSubmit={(revise) => void submitTask(task.id, revise)}
+            onStartRevise={() => {
+              setRevisingId(task.id);
+              setDriveLinks((prev) => ({
+                ...prev,
+                [task.id]: prev[task.id] ?? task.driveUrl ?? "",
+              }));
+            }}
+            onCancelRevise={() => {
+              setRevisingId(null);
+              setDriveLinks((prev) => {
+                const next = { ...prev };
+                delete next[task.id];
+                return next;
+              });
+              setDrafts((prev) => {
+                const next = { ...prev };
+                delete next[task.id];
+                return next;
+              });
+            }}
+          />
+        </div>
       </SessionReportStep>
     );
   }
@@ -712,7 +914,173 @@ export default function ClientHomePage() {
   return (
     <div className="es-client-shell">
       <aside className="es-client-aside">
-        <div className="es-client-identity">
+        <div className="es-client-mobile-header">
+          <p className="es-wordmark es-wordmark--mobile-bar">EliteSpeak</p>
+          <div className="es-mobile-menu-entry">
+            <button
+              type="button"
+              className="es-mobile-menu-btn"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="es-client-mobile-menu"
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              onClick={() => setMobileMenuOpen((open) => !open)}
+            >
+              <HamburgerIcon />
+            </button>
+          </div>
+        </div>
+
+        {mobileMenuOpen ? (
+          <>
+            <button
+              type="button"
+              className="es-mobile-menu-backdrop"
+              aria-label="Close menu"
+              onClick={() => setMobileMenuOpen(false)}
+            />
+            <nav
+              id="es-client-mobile-menu"
+              className="es-mobile-menu-panel"
+              aria-label="Account menu"
+            >
+              <button
+                type="button"
+                className="es-mobile-menu-close"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Close ←
+              </button>
+              <p className="es-mobile-menu-name">{client.name}</p>
+              {client.email ? (
+                <p className="es-mobile-menu-email">{client.email}</p>
+              ) : null}
+              <div className="es-mobile-menu-progress">
+                <LiveCallProgressBar progress={callProgress} />
+              </div>
+              <div className="es-mobile-menu-section">
+                <p className="es-mobile-menu-label">Sessions</p>
+                <button
+                  type="button"
+                  className={
+                    nav === INTRO_SESSION
+                      ? "es-mobile-menu-item es-mobile-menu-item--active"
+                      : introMilestone === "current"
+                        ? "es-mobile-menu-item es-mobile-menu-item--current"
+                        : "es-mobile-menu-item"
+                  }
+                  onClick={() => {
+                    setNav(INTRO_SESSION);
+                    setMobileMenuOpen(false);
+                  }}
+                >
+                  <span>Intro Call</span>
+                  {introMilestone === "current" ? (
+                    <span className="es-mobile-menu-item-meta">Current</span>
+                  ) : null}
+                </button>
+                {sessions.map((slot) => {
+                  const slotTasks = tasksForSession(tasks, slot.sessionNumber);
+                  const milestone = sessionMilestone(
+                    slot.sessionNumber,
+                    here,
+                    slotTasks,
+                  );
+                  const locked =
+                    !demoMode &&
+                    !isClientSessionUnlocked(slot.sessionNumber, row.currentStage);
+                  return (
+                    <button
+                      key={`mobile-${slot.sessionNumber}`}
+                      type="button"
+                      onClick={() => {
+                        setNav(slot.sessionNumber);
+                        setMobileMenuOpen(false);
+                      }}
+                      className={
+                        nav === slot.sessionNumber
+                          ? "es-mobile-menu-item es-mobile-menu-item--active"
+                          : locked
+                            ? "es-mobile-menu-item es-mobile-menu-item--locked"
+                            : milestone === "current"
+                              ? "es-mobile-menu-item es-mobile-menu-item--current"
+                              : "es-mobile-menu-item"
+                      }
+                    >
+                      <span>{sessionLabel(slot.sessionNumber)}</span>
+                      {milestone === "current" ? (
+                        <span className="es-mobile-menu-item-meta">
+                          {client.reviewRequired ? "In review" : "Current"}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                className="es-mobile-menu-item"
+                onClick={() => {
+                  setNav("ai-diagnosis");
+                  setMobileMenuOpen(false);
+                }}
+              >
+                AI Diagnosis
+              </button>
+              <button
+                type="button"
+                className={
+                  client.onboardingComplete
+                    ? "es-mobile-menu-item"
+                    : "es-mobile-menu-item es-mobile-menu-item--need"
+                }
+                onClick={() => {
+                  setNav("linkedin");
+                  setMobileMenuOpen(false);
+                }}
+              >
+                LinkedIn
+              </button>
+              <button
+                type="button"
+                className="es-mobile-menu-item"
+                onClick={() => {
+                  setNav("how-it-works");
+                  setMobileMenuOpen(false);
+                }}
+              >
+                How It Works
+              </button>
+              {demoMode ? (
+                <a
+                  href="/client/login"
+                  className="es-mobile-menu-item es-mobile-menu-item--logout"
+                >
+                  Client login
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  className="es-mobile-menu-item es-mobile-menu-item--logout"
+                  onClick={() => void logout()}
+                >
+                  Log out
+                </button>
+              )}
+            </nav>
+          </>
+        ) : null}
+
+        {demoMode ? (
+          <div className="es-demo-banner es-client-desktop-only">
+            <p className="es-demo-banner-title">Sample demo</p>
+            <p className="es-demo-banner-copy">
+              Read-only preview.{" "}
+              <a href="/client/login">Sign in</a> for your own program.
+            </p>
+          </div>
+        ) : null}
+
+        <div className="es-client-identity es-client-desktop-only">
           <p className="es-wordmark">EliteSpeak</p>
           <div className="es-client-who">
             <p className="es-aside-name">{client.name}</p>
@@ -721,6 +1089,7 @@ export default function ClientHomePage() {
               <p className="es-aside-focus">{client.currentFocus}</p>
             ) : null}
           </div>
+          <LiveCallProgressBar progress={callProgress} />
         </div>
         <nav ref={sessionNavRef} className="es-client-nav" aria-label="Sessions">
           <button
@@ -742,10 +1111,9 @@ export default function ClientHomePage() {
           {sessions.map((slot) => {
             const slotTasks = tasksForSession(tasks, slot.sessionNumber);
             const milestone = sessionMilestone(slot.sessionNumber, here, slotTasks);
-            const locked = !isClientSessionUnlocked(
-              slot.sessionNumber,
-              row.currentStage,
-            );
+            const locked =
+              !demoMode &&
+              !isClientSessionUnlocked(slot.sessionNumber, row.currentStage);
             return (
               <button
                 key={slot.sessionNumber}
@@ -777,13 +1145,25 @@ export default function ClientHomePage() {
             );
           })}
         </nav>
-        <div className="es-client-bar-end">
+        <div className="es-client-bar-end es-client-desktop-only">
           <div className="es-client-extra">
+            <button
+              type="button"
+              onClick={() => setNav("ai-diagnosis")}
+              aria-label="AI Diagnosis"
+              className={
+                nav === "ai-diagnosis"
+                  ? "es-nav-how es-nav-how--active"
+                  : "es-nav-how"
+              }
+            >
+              <span className="es-nav-how-copy">AI Diagnosis</span>
+            </button>
             <button
               type="button"
               onClick={() => setNav("linkedin")}
               aria-label={
-                client.onboardingComplete ? "LinkedIn" : "Action required"
+                "LinkedIn"
               }
               className={
                 nav === "linkedin"
@@ -794,9 +1174,7 @@ export default function ClientHomePage() {
               }
             >
               <LinkedInMark className="es-nav-how-icon" />
-              <span className="es-nav-how-copy">
-                {client.onboardingComplete ? "LinkedIn" : "Action required"}
-              </span>
+              <span className="es-nav-how-copy">LinkedIn</span>
               {client.onboardingComplete ? (
                 <span className="es-nav-tick">✓</span>
               ) : null}
@@ -816,13 +1194,19 @@ export default function ClientHomePage() {
             </button>
           </div>
           <div className="es-client-tools">
-            <button
-              type="button"
-              onClick={() => void logout()}
-              className="es-client-logout"
-            >
-              Log out
-            </button>
+            {demoMode ? (
+              <a href="/client/login" className="es-client-logout">
+                Client login
+              </a>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void logout()}
+                className="es-client-logout"
+              >
+                Log out
+              </button>
+            )}
           </div>
         </div>
       </aside>
@@ -834,26 +1218,49 @@ export default function ClientHomePage() {
             : "es-client-main"
         }
       >
+        {demoMode ? (
+          <div className="es-demo-banner es-demo-banner--mobile">
+            <p className="es-demo-banner-title">Sample demo</p>
+            <p className="es-demo-banner-copy">
+              Read-only preview.{" "}
+              <a href="/client/login">Sign in</a> for your own program.
+            </p>
+          </div>
+        ) : null}
         {nav === "how-it-works" ? (
           <HowItWorksRoadmap />
+        ) : nav === "ai-diagnosis" ? (
+          <SessionReport
+            className="flex-1 es-report--diagnosis"
+            title="AI Diagnosis"
+            kicker="Record your voice and compare your reports over time."
+          >
+            <ClientDiagnosisPanel readOnly={demoMode} />
+          </SessionReport>
         ) : nav === "linkedin" ? (
           <SessionReport
             className="flex-1 es-report--linkedin"
             title="LinkedIn"
             kicker={
-              row.onboardingComplete ? undefined : "Send your LinkedIn PDF."
+              row.onboardingComplete
+                ? undefined
+                : "Share your LinkedIn profile."
             }
           >
             <LinkedInUpload
               name={row.name}
-              done={row.onboardingComplete}
-              onSaved={() => void load()}
+              done={row.onboardingComplete || demoMode}
+              onSaved={() => {
+                if (!demoMode) void load();
+              }}
             />
           </SessionReport>
         ) : (
           <SessionReport
             className={
+              // Book card needs a normal top-aligned report; empty layout clips the title.
               sessionView === "tasks" &&
+              !isSessionNav(nav) &&
               (sessionLocked ||
                 (selectedTasks.length === 0 && nav !== INTRO_SESSION))
                 ? "flex-1 es-report--empty"
@@ -862,10 +1269,27 @@ export default function ClientHomePage() {
             title={sessionLabel(nav)}
             kicker={sessionKicker()}
           >
+            {isSessionNav(nav) ? (
+              <SessionBookCard
+                sessionNumber={nav}
+                completed={
+                  callCompletedForSession(callProgress, nav) ||
+                  Boolean(
+                    sessions.find((slot) => slot.sessionNumber === nav)
+                      ?.callCompleted,
+                  )
+                }
+                completedAt={
+                  callProgress?.calls.find((c) => c.sessionNumber === nav)
+                    ?.completedAt ||
+                  sessions.find((slot) => slot.sessionNumber === nav)
+                    ?.callCompletedAt
+                }
+                readOnly={demoMode}
+              />
+            ) : null}
             {nav === INTRO_SESSION && !isIntroCallEmpty(intro) ? (
-              <SessionReportStep n={1} title="Intro Call Overview">
-                <IntroCallView clientName={client.name} report={intro} />
-              </SessionReportStep>
+              <IntroCallView clientName={client.name} report={intro} />
             ) : null}
             {isSessionNav(nav) && nav >= 1 ? (
               <div className="es-session-tabs" role="tablist" aria-label="Session view">
@@ -950,27 +1374,29 @@ export default function ClientHomePage() {
                     </div>
                     {sessionTaskProgress(selectedTasks).pct < 100 ? (
                       <p className="es-session-progress-hint">
-                        Complete each task in order to unlock the next one.
+                        Submitted work counts here. Coach review will still show as
+                        pending when needed.
                       </p>
                     ) : null}
                   </div>
                 ) : null}
-                {(() => {
-                  const openIdx = firstOpenTaskIndex(selectedTasks);
-                  return selectedTasks.map((task, index) => {
-                    let stepBase = 1;
-                    if (nav === INTRO_SESSION && !isIntroCallEmpty(intro)) {
-                      stepBase += 1;
-                    }
-                    const locked = index > openIdx;
-                    return renderTaskStep(
-                      task,
-                      index,
-                      index + stepBase,
-                      locked,
-                    );
-                  });
-                })()}
+                {selectedTasks.map((task, index) => {
+                  let stepBase = 1;
+                  if (nav === INTRO_SESSION && !isIntroCallEmpty(intro)) {
+                    stepBase += 1;
+                  }
+                  return renderTaskStep(
+                    task,
+                    index,
+                    index + stepBase,
+                    false,
+                    task.id === activeExpandedTaskId,
+                    () =>
+                      setExpandedTaskId((current) =>
+                        current === task.id ? null : task.id,
+                      ),
+                  );
+                })}
               </>
             ) : null}
           </SessionReport>
@@ -983,4 +1409,8 @@ export default function ClientHomePage() {
       </main>
     </div>
   );
+}
+
+export default function ClientHomePage() {
+  return <ClientPortalHome />;
 }

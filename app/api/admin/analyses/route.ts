@@ -5,15 +5,15 @@ import {
   getAnalysisStats,
   listAnalyses,
 } from "@/lib/analyses";
-import { adminApiGuard } from "@/lib/admin-route";
 import { formatConvexError, getConvexUrl, isConvexConfigured } from "@/lib/convex-server";
+import { requireStaffConvex } from "@/lib/staff-auth";
 import { getSurveyRatingsBySlugs } from "@/lib/surveys";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const denied = await adminApiGuard(request, "viewer");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "viewer");
+  if (convex instanceof Response) return convex;
 
   if (!isConvexConfigured()) {
     return Response.json(
@@ -39,20 +39,20 @@ export async function GET(request: Request) {
 
     if (shouldBackfill) {
       try {
-        await backfillAnalysisDuration(20);
+        await backfillAnalysisDuration(20, convex);
       } catch (err) {
         errors.push(`backfill: ${formatConvexError(err)}`);
       }
     }
 
     try {
-      analyses = await listAnalyses(limit);
+      analyses = await listAnalyses(limit, convex);
     } catch (err) {
       errors.push(formatConvexError(err));
     }
 
     try {
-      stats = await getAnalysisStats();
+      stats = await getAnalysisStats(convex);
     } catch (err) {
       errors.push(formatConvexError(err));
     }
@@ -103,8 +103,8 @@ export async function GET(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const denied = await adminApiGuard(request, "editor");
-  if (denied) return denied;
+  const convex = await requireStaffConvex(request, "editor");
+  if (convex instanceof Response) return convex;
   if (!isConvexConfigured()) {
     return Response.json(
       { error: "Convex is not configured." },
@@ -139,7 +139,7 @@ export async function DELETE(request: Request) {
     }
 
     if (ids.length === 1) {
-      const ok = await deleteAnalysis(ids[0]);
+      const ok = await deleteAnalysis(ids[0], convex);
       if (!ok) {
         return Response.json(
           { error: "Could not delete that row (not found or Convex error)." },
@@ -149,7 +149,7 @@ export async function DELETE(request: Request) {
       return Response.json({ ok: true, deleted: 1 });
     }
 
-    const result = await deleteAnalyses(ids);
+    const result = await deleteAnalyses(ids, convex);
     if (!result) {
       return Response.json(
         { error: "Could not delete selected rows (Convex error)." },

@@ -8,7 +8,7 @@ import {
   type FormEvent,
   type ReactNode} from "react";
 import Link from "next/link";
-import { AdminHeader } from "@/components/AdminHeader";
+import { ViewerReadOnlyBanner } from "@/components/AdminReadOnly";
 import { useAdminStaff } from "@/components/AdminShell";
 import type { AnalysisListItem, AnalysisStats } from "@/lib/analyses";
 import type { SurveyStats } from "@/lib/surveys";
@@ -808,7 +808,6 @@ export default function AdminPage() {
   return (
     <div className="app-shell">
       <main className="mx-auto w-full max-w-[90rem] px-4 py-10">
-        <AdminHeader />
         <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
           Analysis admin
         </h1>
@@ -819,6 +818,8 @@ export default function AdminPage() {
         </p>
 
         <div className="mt-8 space-y-8">
+            <ViewerReadOnlyBanner canEdit={canEdit} />
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-sm text-muted">
                 {rows.length} recent{" "}
@@ -853,7 +854,7 @@ export default function AdminPage() {
                   href="/admin/prompt"
                   className="btn-secondary !w-auto px-4 inline-flex items-center justify-center text-rose-700 hover:text-rose-900"
                 >
-                  Diagnosis prompt
+                  Free diagnosis prompt
                 </Link>
                 <button
                   type="button"
@@ -1129,7 +1130,7 @@ export default function AdminPage() {
                   Completed = got a report. Failed = analysis error. Incomplete
                   = email captured, no score yet.
                 </p>
-                {rows.length > 0 ? (
+                {rows.length > 0 && canEdit ? (
                   <button
                     type="button"
                     onClick={toggleSelectAll}
@@ -1163,14 +1164,18 @@ export default function AdminPage() {
                         Name / email
                       </th>
                       <th className="px-1.5 py-2 font-semibold">
-                        <input
-                          type="checkbox"
-                          checked={allSelected}
-                          disabled={rows.length === 0 || bulkDeleting}
-                          onChange={toggleSelectAll}
-                          aria-label="Select all rows"
-                          className={`h-3.5 w-3.5 ${adminUi.checkbox}`}
-                        />
+                        {canEdit ? (
+                          <input
+                            type="checkbox"
+                            checked={allSelected}
+                            disabled={rows.length === 0 || bulkDeleting}
+                            onChange={toggleSelectAll}
+                            aria-label="Select all rows"
+                            className={`h-3.5 w-3.5 ${adminUi.checkbox}`}
+                          />
+                        ) : (
+                          <span className="text-muted">—</span>
+                        )}
                       </th>
                       <th className="px-1.5 py-2 font-semibold">When</th>
                       <th className="px-1.5 py-2 font-semibold">Status</th>
@@ -1237,14 +1242,18 @@ export default function AdminPage() {
                             ) : null}
                           </td>
                           <td className="px-1.5 py-2">
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              disabled={bulkDeleting || deletingId === row.id}
-                              onChange={() => toggleSelect(row.id)}
-                              aria-label={`Select ${row.email || row.firstName || row.id}`}
-                              className={`h-3.5 w-3.5 ${adminUi.checkbox}`}
-                            />
+                            {canEdit ? (
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                disabled={bulkDeleting || deletingId === row.id}
+                                onChange={() => toggleSelect(row.id)}
+                                aria-label={`Select ${row.email || row.firstName || row.id}`}
+                                className={`h-3.5 w-3.5 ${adminUi.checkbox}`}
+                              />
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
                           </td>
                           <td
                             className="truncate px-1.5 py-2 text-[11px] text-muted"
@@ -1358,14 +1367,18 @@ export default function AdminPage() {
                             )}
                           </td>
                           <td className="px-1.5 py-2 text-right">
-                            <button
-                              type="button"
-                              disabled={deletingId === row.id || busy || bulkDeleting}
-                              onClick={() => void onDelete(row)}
-                              className={`font-bold ${adminUi.dangerText} hover:underline disabled:opacity-50`}
-                            >
-                              {deletingId === row.id ? "…" : "Del"}
-                            </button>
+                            {canEdit ? (
+                              <button
+                                type="button"
+                                disabled={deletingId === row.id || busy || bulkDeleting}
+                                onClick={() => void onDelete(row)}
+                                className={`font-bold ${adminUi.dangerText} hover:underline disabled:opacity-50`}
+                              >
+                                {deletingId === row.id ? "…" : "Del"}
+                              </button>
+                            ) : (
+                              <span className="text-muted">—</span>
+                            )}
                           </td>
                         </tr>
                         );
