@@ -574,11 +574,6 @@ export default function AdminClientsPage() {
                             <span className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-sm font-bold text-white">
                               {row.currentStage || "Intro Call"}
                             </span>
-                            {row.reviewRequired ? (
-                              <p className="mt-1.5 text-sm font-extrabold uppercase tracking-wide text-amber-800">
-                                Audio in review
-                              </p>
-                            ) : null}
                             {!row.onboardingComplete ? (
                               <p className="mt-1.5 text-sm font-semibold text-slate-500">
                                 Profiles pending

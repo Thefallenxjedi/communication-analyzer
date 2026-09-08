@@ -129,8 +129,8 @@ function RequirementToggles({
         </span>
       </label>
       <p className="mt-2 text-xs text-muted">
-        Audio submissions automatically move to In review. Written tasks
-        complete immediately.
+        Audio submissions and written tasks complete immediately. Coach
+        comments can be added after an audio submission.
       </p>
     </div>
   );

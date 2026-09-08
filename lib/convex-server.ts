@@ -114,6 +114,12 @@ export const coachingApi = {
   completeTask: makeFunctionReference<"mutation">("coaching:completeTask"),
   rateTask: makeFunctionReference<"mutation">("coaching:rateTask"),
   markTaskReviewed: makeFunctionReference<"mutation">("coaching:markTaskReviewed"),
+  setTaskCoachComment: makeFunctionReference<"mutation">(
+    "coaching:setTaskCoachComment",
+  ),
+  setClientAdminNotes: makeFunctionReference<"mutation">(
+    "coaching:setClientAdminNotes",
+  ),
   removeTask: makeFunctionReference<"mutation">("coaching:removeTask"),
 };
 

@@ -174,6 +174,8 @@ export default defineSchema({
     socialProfiles: v.optional(v.array(v.string())),
     /** Middle work sessions (1..N). Intro + Final stay fixed. Default 9. */
     workSessionCount: v.optional(v.number()),
+    /** Private staff-only notes for the client across the full program. */
+    adminNotes: v.optional(v.string()),
   })
     .index("by_userId", ["userId"])
     .index("by_status_lastActivityAt", ["status", "lastActivityAt"])

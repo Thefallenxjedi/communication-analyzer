@@ -22,6 +22,8 @@ const MEETING_LINK_MAX = 500;
 const TITLE_MAX = 160;
 const INSTRUCTIONS_MAX = 8000;
 const RESPONSE_TEXT_MAX = 4000;
+const COACH_COMMENT_MAX = 4000;
+const CLIENT_ADMIN_NOTES_MAX = 20_000;
 const DRIVE_URL_MAX = 500;
 const PROGRAM_DAYS = 90;
 
@@ -179,11 +181,7 @@ async function toClientView(
     .query("tasks")
     .withIndex("by_clientId_createdAt", (q) => q.eq("clientId", row._id))
     .take(200);
-  const bySession = (a: Doc<"tasks">, b: Doc<"tasks">) =>
-    (a.sessionNumber ?? INTRO_SESSION) - (b.sessionNumber ?? INTRO_SESSION);
-  const pendingReviews = tasks
-    .filter((task) => task.status === "submitted")
-    .sort(bySession);
+  const pendingReviews: Doc<"tasks">[] = [];
   const workSessionCount = normalizeWorkSessionCount(row.workSessionCount);
   const currentStage = stageLabel(
     attentionSessionNumber(tasks, workSessionCount),
@@ -214,6 +212,7 @@ async function toClientView(
     linkedinProfileJson: row.linkedinProfileJson ?? "",
     linkedinText: detail ? (row.linkedinText ?? "") : "",
     socialProfiles: row.socialProfiles ?? [],
+    ...(detail ? { adminNotes: row.adminNotes ?? "" } : {}),
   };
 }
 
@@ -778,10 +777,9 @@ export const submitTask = mutation({
       throw new Error("Record audio first.");
     }
     const now = Date.now();
-    const needsReview = existing.recordingRequired === true;
     const responseText = args.responseText?.trim().slice(0, RESPONSE_TEXT_MAX);
     await ctx.db.patch(args.id, {
-      status: needsReview ? "submitted" : "done",
+      status: "done",
       ...(args.storageId ? { storageId: args.storageId } : {}),
       ...(driveUrl ? { driveUrl } : {}),
       durationSec:
@@ -791,7 +789,7 @@ export const submitTask = mutation({
       submittedAt: now,
       updatedAt: now,
       ...(responseText ? { responseText } : {}),
-      ...(needsReview ? {} : { completedAt: now }),
+      completedAt: now,
     });
     await ctx.db.patch(existing.clientId, {
       lastActivityAt: now,
@@ -876,6 +874,52 @@ export const markTaskReviewed = mutation({
     });
     await ctx.db.patch(existing.clientId, {
       lastActivityAt: now,
+      updatedAt: now,
+    });
+    return { ok: true as const };
+  },
+});
+
+export const setTaskCoachComment = mutation({
+  args: {
+    id: v.id("tasks"),
+    comment: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
+    const existing = await ctx.db.get(args.id);
+    if (!existing) return { ok: false as const, reason: "not_found" as const };
+    if (existing.status === "open") {
+      throw new Error("Client has not completed this task yet.");
+    }
+
+    const now = Date.now();
+    const comment = args.comment.trim().slice(0, COACH_COMMENT_MAX);
+    await ctx.db.patch(args.id, {
+      ratingComment: comment,
+      updatedAt: now,
+    });
+    await ctx.db.patch(existing.clientId, {
+      lastActivityAt: now,
+      updatedAt: now,
+    });
+    return { ok: true as const };
+  },
+});
+
+export const setClientAdminNotes = mutation({
+  args: {
+    id: v.id("clients"),
+    adminNotes: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
+    const existing = await ctx.db.get(args.id);
+    if (!existing) return { ok: false as const, reason: "not_found" as const };
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      adminNotes: args.adminNotes.trim().slice(0, CLIENT_ADMIN_NOTES_MAX),
       updatedAt: now,
     });
     return { ok: true as const };

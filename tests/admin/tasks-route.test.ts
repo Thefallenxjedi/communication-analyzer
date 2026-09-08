@@ -9,6 +9,7 @@ const {
   listCoachingTasks,
   markCoachingTaskReviewed,
   removeCoachingTask,
+  setCoachingTaskCoachComment,
   updateCoachingTask,
 } = vi.hoisted(() => ({
   requireStaffConvex: vi.fn(),
@@ -19,6 +20,7 @@ const {
   listCoachingTasks: vi.fn(),
   markCoachingTaskReviewed: vi.fn(),
   removeCoachingTask: vi.fn(),
+  setCoachingTaskCoachComment: vi.fn(),
   updateCoachingTask: vi.fn(),
 }));
 
@@ -39,6 +41,7 @@ vi.mock("@/lib/coaching-tasks", () => ({
   needsCoachReview: (task: { recordingRequired?: boolean }) =>
     task.recordingRequired === true,
   removeCoachingTask,
+  setCoachingTaskCoachComment,
   updateCoachingTask,
 }));
 
@@ -62,6 +65,7 @@ describe("/api/admin/tasks", () => {
     updateCoachingTask.mockResolvedValue({ ok: true });
     completeCoachingTask.mockResolvedValue({ ok: true });
     markCoachingTaskReviewed.mockResolvedValue({ ok: true });
+    setCoachingTaskCoachComment.mockResolvedValue({ ok: true });
     removeCoachingTask.mockResolvedValue({ ok: true });
     listCoachingTasks.mockResolvedValue([{ id: "task-1", title: "Task 1" }]);
     listCoachingSessions.mockResolvedValue([{ sessionNumber: 1, ready: true }]);
@@ -131,6 +135,29 @@ describe("/api/admin/tasks", () => {
     expect(res.status).toBe(200);
     expect(getCoachingTask).toHaveBeenCalledWith("task-1", convex);
     expect(completeCoachingTask).toHaveBeenCalledWith("task-1", convex);
+  });
+
+  it("saves an optional coach comment without changing completion", async () => {
+    const res = await PATCH(
+      new Request("https://example.com/api/admin/tasks", {
+        method: "PATCH",
+        body: JSON.stringify({
+          id: "task-1",
+          clientId: "client-1",
+          coachComment: "Strong pacing. Keep the final pause.",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(setCoachingTaskCoachComment).toHaveBeenCalledWith(
+      {
+        id: "task-1",
+        comment: "Strong pacing. Keep the final pause.",
+      },
+      convex,
+    );
+    expect(markCoachingTaskReviewed).not.toHaveBeenCalled();
   });
 
   it("deletes a task", async () => {

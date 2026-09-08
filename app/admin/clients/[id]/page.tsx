@@ -27,8 +27,6 @@ import {
 import type { CoachingSessionSlot } from "@/lib/coaching-sessions";
 import {
   isTaskFinished,
-  needsCoachReview,
-  taskStatusLabel,
   usesVideoLink,
   type CoachingTask} from "@/lib/coaching-tasks";
 import { videoShareKind } from "@/lib/google-drive";
@@ -268,8 +266,8 @@ function TaskRequirementsField({
           </span>
         </label>
         <p className="text-sm text-muted">
-          Audio submissions automatically move to In review. Written tasks
-          complete immediately.
+          Audio submissions and written tasks complete immediately. You can add
+          an optional coach comment after an audio submission.
         </p>
       </div>
     </fieldset>
@@ -296,8 +294,6 @@ function navRowClass(
   }
   return `${base} border-border border-l-transparent text-slate-500`;
 }
-
-const ADMIN_SESSION_KEY = "ca_admin_password";
 
 const adminUi = {
   brand: "text-teal-700",
@@ -333,22 +329,14 @@ function sessionTone(
   const here =
     groupedProgramSession(parseCurrentStage(currentStage, workSessionCount)) ===
     groupedProgramSession(sessionNumber);
-  const needsReview = sessionTasks.some(
-    (task) => task.status === "submitted" && needsCoachReview(task),
-  );
   const complete =
     sessionNumber === INTRO_SESSION
       ? (sessionTasks.length > 0 &&
-          sessionTasks.every(
-            (task) => task.status === "reviewed" || task.status === "done",
-          ) &&
+          sessionTasks.every((task) => isTaskFinished(task.status)) &&
           !isIntroCallEmpty(introSaved)) ||
         (!sessionTasks.length && !isIntroCallEmpty(introSaved) && !here)
       : sessionTasks.length > 0 &&
-        sessionTasks.every(
-          (task) => task.status === "reviewed" || task.status === "done",
-        );
-  if (needsReview) return "review";
+        sessionTasks.every((task) => isTaskFinished(task.status));
   if (here) return "current";
   if (complete) return "complete";
   return "idle";
@@ -363,7 +351,7 @@ export default function AdminClientDetailPage() {
   const [error, setError] = useState("");
   const [client, setClient] = useState<CoachingClient | null>(null);
   const [tasks, setTasks] = useState<CoachingTask[]>([]);
-  const [sessions, setSessions] = useState<CoachingSessionSlot[]>([]);
+  const [, setSessions] = useState<CoachingSessionSlot[]>([]);
   const [assignSession, setAssignSession] = useState<number | null>(null);
   const [selectedSession, setSelectedSession] = useState(INTRO_SESSION);
   const [linkedinOpen, setLinkedinOpen] = useState(false);
@@ -371,9 +359,16 @@ export default function AdminClientDetailPage() {
   const [introSaved, setIntroSaved] = useState<IntroCallReport | null>(null);
   const [introBusy, setIntroBusy] = useState(false);
   const [editingIntro, setEditingIntro] = useState(false);
+  const [introReportOpen, setIntroReportOpen] = useState(true);
   const [downloadId, setDownloadId] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState("");
   const [notesBusy, setNotesBusy] = useState(false);
+  const [notesSaved, setNotesSaved] = useState(false);
+  const [coachCommentDrafts, setCoachCommentDrafts] = useState<
+    Record<string, string>
+  >({});
+  const [commentBusyId, setCommentBusyId] = useState<string | null>(null);
+  const [commentSavedId, setCommentSavedId] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
@@ -398,6 +393,7 @@ export default function AdminClientDetailPage() {
         };
         if (!res.ok) throw new Error(data.error || "Could not load client.");
         setClient(data.client ?? null);
+        setNotesDraft(data.client?.adminNotes ?? "");
         setTasks(data.tasks || []);
         setSessions(data.sessions || []);
         const workCount =
@@ -447,12 +443,6 @@ export default function AdminClientDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  useEffect(() => {
-    const notesSession = selectedSession === INTRO_SESSION ? 1 : selectedSession;
-    const slot = sessions.find((s) => s.sessionNumber === notesSession);
-    setNotesDraft(slot?.adminNotes ?? "");
-  }, [selectedSession, sessions]);
 
   async function onSaveIntro(e: FormEvent) {
     e.preventDefault();
@@ -525,8 +515,9 @@ export default function AdminClientDetailPage() {
     }
   }
 
-  async function onMarkReviewed(taskId: string) {
-    setBusy(true);
+  async function onSaveCoachComment(task: CoachingTask) {
+    setCommentBusyId(task.id);
+    setCommentSavedId(null);
     setError("");
     try {
       const res = await fetch("/api/admin/tasks", {
@@ -534,20 +525,22 @@ export default function AdminClientDetailPage() {
         headers: {
           "content-type": "application/json"},
         body: JSON.stringify({
-          id: taskId,
+          id: task.id,
           clientId,
-          markReviewed: true})});
+          coachComment: coachCommentDrafts[task.id] ?? task.ratingComment,
+        })});
       const data = (await res.json()) as {
         error?: string;
         tasks?: CoachingTask[];
         sessions?: CoachingSessionSlot[];
       };
-      if (!res.ok) throw new Error(data.error || "Could not mark reviewed.");
+      if (!res.ok) throw new Error(data.error || "Could not save comment.");
       await refreshTasks(data);
+      setCommentSavedId(task.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Review failed.");
+      setError(err instanceof Error ? err.message : "Could not save comment.");
     } finally {
-      setBusy(false);
+      setCommentBusyId(null);
     }
   }
 
@@ -749,26 +742,24 @@ export default function AdminClientDetailPage() {
     }
   }
 
-  async function onSaveAdminNotes(sessionNumber: number) {
+  async function onSaveAdminNotes() {
     if (!canEdit) return;
     setNotesBusy(true);
+    setNotesSaved(false);
     setError("");
     try {
-      const res = await fetch("/api/admin/sessions", {
+      const res = await fetch(`/api/admin/clients/${encodeURIComponent(clientId)}`, {
         method: "PATCH",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          clientId,
-          sessionNumber,
-          adminNotes: notesDraft,
-        }),
+        body: JSON.stringify({ adminNotes: notesDraft }),
       });
       const data = (await res.json()) as {
         error?: string;
-        sessions?: CoachingSessionSlot[];
+        client?: CoachingClient;
       };
       if (!res.ok) throw new Error(data.error || "Could not save notes.");
-      if (data.sessions) setSessions(data.sessions);
+      if (data.client) setClient(data.client);
+      setNotesSaved(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save notes.");
     } finally {
@@ -778,8 +769,7 @@ export default function AdminClientDetailPage() {
 
   function renderTask(task: CoachingTask, sessionLocked: boolean, open = true) {
     const lesson = !task.recordingRequired;
-    const finished = isTaskFinished(task.status);
-    const needsFeedback = task.recordingRequired || needsCoachReview(task);
+    const finished = isTaskFinished(task.status) || task.status === "submitted";
     const kindLabel =
       lesson
         ? "Self lesson"
@@ -792,13 +782,14 @@ export default function AdminClientDetailPage() {
         : "Not completed"
       : task.status === "open"
         ? "Not started"
-        : taskStatusLabel(task.status, "admin");
+        : "Completed";
     return (
       <article key={task.id} className="rounded-2xl border border-border bg-white p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <button
               type="button"
+              aria-expanded={open}
               onClick={() =>
                 setExpandedTaskId((current) => (current === task.id ? null : task.id))
               }
@@ -807,8 +798,9 @@ export default function AdminClientDetailPage() {
               <span className="min-w-0">
                 <h3 className="text-base font-extrabold text-slate-900">{task.title}</h3>
               </span>
-              <span className="pt-0.5 text-2xl leading-none text-slate-500">
-                {open ? "−" : "+"}
+              <span className="inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-700">
+                <span aria-hidden>{open ? "▾" : "▸"}</span>
+                {open ? "Hide details" : "View details"}
               </span>
             </button>
             <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
@@ -827,7 +819,7 @@ export default function AdminClientDetailPage() {
               </span>
             </p>
           </div>
-          {editId === task.id ? null : (
+          {open && editId !== task.id ? (
             <AdminReadOnly canEdit={canEdit} className="flex shrink-0 flex-wrap gap-2">
             <div className="flex shrink-0 flex-wrap gap-2">
               <button
@@ -852,7 +844,7 @@ export default function AdminClientDetailPage() {
               </button>
             </div>
             </AdminReadOnly>
-          )}
+          ) : null}
         </div>
         {open && finished ? (
           <p className="mt-3 text-base font-semibold text-slate-700">
@@ -921,7 +913,7 @@ export default function AdminClientDetailPage() {
                 : "Open Google Drive video"}
             </a>
           </div>
-        ) : task.recordingUrl ? (
+        ) : open && task.recordingUrl ? (
           <div className="mt-4 flex flex-wrap items-center gap-3">
             <audio controls src={task.recordingUrl} className="min-w-[16rem] flex-1" />
             <button
@@ -940,26 +932,41 @@ export default function AdminClientDetailPage() {
               : "No recording yet."}
           </p>
         ) : null}
-        {open &&
-        needsFeedback &&
-        !sessionLocked &&
-        task.status === "submitted" ? (
+        {open && task.recordingRequired && task.status !== "open" ? (
           <AdminReadOnly canEdit={canEdit}>
-            <div className="mt-4 rounded-2xl border-2 border-amber-400 bg-amber-50 px-5 py-5">
-              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-amber-800">
-                Audio in review
-              </p>
-              <p className="mt-1 text-xl font-extrabold text-slate-900">
-                Mark this submission reviewed
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-5">
+              <label className="text-sm font-extrabold text-slate-900">
+                Optional coach comment
+                <textarea
+                  value={coachCommentDrafts[task.id] ?? task.ratingComment}
+                  onChange={(event) =>
+                    setCoachCommentDrafts((current) => ({
+                      ...current,
+                      [task.id]: event.target.value.slice(0, 4000),
+                    }))
+                  }
+                  rows={4}
+                  placeholder="Add feedback the client can see…"
+                  className={`mt-2 ${adminUi.field} ${adminUi.focus}`}
+                />
+              </label>
+              <p className="mt-2 text-xs text-muted">
+                Optional. Saved comments appear with this completed task in the
+                client portal.
               </p>
               <button
                 type="button"
-                disabled={busy}
-                onClick={() => void onMarkReviewed(task.id)}
-                className={`mt-4 min-h-12 px-6 text-base ${adminUi.btnSolid}`}
+                disabled={commentBusyId === task.id}
+                onClick={() => void onSaveCoachComment(task)}
+                className={`mt-3 ${adminUi.btnSolid}`}
               >
-                {busy ? "Saving…" : "Mark reviewed"}
+                {commentBusyId === task.id ? "Saving…" : "Save comment"}
               </button>
+              {commentSavedId === task.id ? (
+                <span className="ml-3 text-sm font-semibold text-emerald-700">
+                  Saved
+                </span>
+              ) : null}
             </div>
           </AdminReadOnly>
         ) : null}
@@ -991,7 +998,7 @@ export default function AdminClientDetailPage() {
     return (
       <article
         key={sessionNumber}
-        className="space-y-4 rounded-2xl border border-border bg-white p-5"
+        className="flex flex-col gap-4 rounded-2xl border border-border bg-white p-5"
       >
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
@@ -1043,7 +1050,7 @@ export default function AdminClientDetailPage() {
         </div>
 
         {adding ? (
-          <AdminReadOnly canEdit={canEdit}>
+          <AdminReadOnly canEdit={canEdit} className="order-3">
           <form onSubmit={(e) => void onAssign(e)} className="space-y-4 border-t border-border pt-4">
             <input
               type="text"
@@ -1073,52 +1080,30 @@ export default function AdminClientDetailPage() {
           </AdminReadOnly>
         ) : null}
 
-        {sessionTasks.length === 0 && !adding ? (
-          <p className="text-base text-muted">No tasks yet. Use + Task.</p>
-        ) : (
-          sessionTasks.map((task) =>
-            renderTask(task, sessionLocked, task.id === activeExpandedTaskId),
-          )
-        )}
-
-        <div className="border-t border-border pt-4">
-          <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-muted">
-            Client notes
-          </p>
-          <p className="mt-1 text-sm text-muted">
-            Private coaching notes — never shown to the client.
-          </p>
-          <AdminReadOnly canEdit={canEdit}>
-            <textarea
-              value={notesDraft}
-              onChange={(e) => setNotesDraft(e.target.value.slice(0, 20_000))}
-              rows={4}
-              placeholder="Notes about this client for this session…"
-              className={`mt-3 ${adminUi.field} ${adminUi.focus}`}
-            />
-            <button
-              type="button"
-              disabled={notesBusy}
-              onClick={() => void onSaveAdminNotes(dataSessionNumber)}
-              className={`mt-3 ${adminUi.btnGhost}`}
-            >
-              {notesBusy ? "Saving…" : "Save notes"}
-            </button>
-          </AdminReadOnly>
+        <div className="order-2 space-y-4">
+          {sessionTasks.length === 0 && !adding ? (
+            <p className="text-base text-muted">No tasks yet. Use + Task.</p>
+          ) : (
+            sessionTasks.map((task) =>
+              renderTask(task, sessionLocked, task.id === activeExpandedTaskId),
+            )
+          )}
         </div>
 
         {sessionNumber !== INTRO_SESSION ? (
-          <TranscriptToWorkoutPanel
-            clientId={clientId}
-            targetSessionNumber={sessionNumber}
-            workSessionCount={workCount}
-            canEdit={canEdit}
-            onSaved={refreshTasks}
-          />
+          <div className="order-4">
+            <TranscriptToWorkoutPanel
+              clientId={clientId}
+              targetSessionNumber={sessionNumber}
+              workSessionCount={workCount}
+              canEdit={canEdit}
+              onSaved={refreshTasks}
+            />
+          </div>
         ) : null}
 
         {sessionNumber === INTRO_SESSION ? (
-          <div className="space-y-4 border-t border-border pt-4">
+          <div className="order-1 space-y-4 rounded-2xl border-2 border-teal-200 bg-teal-50/40 p-5">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <h3 className="text-base font-extrabold uppercase tracking-wide">
@@ -1129,6 +1114,15 @@ export default function AdminClientDetailPage() {
                   the top breakdowns, and sets focus areas.
                 </p>
               </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  aria-expanded={introReportOpen}
+                  onClick={() => setIntroReportOpen((current) => !current)}
+                  className={adminUi.btnGhost}
+                >
+                  {introReportOpen ? "▾ Hide report" : "▸ View report"}
+                </button>
               <AdminReadOnly canEdit={canEdit}>
               {editingIntro ? (
                 <button
@@ -1154,8 +1148,9 @@ export default function AdminClientDetailPage() {
                 </button>
               )}
               </AdminReadOnly>
+              </div>
             </div>
-            {editingIntro ? (
+            {introReportOpen ? (editingIntro ? (
           <AdminReadOnly canEdit={canEdit}>
           <form
             onSubmit={(e) => void onSaveIntro(e)}
@@ -1345,18 +1340,20 @@ export default function AdminClientDetailPage() {
               <div className="es-admin-intro-preview">
                 <IntroCallView clientName={row.name} report={introSaved} />
               </div>
-            )}
+            )) : null}
           </div>
         ) : null}
 
         {sessionNumber === INTRO_SESSION ? (
-          <TranscriptToWorkoutPanel
-            clientId={clientId}
-            targetSessionNumber={dataSessionNumber}
-            workSessionCount={workCount}
-            canEdit={canEdit}
-            onSaved={refreshTasks}
-          />
+          <div className="order-4">
+            <TranscriptToWorkoutPanel
+              clientId={clientId}
+              targetSessionNumber={dataSessionNumber}
+              workSessionCount={workCount}
+              canEdit={canEdit}
+              onSaved={refreshTasks}
+            />
+          </div>
         ) : null}
       </article>
     );
@@ -1389,11 +1386,6 @@ export default function AdminClientDetailPage() {
                 workCount,
               )}
             </p>
-            {client.reviewRequired ? (
-              <p className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-sm font-extrabold uppercase tracking-wide text-amber-800">
-                Audio in review
-              </p>
-            ) : null}
             <button
               type="button"
               onClick={() => setLinkedinOpen(true)}
@@ -1415,7 +1407,8 @@ export default function AdminClientDetailPage() {
               Program
             </p>
             <p className="mt-1 text-sm text-muted">
-              Assign ahead if you want. The client only sees a session after the previous one is complete.
+              Assign ahead if you want. Published tasks are visible to the
+              client immediately.
             </p>
           </div>
           <nav className="flex flex-col gap-0.5 px-3 pb-6">
@@ -1437,9 +1430,11 @@ export default function AdminClientDetailPage() {
               const open = selectedSession === n;
               const countLabel =
                 n === INTRO_SESSION
-                  ? sessionTasks.length
-                    ? `${sessionTasks.length} item${sessionTasks.length === 1 ? "" : "s"}`
-                    : "Baseline"
+                  ? isIntroCallEmpty(introSaved)
+                    ? "SpeechMap report pending"
+                    : `SpeechMap + ${sessionTasks.length} task${
+                        sessionTasks.length === 1 ? "" : "s"
+                      }`
                   : isFinalSession(n, workCount)
                     ? sessionTasks.length
                       ? `${sessionTasks.length} item${sessionTasks.length === 1 ? "" : "s"}`
@@ -1474,7 +1469,7 @@ export default function AdminClientDetailPage() {
                     }
                   >
                     {tone === "review"
-                      ? "Audio in review"
+                      ? "Completed"
                       : tone === "complete"
                         ? "Complete"
                         : countLabel}
@@ -1497,7 +1492,48 @@ export default function AdminClientDetailPage() {
 
         <section className="min-w-0 flex-1 overflow-y-auto px-6 py-6 lg:px-10">
           <ViewerReadOnlyBanner canEdit={canEdit} />
-          {renderWorkspace(selectedSession)}
+          <div className="mt-4 grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+            {renderWorkspace(selectedSession)}
+            <aside className="order-first rounded-2xl border border-border bg-white p-5 xl:order-last xl:sticky xl:top-5">
+              <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-muted">
+                Client notes
+              </p>
+              <h2 className="mt-1 text-xl font-extrabold text-slate-900">
+                Private admin notes
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                One private notes document for this client. Never shown in the
+                client portal.
+              </p>
+              <AdminReadOnly canEdit={canEdit}>
+                <textarea
+                  value={notesDraft}
+                  onChange={(event) => {
+                    setNotesDraft(event.target.value.slice(0, 20_000));
+                    setNotesSaved(false);
+                  }}
+                  rows={14}
+                  placeholder="Add context, reminders, patterns, and follow-ups for this client…"
+                  className={`mt-4 min-h-72 ${adminUi.field} ${adminUi.focus}`}
+                />
+                <div className="mt-3 flex items-center gap-3">
+                  <button
+                    type="button"
+                    disabled={notesBusy}
+                    onClick={() => void onSaveAdminNotes()}
+                    className={adminUi.btnSolid}
+                  >
+                    {notesBusy ? "Saving…" : "Save notes"}
+                  </button>
+                  {notesSaved ? (
+                    <span className="text-sm font-semibold text-emerald-700">
+                      Saved
+                    </span>
+                  ) : null}
+                </div>
+              </AdminReadOnly>
+            </aside>
+          </div>
         </section>
       </div>
       <AdminLinkedInDrawer

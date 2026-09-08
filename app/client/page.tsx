@@ -75,17 +75,13 @@ function sessionNavShort(
 function liveTaskId(tasks: CoachingTask[]): string | null {
   return (
     tasks.find((task) => task.status === "open")?.id ??
-    tasks.find((task) => task.status === "submitted")?.id ??
     tasks[0]?.id ??
     null
   );
 }
 
 function isSessionComplete(tasks: CoachingTask[]): boolean {
-  return (
-    tasks.length > 0 &&
-    tasks.every((task) => task.status === "reviewed" || task.status === "done")
-  );
+  return tasks.length > 0 && tasks.every(isClientTaskComplete);
 }
 
 function sessionMilestone(
@@ -296,28 +292,20 @@ function TaskScreen({
   draft,
   busy,
   showEmber,
-  sessionComplete,
-  revising,
   readOnly = false,
   onDriveLink,
   onDraft,
   onSubmit,
-  onStartRevise,
-  onCancelRevise,
 }: {
   task: CoachingTask;
   driveLink: string;
   draft?: { file: File; durationSec: number };
   busy: boolean;
   showEmber: boolean;
-  sessionComplete: boolean;
-  revising: boolean;
   readOnly?: boolean;
   onDriveLink: (value: string) => void;
   onDraft: (file: File, durationSec: number) => void;
-  onSubmit: (revise: boolean) => void;
-  onStartRevise: () => void;
-  onCancelRevise: () => void;
+  onSubmit: () => void;
 }) {
   const videoLink = usesVideoLink(task);
   if (readOnly && task.status === "open") {
@@ -355,7 +343,7 @@ function TaskScreen({
           <button
             type="button"
             disabled={busy || !driveLink.trim()}
-            onClick={() => onSubmit(false)}
+            onClick={onSubmit}
             className="es-btn"
           >
             {busy ? "Saving…" : "Submit"}
@@ -376,7 +364,7 @@ function TaskScreen({
             <button
               type="button"
               disabled={busy}
-              onClick={() => onSubmit(false)}
+              onClick={onSubmit}
               className="es-btn"
             >
               {busy ? "Completing…" : "Complete task"}
@@ -396,7 +384,7 @@ function TaskScreen({
           <button
             type="button"
             disabled={busy || !draft}
-            onClick={() => onSubmit(false)}
+            onClick={onSubmit}
             className="es-btn"
           >
             {busy ? "Submitting…" : "Submit"}
@@ -406,64 +394,11 @@ function TaskScreen({
     );
   }
 
-  if (task.status === "submitted") {
-    const canRevise = !sessionComplete && !task.clientRevisionUsed;
-    return (
-      <div className="es-task-well">
-        <div className="es-task-status">
-          <div className="es-task-status-label">
-            {showEmber ? <Ember state="review" /> : null}
-            <p className="es-label">In review</p>
-          </div>
-          {canRevise && !revising ? (
-            <button type="button" onClick={onStartRevise} className="es-btn">
-              Edit
-            </button>
-          ) : null}
-        </div>
-        {task.driveUrl ? <VideoShareLink href={task.driveUrl} /> : null}
-        {task.recordingUrl && !task.driveUrl ? (
-          <ClipPlayer src={task.recordingUrl} durationSec={task.durationSec} />
-        ) : null}
-        {canRevise && revising ? (
-          <>
-            {videoLink ? (
-              linkField
-            ) : (
-              <div className="es-task-controls">
-                <TaskRecorder look="client" disabled={busy} onReady={onDraft} />
-              </div>
-            )}
-            <div className="es-task-controls">
-              <button
-                type="button"
-                disabled={busy || (videoLink ? !driveLink.trim() : !draft)}
-                onClick={() => onSubmit(true)}
-                className="es-btn"
-              >
-                {busy ? "Saving…" : "Save"}
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={onCancelRevise}
-                className="es-link-btn"
-              >
-                Cancel
-              </button>
-            </div>
-          </>
-        ) : null}
-        {!canRevise && !sessionComplete ? (
-          <p className="es-task-hint">
-            Your one edit is used. Your coach is reviewing this.
-          </p>
-        ) : null}
-      </div>
-    );
-  }
-
-  if (task.status === "reviewed" || task.status === "done") {
+  if (
+    task.status === "submitted" ||
+    task.status === "reviewed" ||
+    task.status === "done"
+  ) {
     return (
       <div className="es-task-well es-task-well--done">
         <p className="es-task-done">
@@ -476,6 +411,12 @@ function TaskScreen({
         ) : null}
         {task.responseText ? (
           <p className="whitespace-pre-wrap text-sm">{task.responseText}</p>
+        ) : null}
+        {task.ratingComment ? (
+          <div className="es-task-coach-comment">
+            <p className="es-label">Coach comment</p>
+            <p className="whitespace-pre-wrap">{task.ratingComment}</p>
+          </div>
         ) : null}
       </div>
     );
@@ -499,7 +440,6 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
   const [drafts, setDrafts] = useState<
     Record<string, { file: File; durationSec: number }>
   >({});
-  const [revisingId, setRevisingId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -641,29 +581,21 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
     router.replace("/client/login");
   }
 
-  async function submitTask(taskId: string, revise: boolean) {
+  async function submitTask(taskId: string) {
     const task = tasks.find((row) => row.id === taskId);
     const driveLink = driveLinks[taskId] ?? "";
     const draft = drafts[taskId];
     const videoLink = task ? usesVideoLink(task) : false;
-    if (!revise && task?.recordingRequired && videoLink && !driveLink.trim()) {
+    if (task?.recordingRequired && videoLink && !driveLink.trim()) {
       setError("Paste a Google Drive or YouTube link, then submit.");
       return;
     }
-    if (!revise && task?.recordingRequired && !videoLink && !draft) {
+    if (task?.recordingRequired && !videoLink && !draft) {
       setError("Record audio first, then submit.");
       return;
     }
-    if (!revise && !task?.recordingRequired) {
+    if (!task?.recordingRequired) {
       setError("");
-    }
-    if (revise && videoLink && !driveLink.trim()) {
-      setError("Paste a Google Drive or YouTube link.");
-      return;
-    }
-    if (revise && !videoLink && !draft) {
-      setError("Record a new clip first.");
-      return;
     }
     setBusyId(taskId);
     setError("");
@@ -691,11 +623,11 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
         storageId = stored.storageId;
       }
       const res = await fetch("/api/client/workouts", {
-        method: revise ? "PATCH" : "POST",
+        method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           id: taskId,
-          complete: !revise && !task?.recordingRequired ? true : undefined,
+          complete: !task?.recordingRequired ? true : undefined,
           driveUrl: videoLink ? driveLink.trim() || undefined : undefined,
           storageId,
           durationSec: draft?.durationSec,
@@ -713,7 +645,6 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
         delete next[taskId];
         return next;
       });
-      setRevisingId(null);
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Submit failed.");
@@ -781,8 +712,8 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
   function taskStatusChip(task: CoachingTask) {
     if (task.status === "submitted") {
       return (
-        <span className="es-report-step-status es-report-step-status--review">
-          In review
+        <span className="es-report-step-status es-report-step-status--done">
+          ✓ Completed
         </span>
       );
     }
@@ -856,6 +787,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
         title={stepTitle(task, index)}
         open={open}
         onToggle={onToggle}
+      meta={taskStatusChip(task)}
       >
         <div className="es-task-sheet">
           {expected ? (
@@ -876,8 +808,6 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
             draft={drafts[task.id]}
             busy={busyId === task.id}
             showEmber={emberId === task.id}
-            sessionComplete={sessionComplete}
-            revising={revisingId === task.id}
             readOnly={demoMode}
             onDriveLink={(value) =>
               setDriveLinks((prev) => ({ ...prev, [task.id]: value }))
@@ -885,27 +815,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
             onDraft={(file, durationSec) =>
               setDrafts((prev) => ({ ...prev, [task.id]: { file, durationSec } }))
             }
-            onSubmit={(revise) => void submitTask(task.id, revise)}
-            onStartRevise={() => {
-              setRevisingId(task.id);
-              setDriveLinks((prev) => ({
-                ...prev,
-                [task.id]: prev[task.id] ?? task.driveUrl ?? "",
-              }));
-            }}
-            onCancelRevise={() => {
-              setRevisingId(null);
-              setDriveLinks((prev) => {
-                const next = { ...prev };
-                delete next[task.id];
-                return next;
-              });
-              setDrafts((prev) => {
-                const next = { ...prev };
-                delete next[task.id];
-                return next;
-              });
-            }}
+            onSubmit={() => void submitTask(task.id)}
           />
         </div>
       </SessionReportStep>
@@ -1022,7 +932,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                       <span>{sessionLabel(slot.sessionNumber, workCount)}</span>
                       {milestone === "current" ? (
                         <span className="es-mobile-menu-item-meta">
-                          {client.reviewRequired ? "In review" : "Current"}
+                          Current
                         </span>
                       ) : null}
                     </button>
@@ -1165,7 +1075,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                 </span>
                 {milestone === "current" ? (
                   <span className="es-nav-meta">
-                    {client.reviewRequired ? "In review" : "Current session"}
+                    Current session
                   </span>
                 ) : null}
               </button>
@@ -1318,9 +1228,12 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
               />
             ) : null}
             {nav === INTRO_SESSION &&
-            sessionView === "tasks" &&
-            !isIntroCallEmpty(intro) ? (
-              <IntroCallView clientName={client.name} report={intro} />
+            sessionView === "tasks" ? (
+              <IntroCallView
+                clientName={client.name}
+                report={intro}
+                emptyMessage="EliteSpeak will add your Intro Call breakdown here soon."
+              />
             ) : null}
             {isSessionNav(nav) ? (
               <div className="es-session-tabs" role="tablist" aria-label="Session view">

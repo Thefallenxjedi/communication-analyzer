@@ -1720,6 +1720,20 @@
   font-size: 0.7rem;
 }
 
+.es-task-coach-comment {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #d7ccb6;
+  color: #3a2e22;
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.es-task-coach-comment .es-label {
+  margin-bottom: 0.35rem;
+  color: #8a6637;
+}
+
 .es-review-comment {
   margin: 0;
   font-size: 1.2rem;

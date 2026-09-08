@@ -38,13 +38,10 @@ export type CoachingTask = {
   expectedMinutes: number | null;
 };
 
-export function taskStatusLabel(
-  status: CoachingTaskStatus,
-  viewer: "client" | "admin" = "client",
-): string {
+export function taskStatusLabel(status: CoachingTaskStatus): string {
   if (status === "open") return "Open";
   if (status === "submitted") {
-    return viewer === "admin" ? "Audio in review" : "In review";
+    return "Completed";
   }
   if (status === "reviewed") return "Reviewed";
   if (status === "done") return "Done";
@@ -77,7 +74,7 @@ export function isTaskLocked(status: CoachingTaskStatus): boolean {
 }
 
 export function isTaskFinished(status: CoachingTaskStatus): boolean {
-  return status === "reviewed" || status === "done";
+  return status === "submitted" || status === "reviewed" || status === "done";
 }
 
 export async function listCoachingTasks(
@@ -248,6 +245,29 @@ export async function markCoachingTaskReviewed(
   } catch (err) {
     const error = formatConvexError(err);
     console.error("[coaching] markTaskReviewed failed", error, err);
+    return { ok: false, error };
+  }
+}
+
+export async function setCoachingTaskCoachComment(
+  input: { id: string; comment: string },
+  convex?: ConvexClientLike | null,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!isConvexConfigured()) {
+    return { ok: false, error: "Convex is not configured." };
+  }
+  const client = resolveClient(convex);
+  if (!client) return { ok: false, error: "Convex is not configured." };
+
+  try {
+    const result = (await client.mutation(coachingApi.setTaskCoachComment, {
+      id: input.id as never,
+      comment: input.comment,
+    })) as { ok?: boolean };
+    return { ok: Boolean(result?.ok) };
+  } catch (err) {
+    const error = formatConvexError(err);
+    console.error("[coaching] setTaskCoachComment failed", error, err);
     return { ok: false, error };
   }
 }

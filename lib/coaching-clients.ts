@@ -39,6 +39,8 @@ export type CoachingClient = {
   linkedinProfileJson: string;
   linkedinText: string;
   socialProfiles: string[];
+  /** Private staff-only notes returned only by the admin detail query. */
+  adminNotes?: string;
 };
 
 export async function getCoachingClientByEmail(
@@ -151,6 +153,29 @@ export async function updateCoachingClient(input: {
   } catch (err) {
     const error = formatConvexError(err);
     console.error("[coaching] update failed", error, err);
+    return { ok: false, error };
+  }
+}
+
+export async function setCoachingClientAdminNotes(
+  input: { id: string; adminNotes: string },
+  convex?: ConvexClientLike | null,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!isConvexConfigured()) {
+    return { ok: false, error: "Convex is not configured." };
+  }
+  const client = resolveClient(convex);
+  if (!client) return { ok: false, error: "Convex is not configured." };
+
+  try {
+    const result = (await client.mutation(coachingApi.setClientAdminNotes, {
+      id: input.id as never,
+      adminNotes: input.adminNotes,
+    })) as { ok?: boolean };
+    return { ok: Boolean(result?.ok) };
+  } catch (err) {
+    const error = formatConvexError(err);
+    console.error("[coaching] setAdminNotes failed", error, err);
     return { ok: false, error };
   }
 }

@@ -81,14 +81,16 @@ function ProseWithCallout({
 export function IntroCallView({
   clientName,
   report,
+  emptyMessage = "Intro Call overview has not been written yet.",
 }: {
   clientName: string;
   report: IntroCallReport | null;
+  emptyMessage?: string;
 }) {
   if (isIntroCallEmpty(report)) {
     return (
       <p className="es-intro-empty text-sm text-muted">
-        Intro Call overview has not been written yet.
+        {emptyMessage}
       </p>
     );
   }

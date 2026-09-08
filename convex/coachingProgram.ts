@@ -127,13 +127,13 @@ export function attentionSessionNumber(
   const final = finalSessionNumber(workSessionCount);
   for (let n = INTRO_SESSION; n <= final; n++) {
     const list = tasks.filter((task) => (task.sessionNumber ?? INTRO_SESSION) === n);
-    if (list.some((task) => task.status === "submitted")) {
-      return n;
-    }
     if (list.some((task) => task.status === "open")) return n;
     if (
       list.some(
-        (task) => task.status !== "reviewed" && task.status !== "done",
+        (task) =>
+          task.status !== "submitted" &&
+          task.status !== "reviewed" &&
+          task.status !== "done",
       )
     ) {
       return n;

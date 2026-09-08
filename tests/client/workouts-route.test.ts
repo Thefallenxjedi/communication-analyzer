@@ -7,6 +7,7 @@ const {
   listCoachingTasks,
   listCoachingSessions,
   completeCoachingTask,
+  submitCoachingTask,
 } = vi.hoisted(() => ({
   getActiveClientSession: vi.fn(),
   getAuthedConvexClient: vi.fn(),
@@ -14,6 +15,7 @@ const {
   listCoachingTasks: vi.fn(),
   listCoachingSessions: vi.fn(),
   completeCoachingTask: vi.fn(),
+  submitCoachingTask: vi.fn(),
 }));
 
 vi.mock("@/lib/client-auth", () => ({
@@ -25,7 +27,7 @@ vi.mock("@/lib/coaching-tasks", () => ({
   listCoachingTasks,
   completeCoachingTask,
   reviseCoachingTask: vi.fn(),
-  submitCoachingTask: vi.fn(),
+  submitCoachingTask,
   usesVideoLink: () => false,
 }));
 vi.mock("@/lib/coaching-sessions", () => ({
@@ -65,6 +67,7 @@ describe("/api/client/workouts", () => {
     listCoachingTasks.mockResolvedValue([futureTask]);
     listCoachingSessions.mockResolvedValue([]);
     completeCoachingTask.mockResolvedValue({ ok: true });
+    submitCoachingTask.mockResolvedValue({ ok: true });
   });
 
   it("returns every task the admin has assigned, including future sessions", async () => {
@@ -84,5 +87,37 @@ describe("/api/client/workouts", () => {
 
     expect(res.status).toBe(200);
     expect(completeCoachingTask).toHaveBeenCalledWith("task-future", convex);
+  });
+
+  it("submits an audio task directly into the completed workflow", async () => {
+    const audioTask = {
+      ...futureTask,
+      id: "task-audio",
+      recordingRequired: true,
+    };
+    listCoachingTasks.mockResolvedValue([audioTask]);
+
+    const res = await POST(
+      new Request("https://example.com/api/client/workouts", {
+        method: "POST",
+        body: JSON.stringify({
+          id: "task-audio",
+          storageId: "storage-1",
+          durationSec: 47,
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(submitCoachingTask).toHaveBeenCalledWith(
+      {
+        id: "task-audio",
+        storageId: "storage-1",
+        driveUrl: undefined,
+        durationSec: 47,
+        responseText: undefined,
+      },
+      convex,
+    );
   });
 });

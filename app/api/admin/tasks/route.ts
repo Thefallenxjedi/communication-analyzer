@@ -7,6 +7,7 @@ import {
   markCoachingTaskReviewed,
   needsCoachReview,
   removeCoachingTask,
+  setCoachingTaskCoachComment,
   updateCoachingTask,
 } from "@/lib/coaching-tasks";
 import { formatConvexError } from "@/lib/convex-server";
@@ -89,6 +90,7 @@ export async function PATCH(request: Request) {
     recordingRequired?: boolean;
     complete?: boolean;
     markReviewed?: boolean;
+    coachComment?: string;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -104,9 +106,10 @@ export async function PATCH(request: Request) {
     typeof body.title === "string" || typeof body.instructions === "string";
   const completing = body.complete === true;
   const reviewing = body.markReviewed === true;
-  if (!editingCopy && !completing && !reviewing) {
+  const commenting = typeof body.coachComment === "string";
+  if (!editingCopy && !completing && !reviewing && !commenting) {
     return Response.json(
-      { error: "title, complete, or markReviewed required." },
+      { error: "title, complete, markReviewed, or coachComment required." },
       { status: 400 },
     );
   }
@@ -125,6 +128,11 @@ export async function PATCH(request: Request) {
     ? await completeCoachingTask(body.id, convex)
     : reviewing
       ? await markCoachingTaskReviewed(body.id, convex)
+      : commenting
+        ? await setCoachingTaskCoachComment({
+            id: body.id,
+            comment: body.coachComment ?? "",
+          }, convex)
       : await updateCoachingTask({
           id: body.id,
           title: body.title,
