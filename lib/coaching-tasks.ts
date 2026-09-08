@@ -5,6 +5,7 @@ import {
   isConvexConfigured,
 } from "@/lib/convex-server";
 import { INTRO_SESSION } from "@/lib/coaching-program";
+import { formatTaskTitle } from "@/lib/workout-exercises";
 
 type ConvexClientLike = NonNullable<ReturnType<typeof getConvexHttpClient>>;
 
@@ -114,7 +115,7 @@ export async function createCoachingTask(input: {
     const result = (await client.mutation(coachingApi.createTask, {
       clientId: input.clientId as never,
       sessionNumber: input.sessionNumber,
-      title: input.title,
+      title: formatTaskTitle(input.title, input.expectedMinutes),
       instructions: input.instructions,
       recordingRequired: input.recordingRequired,
       reviewRequired: input.reviewRequired,
@@ -231,27 +232,32 @@ export async function updateCoachingTask(input: {
   }
 }
 
-export async function rateCoachingTask(input: {
-  id: string;
-  rating: number;
-  comment?: string;
-}, convex?: ConvexClientLike | null): Promise<{ ok: boolean; error?: string }> {
+export async function markCoachingTaskReviewed(
+  id: string,
+  convex?: ConvexClientLike | null,
+): Promise<{ ok: boolean; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
   const client = resolveClient(convex);
   if (!client) return { ok: false, error: "Convex is not configured." };
 
   try {
-    const result = (await client.mutation(coachingApi.rateTask, {
-      id: input.id as never,
-      rating: input.rating,
-      comment: input.comment,
+    const result = (await client.mutation(coachingApi.markTaskReviewed, {
+      id: id as never,
     })) as { ok?: boolean };
     return { ok: Boolean(result?.ok) };
   } catch (err) {
     const error = formatConvexError(err);
-    console.error("[coaching] rateTask failed", error, err);
+    console.error("[coaching] markTaskReviewed failed", error, err);
     return { ok: false, error };
   }
+}
+
+export async function rateCoachingTask(input: {
+  id: string;
+  rating?: number;
+  comment?: string;
+}, convex?: ConvexClientLike | null): Promise<{ ok: boolean; error?: string }> {
+  return markCoachingTaskReviewed(input.id, convex);
 }
 
 export async function completeCoachingTask(

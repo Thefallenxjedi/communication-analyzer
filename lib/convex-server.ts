@@ -96,6 +96,15 @@ export const coachingApi = {
   markLiveCallComplete: makeFunctionReference<"mutation">(
     "coachingSessions:markLiveCallComplete",
   ),
+  addWorkSession: makeFunctionReference<"mutation">(
+    "coachingSessions:addWorkSession",
+  ),
+  removeWorkSession: makeFunctionReference<"mutation">(
+    "coachingSessions:removeWorkSession",
+  ),
+  setAdminNotes: makeFunctionReference<"mutation">(
+    "coachingSessions:setAdminNotes",
+  ),
   generateUploadUrl: makeFunctionReference<"mutation">("coaching:generateUploadUrl"),
   getStorageUrl: makeFunctionReference<"query">("coaching:getStorageUrl"),
   saveOnboarding: makeFunctionReference<"mutation">("coaching:saveOnboarding"),
@@ -104,6 +113,7 @@ export const coachingApi = {
   updateTask: makeFunctionReference<"mutation">("coaching:updateTask"),
   completeTask: makeFunctionReference<"mutation">("coaching:completeTask"),
   rateTask: makeFunctionReference<"mutation">("coaching:rateTask"),
+  markTaskReviewed: makeFunctionReference<"mutation">("coaching:markTaskReviewed"),
   removeTask: makeFunctionReference<"mutation">("coaching:removeTask"),
 };
 
@@ -132,6 +142,7 @@ export const workoutCatalogApi = {
   upsert: makeFunctionReference<"mutation">("workoutCatalog:upsert"),
   setEnabled: makeFunctionReference<"mutation">("workoutCatalog:setEnabled"),
   remove: makeFunctionReference<"mutation">("workoutCatalog:remove"),
+  removeMany: makeFunctionReference<"mutation">("workoutCatalog:removeMany"),
   seedBatch: makeFunctionReference<"mutation">("workoutCatalog:seedBatch"),
 };
 

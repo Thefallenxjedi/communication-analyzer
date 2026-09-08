@@ -1,5 +1,6 @@
 import { extractText } from "unpdf";
 
+/** Default cap for LinkedIn / profile extracts. */
 const TEXT_MAX = 80_000;
 
 const HEADING =
@@ -14,10 +15,14 @@ export type PdfTextBlock = {
 };
 
 /** Extract readable text from a PDF. LinkedIn exports are usually text-based. */
-export async function pdfToText(bytes: Uint8Array): Promise<string> {
+export async function pdfToText(
+  bytes: Uint8Array,
+  options?: { maxChars?: number },
+): Promise<string> {
   try {
     const result = await extractText(bytes, { mergePages: true });
-    return cleanPdfExtract(result.text).slice(0, TEXT_MAX);
+    const max = options?.maxChars ?? TEXT_MAX;
+    return cleanPdfExtract(result.text).slice(0, max);
   } catch (err) {
     console.error("[pdf] extract failed", err);
     return "";

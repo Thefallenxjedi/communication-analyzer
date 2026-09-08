@@ -26,6 +26,8 @@ export type CoachingClient = {
   meetingLink: string;
   status: CoachingClientStatus;
   currentStage: string;
+  /** Middle work sessions (1..N). Intro + Final stay fixed. Default 9. */
+  workSessionCount: number;
   reviewRequired: boolean;
   pendingReviews: number;
   lastActivityAt: string;
@@ -36,6 +38,7 @@ export type CoachingClient = {
   onboardingGoal: string;
   linkedinProfileJson: string;
   linkedinText: string;
+  socialProfiles: string[];
 };
 
 export async function getCoachingClientByEmail(
@@ -209,8 +212,9 @@ export async function saveClientOnboarding(input: {
   company?: string;
   goal?: string;
   linkedinStorageId?: string;
-  linkedinText: string;
-  linkedinProfileJson: string;
+  linkedinText?: string;
+  linkedinProfileJson?: string;
+  socialProfiles?: string[];
 }, convex?: ConvexClientLike | null): Promise<{ ok: boolean; error?: string }> {
   if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
   const client = resolveClient(convex);
@@ -227,20 +231,18 @@ export async function saveClientOnboarding(input: {
         : {}),
       linkedinText: input.linkedinText,
       linkedinProfileJson: input.linkedinProfileJson,
+      socialProfiles: input.socialProfiles,
     })) as { ok?: boolean; reason?: string };
     if (!result?.ok) {
       return {
         ok: false,
-        error:
-          result?.reason === "already_complete"
-            ? "LinkedIn is already submitted."
-            : "Could not save LinkedIn profile.",
+        error: "Could not save profiles.",
       };
     }
     return { ok: true };
   } catch (err) {
     const error = formatConvexError(err);
-    console.error("[coaching] linkedin save failed", error, err);
+    console.error("[coaching] profile save failed", error, err);
     return { ok: false, error };
   }
 }

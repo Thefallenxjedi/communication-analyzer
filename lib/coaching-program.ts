@@ -1,96 +1,196 @@
 export const INTRO_SESSION = 0;
+/** Default Final Call index when workSessionCount is 9. */
 export const FINAL_SESSION = 10;
 export const WORK_SESSION_COUNT = 9;
-export const PROGRAM_SLOTS = [
-  INTRO_SESSION,
-  ...Array.from({ length: WORK_SESSION_COUNT }, (_, i) => i + 1),
-  FINAL_SESSION,
-] as const;
+export const MIN_WORK_SESSION_COUNT = 1;
+export const MAX_WORK_SESSION_COUNT = 20;
 
-/** Live coaching calls the client can book (Intro + Sessions 1–9). */
-export const LIVE_CALL_TOTAL = 10;
-export const LIVE_CALL_SESSIONS = [
-  INTRO_SESSION,
-  ...Array.from({ length: WORK_SESSION_COUNT }, (_, i) => i + 1),
-] as const;
+export const PROGRAM_SLOTS = programSlots(WORK_SESSION_COUNT);
+
+/** Live coaching calls the client can book (Intro + work sessions). Default program. */
+export const LIVE_CALL_TOTAL = WORK_SESSION_COUNT + 1;
+export const LIVE_CALL_SESSIONS = liveCallSessions(WORK_SESSION_COUNT);
 
 export const PRIVATE_SESSION_BOOK_URL =
   process.env.NEXT_PUBLIC_PRIVATE_SESSION_URL?.trim() ||
   "https://calendly.com/contact-josephtsar/elitespeak-private-session";
 
-export function isLiveCallSession(sessionNumber: number): boolean {
-  return (LIVE_CALL_SESSIONS as readonly number[]).includes(sessionNumber);
+export function normalizeWorkSessionCount(value: number | undefined | null): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return WORK_SESSION_COUNT;
+  }
+  const n = Math.round(value);
+  return Math.min(MAX_WORK_SESSION_COUNT, Math.max(MIN_WORK_SESSION_COUNT, n));
 }
 
-export function isValidSessionNumber(n: number): boolean {
-  return Number.isInteger(n) && n >= INTRO_SESSION && n <= FINAL_SESSION;
+/** Final Call session number for a given work-session count. */
+export function finalSessionNumber(workSessionCount?: number | null): number {
+  return normalizeWorkSessionCount(workSessionCount) + 1;
 }
 
-export function sessionFileToken(sessionNumber: number): string {
+export function programSlots(workSessionCount?: number | null): number[] {
+  const count = normalizeWorkSessionCount(workSessionCount);
+  return [
+    INTRO_SESSION,
+    ...Array.from({ length: count }, (_, i) => i + 1),
+    finalSessionNumber(count),
+  ];
+}
+
+/** Work sessions + Final (no Intro). Matches coachingSessions:listForClient. */
+export function workAndFinalSlots(workSessionCount?: number | null): number[] {
+  const count = normalizeWorkSessionCount(workSessionCount);
+  return [
+    ...Array.from({ length: count }, (_, i) => i + 1),
+    finalSessionNumber(count),
+  ];
+}
+
+export function liveCallSessions(workSessionCount?: number | null): number[] {
+  const count = normalizeWorkSessionCount(workSessionCount);
+  return [INTRO_SESSION, ...Array.from({ length: count }, (_, i) => i + 1)];
+}
+
+export function isFinalSession(
+  sessionNumber: number,
+  workSessionCount?: number | null,
+): boolean {
+  return sessionNumber === finalSessionNumber(workSessionCount);
+}
+
+export function isLiveCallSession(
+  sessionNumber: number,
+  workSessionCount?: number | null,
+): boolean {
+  return liveCallSessions(workSessionCount).includes(sessionNumber);
+}
+
+export function isValidSessionNumber(
+  n: number,
+  workSessionCount?: number | null,
+): boolean {
+  return (
+    Number.isInteger(n) &&
+    n >= INTRO_SESSION &&
+    n <= finalSessionNumber(workSessionCount)
+  );
+}
+
+export function isMiddleWorkSession(
+  sessionNumber: number,
+  workSessionCount?: number | null,
+): boolean {
+  const count = normalizeWorkSessionCount(workSessionCount);
+  return (
+    Number.isInteger(sessionNumber) &&
+    sessionNumber >= 1 &&
+    sessionNumber <= count
+  );
+}
+
+export function sessionFileToken(
+  sessionNumber: number,
+  workSessionCount?: number | null,
+): string {
   if (sessionNumber <= INTRO_SESSION) return "INTRO_CALL";
-  if (sessionNumber >= FINAL_SESSION) return "FINAL_CALL";
+  if (isFinalSession(sessionNumber, workSessionCount)) return "FINAL_CALL";
   return `SESSION_${sessionNumber}`;
 }
 
-export function sessionLabel(sessionNumber: number): string {
-  if (sessionNumber <= INTRO_SESSION) return "Intro Call";
-  if (sessionNumber >= FINAL_SESSION) return "Final Call";
+export function sessionLabel(
+  sessionNumber: number,
+  workSessionCount?: number | null,
+): string {
+  if (sessionNumber <= INTRO_SESSION) return "Intro Call + Session 1";
+  if (isFinalSession(sessionNumber, workSessionCount)) return "Final Call";
   return `Session ${sessionNumber}`;
 }
 
-export function sessionHeadline(sessionNumber: number): string {
+export function sessionHeadline(
+  sessionNumber: number,
+  workSessionCount?: number | null,
+): string {
   if (sessionNumber <= INTRO_SESSION) {
-    return "Intro Call (Milestone 1: Baseline Established)";
+    return "Intro Call + Session 1 (Milestone 1: Baseline Established)";
   }
-  if (sessionNumber >= FINAL_SESSION) {
+  if (isFinalSession(sessionNumber, workSessionCount)) {
     return "Final Call (Milestone 11: Program Completion)";
   }
   return `Session ${sessionNumber}`;
 }
 
-export function sessionMilestoneLine(sessionNumber: number): string {
+export function sessionMilestoneLine(
+  sessionNumber: number,
+  workSessionCount?: number | null,
+): string {
   if (sessionNumber <= INTRO_SESSION) return "Milestone 1: Baseline Established";
-  if (sessionNumber >= FINAL_SESSION) return "Milestone 11: Program Completion";
+  if (isFinalSession(sessionNumber, workSessionCount)) {
+    return "Milestone 11: Program Completion";
+  }
   return "";
 }
 
-export function currentStageLabel(sessionNumber: number): string {
-  return sessionLabel(sessionNumber);
+export function currentStageLabel(
+  sessionNumber: number,
+  workSessionCount?: number | null,
+): string {
+  return sessionLabel(sessionNumber, workSessionCount);
 }
 
-export function parseCurrentStage(stage: string | undefined): number {
-  if (!stage || stage === "Intro Call") return INTRO_SESSION;
-  if (stage === "Final Call") return FINAL_SESSION;
+export function parseCurrentStage(
+  stage: string | undefined,
+  workSessionCount?: number | null,
+): number {
+  if (!stage || stage === "Intro Call" || stage === "Intro Call + Session 1") {
+    return INTRO_SESSION;
+  }
+  if (stage === "Final Call") return finalSessionNumber(workSessionCount);
   const match = /^Session\s+(\d+)$/.exec(stage);
   if (!match) return INTRO_SESSION;
   const n = Number(match[1]);
-  return isValidSessionNumber(n) ? n : INTRO_SESSION;
+  return isValidSessionNumber(n, workSessionCount) ? n : INTRO_SESSION;
+}
+
+/** Intro Call and Session 1 share one portal/admin destination without renumbering data. */
+export function groupedProgramSession(sessionNumber: number): number {
+  return sessionNumber <= 1 ? INTRO_SESSION : sessionNumber;
 }
 
 /** Admin may assign ahead. The client can work a session only after the previous one is done. */
 export function isClientSessionUnlocked(
   sessionNumber: number,
   currentStage: string | undefined,
+  workSessionCount?: number | null,
 ): boolean {
-  return sessionNumber <= parseCurrentStage(currentStage);
+  return sessionNumber <= parseCurrentStage(currentStage, workSessionCount);
 }
 
-export function previousProgramSession(sessionNumber: number): number {
+export function previousProgramSession(
+  sessionNumber: number,
+  workSessionCount?: number | null,
+): number {
+  const count = normalizeWorkSessionCount(workSessionCount);
+  const final = finalSessionNumber(count);
   if (sessionNumber <= 1) return INTRO_SESSION;
-  if (sessionNumber >= FINAL_SESSION) return WORK_SESSION_COUNT;
+  if (sessionNumber >= final) return count;
   return sessionNumber - 1;
 }
 
 /** Admin transcript panel: summary for the call just completed, tasks for the next session. */
-export function transcriptWorkoutDefaults(workspaceSession: number): {
+export function transcriptWorkoutDefaults(
+  workspaceSession: number,
+  workSessionCount?: number | null,
+): {
   summarySession: number;
   tasksSession: number;
 } {
+  const count = normalizeWorkSessionCount(workSessionCount);
+  const final = finalSessionNumber(count);
   if (workspaceSession === INTRO_SESSION) {
-    return { summarySession: 1, tasksSession: 2 };
+    return { summarySession: 1, tasksSession: Math.min(2, final) };
   }
-  if (workspaceSession >= WORK_SESSION_COUNT) {
-    return { summarySession: workspaceSession, tasksSession: FINAL_SESSION };
+  if (workspaceSession >= count) {
+    return { summarySession: workspaceSession, tasksSession: final };
   }
   return { summarySession: workspaceSession, tasksSession: workspaceSession + 1 };
 }
@@ -124,9 +224,10 @@ export function recordingDownloadName(input: {
   sessionNumber: number;
   about: string;
   ext: string;
+  workSessionCount?: number | null;
 }): string {
   const user = fileToken(input.clientName);
-  const session = sessionFileToken(input.sessionNumber);
+  const session = sessionFileToken(input.sessionNumber, input.workSessionCount);
   const about = fileToken(input.about);
   const ext = input.ext.replace(/^\./, "") || "webm";
   return `${user}_${session}_${about}.${ext}`;

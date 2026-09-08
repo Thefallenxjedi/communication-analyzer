@@ -74,6 +74,7 @@ This document is the source of truth for the `/admin` regression matrix, route a
 - Editor expectations:
   - Can seed missing entries.
   - Can reseed and overwrite matching slugs after confirm.
+  - Can import exercises from pasted/uploaded text (parse → edit drafts → confirm).
   - Can upsert coach-created or edited entries.
   - Can enable/disable entries.
   - Can remove entries.

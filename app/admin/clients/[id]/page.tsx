@@ -12,13 +12,18 @@ import {
   parseLinkedInProfile} from "@/lib/linkedin-profile";
 import { formatLinkedInPdfText } from "@/lib/pdf-text";
 import {
-  FINAL_SESSION,
   INTRO_SESSION,
-  PROGRAM_SLOTS,
+  MAX_WORK_SESSION_COUNT,
+  WORK_SESSION_COUNT,
+  groupedProgramSession,
+  isFinalSession,
+  isMiddleWorkSession,
   parseCurrentStage,
+  programSlots,
   sessionHeadline,
   sessionLabel,
-  sessionMilestoneLine} from "@/lib/coaching-program";
+  sessionMilestoneLine,
+} from "@/lib/coaching-program";
 import type { CoachingSessionSlot } from "@/lib/coaching-sessions";
 import {
   isTaskFinished,
@@ -59,7 +64,7 @@ function AdminLinkedInDrawer({
     <div className="fixed inset-0 z-40 flex justify-end">
       <button
         type="button"
-        aria-label="Close LinkedIn"
+        aria-label="Close profiles"
         className="absolute inset-0 bg-slate-900/30"
         onClick={onClose}
       />
@@ -67,7 +72,7 @@ function AdminLinkedInDrawer({
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-7 py-6">
           <div>
             <p className="text-sm font-extrabold uppercase tracking-wide text-muted">
-              LinkedIn
+              Profiles
             </p>
             <p className="mt-2 text-4xl font-extrabold leading-tight tracking-tight text-slate-900">
               {profile?.fullName || client.name}
@@ -80,10 +85,27 @@ function AdminLinkedInDrawer({
         <div className="min-h-0 flex-1 space-y-10 overflow-y-auto px-7 py-8">
           {!client.onboardingComplete ? (
             <p className="text-2xl font-extrabold text-amber-800">
-              LinkedIn PDF not uploaded yet.
+              Profiles not submitted yet.
             </p>
           ) : (
             <>
+              {client.socialProfiles.length > 0 ? (
+                <section>
+                  <h3 className="text-sm font-extrabold uppercase tracking-wide text-muted">
+                    Submitted profiles
+                  </h3>
+                  <ul className="mt-3 space-y-2">
+                    {client.socialProfiles.map((value) => (
+                      <li
+                        key={value}
+                        className="break-all rounded-xl border border-border bg-slate-50 px-4 py-3 text-base"
+                      >
+                        {value}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              ) : null}
               {profile?.headline || profile?.location ? (
                 <div>
                   {profile.headline ? (
@@ -324,8 +346,11 @@ function sessionTone(
   currentStage: string,
   sessionTasks: CoachingTask[],
   introSaved: IntroCallReport | null,
+  workSessionCount: number = WORK_SESSION_COUNT,
 ): "current" | "review" | "complete" | "idle" {
-  const here = parseCurrentStage(currentStage) === sessionNumber;
+  const here =
+    groupedProgramSession(parseCurrentStage(currentStage, workSessionCount)) ===
+    groupedProgramSession(sessionNumber);
   const needsReview = sessionTasks.some(
     (task) => task.status === "submitted" && needsCoachReview(task),
   );
@@ -356,6 +381,7 @@ export default function AdminClientDetailPage() {
   const [error, setError] = useState("");
   const [client, setClient] = useState<CoachingClient | null>(null);
   const [tasks, setTasks] = useState<CoachingTask[]>([]);
+  const [sessions, setSessions] = useState<CoachingSessionSlot[]>([]);
   const [assignSession, setAssignSession] = useState<number | null>(null);
   const [selectedSession, setSelectedSession] = useState(INTRO_SESSION);
   const [linkedinOpen, setLinkedinOpen] = useState(false);
@@ -364,15 +390,14 @@ export default function AdminClientDetailPage() {
   const [introBusy, setIntroBusy] = useState(false);
   const [editingIntro, setEditingIntro] = useState(false);
   const [downloadId, setDownloadId] = useState<string | null>(null);
+  const [notesDraft, setNotesDraft] = useState("");
+  const [notesBusy, setNotesBusy] = useState(false);
 
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
   const [recordingRequired, setRecordingRequired] = useState(false);
   const [reviewRequired, setReviewRequired] = useState(false);
 
-  const [rateId, setRateId] = useState<string | null>(null);
-  const [rating, setRating] = useState("8");
-  const [comment, setComment] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
   const [expandedTaskId, setExpandedTaskId] = useState<string | null | undefined>();
   const [editTitle, setEditTitle] = useState("");
@@ -394,7 +419,14 @@ export default function AdminClientDetailPage() {
         if (!res.ok) throw new Error(data.error || "Could not load client.");
         setClient(data.client ?? null);
         setTasks(data.tasks || []);
-        setSelectedSession(parseCurrentStage(data.client?.currentStage));
+        setSessions(data.sessions || []);
+        const workCount =
+          data.client?.workSessionCount ?? WORK_SESSION_COUNT;
+        setSelectedSession(
+          groupedProgramSession(
+            parseCurrentStage(data.client?.currentStage, workCount),
+          ),
+        );
 
         const introRes = await fetch(
           `/api/admin/intro-call?clientId=${encodeURIComponent(clientId)}`,
@@ -436,6 +468,12 @@ export default function AdminClientDetailPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const notesSession = selectedSession === INTRO_SESSION ? 1 : selectedSession;
+    const slot = sessions.find((s) => s.sessionNumber === notesSession);
+    setNotesDraft(slot?.adminNotes ?? "");
+  }, [selectedSession, sessions]);
+
   async function onSaveIntro(e: FormEvent) {
     e.preventDefault();
     setIntroBusy(true);
@@ -471,6 +509,7 @@ export default function AdminClientDetailPage() {
     sessions?: CoachingSessionSlot[];
   }) {
     setTasks(data.tasks || []);
+    if (data.sessions) setSessions(data.sessions);
   }
 
   async function onAssign(e: FormEvent) {
@@ -508,9 +547,7 @@ export default function AdminClientDetailPage() {
     }
   }
 
-  async function onRate(e: FormEvent) {
-    e.preventDefault();
-    if (!rateId) return;
+  async function onMarkReviewed(taskId: string) {
     setBusy(true);
     setError("");
     try {
@@ -519,21 +556,18 @@ export default function AdminClientDetailPage() {
         headers: {
           "content-type": "application/json"},
         body: JSON.stringify({
-          id: rateId,
+          id: taskId,
           clientId,
-          rating: Number(rating),
-          comment: comment.trim()})});
+          markReviewed: true})});
       const data = (await res.json()) as {
         error?: string;
         tasks?: CoachingTask[];
         sessions?: CoachingSessionSlot[];
       };
-      if (!res.ok) throw new Error(data.error || "Could not rate.");
+      if (!res.ok) throw new Error(data.error || "Could not mark reviewed.");
       await refreshTasks(data);
-      setRateId(null);
-      setComment("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Rate failed.");
+      setError(err instanceof Error ? err.message : "Review failed.");
     } finally {
       setBusy(false);
     }
@@ -670,7 +704,6 @@ export default function AdminClientDetailPage() {
     setSelectedSession(n);
     setAssignSession(null);
     setEditId(null);
-    setRateId(null);
     setEditingIntro(false);
   }
 
@@ -691,7 +724,103 @@ export default function AdminClientDetailPage() {
   }
 
   const row = client;
-  const here = parseCurrentStage(row.currentStage);
+  const workCount = row.workSessionCount ?? WORK_SESSION_COUNT;
+  const slots = programSlots(workCount).filter((n) => n !== 1);
+  const here = parseCurrentStage(row.currentStage, workCount);
+
+  async function onAddWorkSession() {
+    if (!canEdit) return;
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/sessions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ clientId, action: "addWorkSession" }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        sessions?: CoachingSessionSlot[];
+        client?: CoachingClient;
+      };
+      if (!res.ok) throw new Error(data.error || "Could not add session.");
+      if (data.sessions) setSessions(data.sessions);
+      if (data.client) setClient(data.client);
+      else await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not add session.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onRemoveWorkSession(sessionNumber: number) {
+    if (!canEdit) return;
+    const label = sessionLabel(sessionNumber, workCount);
+    if (
+      !window.confirm(
+        `Delete ${label}? Tasks and notes for this session will be removed. Later sessions shift down.`,
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/sessions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          action: "removeWorkSession",
+          sessionNumber,
+        }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        sessions?: CoachingSessionSlot[];
+        client?: CoachingClient;
+      };
+      if (!res.ok) throw new Error(data.error || "Could not remove session.");
+      if (data.sessions) setSessions(data.sessions);
+      if (data.client) setClient(data.client);
+      else await load();
+      if (selectedSession === sessionNumber) {
+        setSelectedSession(INTRO_SESSION);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not remove session.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onSaveAdminNotes(sessionNumber: number) {
+    if (!canEdit) return;
+    setNotesBusy(true);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/sessions", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          clientId,
+          sessionNumber,
+          adminNotes: notesDraft,
+        }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        sessions?: CoachingSessionSlot[];
+      };
+      if (!res.ok) throw new Error(data.error || "Could not save notes.");
+      if (data.sessions) setSessions(data.sessions);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not save notes.");
+    } finally {
+      setNotesBusy(false);
+    }
+  }
 
   function renderTask(task: CoachingTask, sessionLocked: boolean, open = true) {
     const lesson = !task.recordingRequired;
@@ -873,92 +1002,27 @@ export default function AdminClientDetailPage() {
               : "No recording yet."}
           </p>
         ) : null}
-        {open && task.rating != null && rateId !== task.id ? (
-          <div className="mt-4 flex flex-wrap items-center gap-4 rounded-xl border border-border px-4 py-3">
-            <p className="text-3xl font-extrabold tabular-nums text-slate-900">
-              {task.rating}
-              <span className="text-base font-semibold text-muted"> / 10</span>
-            </p>
-            <p className="min-w-0 flex-1 text-sm">
-              {task.ratingComment || "No written comment."}
-            </p>
-          </div>
-        ) : null}
         {open &&
         needsFeedback &&
         !sessionLocked &&
-        (task.status === "submitted" ||
-          task.status === "reviewed" ||
-          task.status === "done") ? (
+        task.status === "submitted" ? (
           <AdminReadOnly canEdit={canEdit}>
-          {rateId === task.id ? (
-            <form onSubmit={(e) => void onRate(e)} className="mt-4 space-y-3 rounded-xl border border-border p-4">
-              <p className="text-base font-extrabold">Coach rating</p>
-              <label className="block text-base font-semibold">
-                Score 0–10
-                <input
-                  type="number"
-                  min={0}
-                  max={10}
-                  value={rating}
-                  onChange={(e) => setRating(e.target.value)}
-                  className={`mt-1 w-28 rounded-lg border border-border px-2.5 py-2 text-base ${adminUi.focus}`}
-                  required
-                />
-              </label>
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value.slice(0, 2000))}
-                placeholder="Comment for the client"
-                rows={3}
-                className={`${adminUi.field} ${adminUi.focus}`}
-              />
-              <div className="flex gap-2">
-                <button type="submit" disabled={busy} className={adminUi.btnSolid}>
-                  Save rating
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRateId(null)}
-                  className={adminUi.btnGhost}
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : task.status === "submitted" && task.rating == null ? (
             <div className="mt-4 rounded-2xl border-2 border-amber-400 bg-amber-50 px-5 py-5">
               <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-amber-800">
                 Review required
               </p>
               <p className="mt-1 text-xl font-extrabold text-slate-900">
-                Score this submission
+                Mark this submission reviewed
               </p>
               <button
                 type="button"
-                onClick={() => {
-                  setRateId(task.id);
-                  setRating(task.rating != null ? String(task.rating) : "8");
-                  setComment(task.ratingComment);
-                }}
+                disabled={busy}
+                onClick={() => void onMarkReviewed(task.id)}
                 className={`mt-4 min-h-12 px-6 text-base ${adminUi.btnSolid}`}
               >
-                Add rating
+                {busy ? "Saving…" : "Mark reviewed"}
               </button>
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setRateId(task.id);
-                setRating(task.rating != null ? String(task.rating) : "8");
-                setComment(task.ratingComment);
-              }}
-              className={`mt-4 ${adminUi.btnGhost}`}
-            >
-              {task.rating != null ? "Edit rating" : "Add rating"}
-            </button>
-          )}
           </AdminReadOnly>
         ) : null}
       </article>
@@ -966,14 +1030,22 @@ export default function AdminClientDetailPage() {
   }
 
   function renderWorkspace(sessionNumber: number) {
-    const sessionTasks = tasksForSession(tasks, sessionNumber);
+    const dataSessionNumber =
+      sessionNumber === INTRO_SESSION ? 1 : sessionNumber;
+    const sessionTasks =
+      sessionNumber === INTRO_SESSION
+        ? [
+            ...tasksForSession(tasks, INTRO_SESSION),
+            ...tasksForSession(tasks, 1),
+          ]
+        : tasksForSession(tasks, sessionNumber);
     const activeExpandedTaskId =
       expandedTaskId === null
         ? null
         : sessionTasks.some((task) => task.id === expandedTaskId)
           ? expandedTaskId
           : sessionTasks[0]?.id ?? null;
-    const adding = assignSession === sessionNumber;
+    const adding = assignSession === dataSessionNumber;
     const sessionLocked =
       sessionTasks.length > 0 &&
       sessionTasks.every((task) => isTaskFinished(task.status)) &&
@@ -986,18 +1058,31 @@ export default function AdminClientDetailPage() {
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h2 className="text-2xl font-extrabold tracking-tight">
-              {sessionHeadline(sessionNumber)}
+              {sessionHeadline(sessionNumber, workCount)}
             </h2>
             {sessionLocked ? (
               <p className="mt-1.5 text-base font-semibold text-slate-700">
                 This session has been completed.
               </p>
-            ) : sessionMilestoneLine(sessionNumber) ? (
+            ) : sessionMilestoneLine(sessionNumber, workCount) ? (
               <p className="mt-1.5 text-base text-muted">
-                {sessionMilestoneLine(sessionNumber)}
+                {sessionMilestoneLine(sessionNumber, workCount)}
               </p>
             ) : null}
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {isMiddleWorkSession(sessionNumber, workCount) ? (
+              <AdminReadOnly canEdit={canEdit}>
+                <button
+                  type="button"
+                  disabled={busy || workCount <= 1}
+                  onClick={() => void onRemoveWorkSession(sessionNumber)}
+                  className={`${adminUi.btnGhost} ${adminUi.dangerBtn}`}
+                >
+                  Delete session
+                </button>
+              </AdminReadOnly>
+            ) : null}
           <AdminReadOnly canEdit={canEdit}>
           <button
             type="button"
@@ -1005,7 +1090,7 @@ export default function AdminClientDetailPage() {
               if (adding) {
                 setAssignSession(null);
               } else {
-                setAssignSession(sessionNumber);
+                setAssignSession(dataSessionNumber);
                 setTitle(`Task ${sessionTasks.length + 1}`);
                 setInstructions("");
                 setRecordingRequired(false);
@@ -1017,6 +1102,7 @@ export default function AdminClientDetailPage() {
             {adding ? "Cancel" : "+ Task"}
           </button>
           </AdminReadOnly>
+          </div>
         </div>
 
         {adding ? (
@@ -1043,7 +1129,7 @@ export default function AdminClientDetailPage() {
               onRecordingRequired={setRecordingRequired}
               reviewRequired={reviewRequired}
               onReviewRequired={setReviewRequired}
-              video={sessionNumber === INTRO_SESSION}
+              video={false}
             />
             <button type="submit" disabled={busy} className={adminUi.primaryBtn}>
               {busy ? "Saving…" : "Add task"}
@@ -1060,10 +1146,37 @@ export default function AdminClientDetailPage() {
           )
         )}
 
+        <div className="border-t border-border pt-4">
+          <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-muted">
+            Client notes
+          </p>
+          <p className="mt-1 text-sm text-muted">
+            Private coaching notes — never shown to the client.
+          </p>
+          <AdminReadOnly canEdit={canEdit}>
+            <textarea
+              value={notesDraft}
+              onChange={(e) => setNotesDraft(e.target.value.slice(0, 20_000))}
+              rows={4}
+              placeholder="Notes about this client for this session…"
+              className={`mt-3 ${adminUi.field} ${adminUi.focus}`}
+            />
+            <button
+              type="button"
+              disabled={notesBusy}
+              onClick={() => void onSaveAdminNotes(dataSessionNumber)}
+              className={`mt-3 ${adminUi.btnGhost}`}
+            >
+              {notesBusy ? "Saving…" : "Save notes"}
+            </button>
+          </AdminReadOnly>
+        </div>
+
         {sessionNumber !== INTRO_SESSION ? (
           <TranscriptToWorkoutPanel
             clientId={clientId}
             targetSessionNumber={sessionNumber}
+            workSessionCount={workCount}
             canEdit={canEdit}
             onSaved={refreshTasks}
           />
@@ -1074,7 +1187,7 @@ export default function AdminClientDetailPage() {
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <h3 className="text-base font-extrabold uppercase tracking-wide">
-                  Intro Diagnosis
+                  Intro SpeechMap Report
                 </h3>
                 <p className="mt-1 text-base text-muted">
                   Joseph reviews the BEFORE recording live with the client, names
@@ -1289,7 +1402,7 @@ export default function AdminClientDetailPage() {
               </button>
             </div>
             <button type="submit" disabled={introBusy} className={adminUi.primaryBtn}>
-              {introBusy ? "Saving…" : "Save intro diagnosis"}
+              {introBusy ? "Saving…" : "Save SpeechMap report"}
             </button>
           </form>
           </AdminReadOnly>
@@ -1304,7 +1417,8 @@ export default function AdminClientDetailPage() {
         {sessionNumber === INTRO_SESSION ? (
           <TranscriptToWorkoutPanel
             clientId={clientId}
-            targetSessionNumber={sessionNumber}
+            targetSessionNumber={dataSessionNumber}
+            workSessionCount={workCount}
             canEdit={canEdit}
             onSaved={refreshTasks}
           />
@@ -1332,7 +1446,13 @@ export default function AdminClientDetailPage() {
           </div>
           <div className="flex flex-col items-end gap-3 text-base">
             <p className="font-semibold">
-              Now: {client.currentStage || "Intro Call"}
+              Now:{" "}
+              {sessionLabel(
+                groupedProgramSession(
+                  parseCurrentStage(client.currentStage, workCount),
+                ),
+                workCount,
+              )}
             </p>
             {client.reviewRequired ? (
               <p className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-sm font-extrabold uppercase tracking-wide text-amber-800">
@@ -1346,7 +1466,7 @@ export default function AdminClientDetailPage() {
                 client.onboardingComplete ? adminUi.btnSolid : adminUi.btnGhost
               }
             >
-              {client.onboardingComplete ? "LinkedIn" : "LinkedIn pending"}
+              {client.onboardingComplete ? "Profiles" : "Profiles pending"}
             </button>
           </div>
         </div>
@@ -1364,16 +1484,28 @@ export default function AdminClientDetailPage() {
             </p>
           </div>
           <nav className="flex flex-col gap-0.5 px-3 pb-6">
-            {PROGRAM_SLOTS.map((n) => {
-              const sessionTasks = tasksForSession(tasks, n);
-              const tone = sessionTone(n, client.currentStage, sessionTasks, introSaved);
+            {slots.map((n) => {
+              const sessionTasks =
+                n === INTRO_SESSION
+                  ? [
+                      ...tasksForSession(tasks, INTRO_SESSION),
+                      ...tasksForSession(tasks, 1),
+                    ]
+                  : tasksForSession(tasks, n);
+              const tone = sessionTone(
+                n,
+                client.currentStage,
+                sessionTasks,
+                introSaved,
+                workCount,
+              );
               const open = selectedSession === n;
               const countLabel =
                 n === INTRO_SESSION
                   ? sessionTasks.length
                     ? `${sessionTasks.length} item${sessionTasks.length === 1 ? "" : "s"}`
                     : "Baseline"
-                  : n === FINAL_SESSION
+                  : isFinalSession(n, workCount)
                     ? sessionTasks.length
                       ? `${sessionTasks.length} item${sessionTasks.length === 1 ? "" : "s"}`
                       : "Completion"
@@ -1388,8 +1520,10 @@ export default function AdminClientDetailPage() {
                   className={navRowClass(open, tone)}
                 >
                   <span className="flex items-center justify-between gap-2">
-                    <span className="text-base font-bold">{sessionLabel(n)}</span>
-                    {here === n ? (
+                    <span className="text-base font-bold">
+                      {sessionLabel(n, workCount)}
+                    </span>
+                    {groupedProgramSession(here) === n ? (
                       <span className="rounded-full bg-teal-700 px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-wide text-white">
                         Now
                       </span>
@@ -1413,6 +1547,16 @@ export default function AdminClientDetailPage() {
                 </button>
               );
             })}
+            <AdminReadOnly canEdit={canEdit}>
+              <button
+                type="button"
+                disabled={busy || workCount >= MAX_WORK_SESSION_COUNT}
+                onClick={() => void onAddWorkSession()}
+                className={`mt-3 w-full ${adminUi.btnGhost}`}
+              >
+                + Session
+              </button>
+            </AdminReadOnly>
           </nav>
         </aside>
 

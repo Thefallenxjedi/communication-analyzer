@@ -16,7 +16,18 @@ vi.mock("@/lib/staff-auth", () => ({
 
 vi.mock("@/lib/workout-exercises", () => ({
   listAdminCatalogExercises,
+  listCatalogExercises: vi.fn().mockResolvedValue([]),
   seedProblemBibleCatalog,
+}));
+
+vi.mock("@/lib/exercise-catalog-import", () => ({
+  parseCatalogImportText: vi.fn(),
+  confirmCatalogImport: vi.fn(),
+}));
+
+vi.mock("@/lib/exercise-rag", () => ({
+  invalidateExerciseRagCache: vi.fn(),
+  warmCatalogEmbeddings: vi.fn(),
 }));
 
 vi.mock("@/lib/convex-server", () => ({
@@ -25,7 +36,9 @@ vi.mock("@/lib/convex-server", () => ({
   workoutCatalogApi: {
     setEnabled: "setEnabled",
     remove: "remove",
+    removeMany: "removeMany",
     upsert: "upsert",
+    seedBatch: "seedBatch",
   },
 }));
 

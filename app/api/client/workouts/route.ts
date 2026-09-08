@@ -1,5 +1,5 @@
-import { getActiveClientSession } from "@/lib/client-auth";
-import { listCoachingSessions } from "@/lib/coaching-sessions";
+import { getActiveClientSession, getAuthedConvexClient } from "@/lib/client-auth";
+import { listCoachingSessions, sessionsForClientView } from "@/lib/coaching-sessions";
 import {
   completeCoachingTask,
   ensureCoachingProgram,
@@ -17,9 +17,10 @@ export const runtime = "nodejs";
 function visibleClientTasks(
   tasks: Awaited<ReturnType<typeof listCoachingTasks>>,
   currentStage: string,
+  workSessionCount?: number,
 ) {
   return tasks.filter((task) =>
-    isClientSessionUnlocked(task.sessionNumber, currentStage),
+    isClientSessionUnlocked(task.sessionNumber, currentStage, workSessionCount),
   );
 }
 
@@ -32,16 +33,24 @@ export async function GET() {
   if (!active) {
     return Response.json({ error: "Not signed in.", tasks: [], sessions: [] }, { status: 401 });
   }
+  const convex = await getAuthedConvexClient();
+  if (!convex) {
+    return Response.json({ error: "Not signed in.", tasks: [], sessions: [] }, { status: 401 });
+  }
   const row = active.client;
 
   try {
-    await ensureCoachingProgram(row.id);
-    const [allTasks, sessions] = await Promise.all([
-      listCoachingTasks(row.id),
-      listCoachingSessions(row.id),
+    await ensureCoachingProgram(row.id, convex);
+    const [allTasks, sessionsRaw] = await Promise.all([
+      listCoachingTasks(row.id, convex),
+      listCoachingSessions(row.id, convex),
     ]);
-    const tasks = visibleClientTasks(allTasks, row.currentStage);
-    return Response.json({ tasks, sessions });
+    const tasks = visibleClientTasks(
+      allTasks,
+      row.currentStage,
+      row.workSessionCount,
+    );
+    return Response.json({ tasks, sessions: sessionsForClientView(sessionsRaw) });
   } catch (err) {
     return Response.json(
       { error: formatConvexError(err), tasks: [], sessions: [] },
@@ -57,6 +66,10 @@ export async function POST(request: Request) {
 
   const active = await getActiveClientSession();
   if (!active) {
+    return Response.json({ error: "Not signed in." }, { status: 401 });
+  }
+  const convex = await getAuthedConvexClient();
+  if (!convex) {
     return Response.json({ error: "Not signed in." }, { status: 401 });
   }
   const row = active.client;
@@ -82,12 +95,12 @@ export async function POST(request: Request) {
   }
 
   try {
-    const tasks = await listCoachingTasks(row.id);
+    const tasks = await listCoachingTasks(row.id, convex);
     const mine = tasks.find((task) => task.id === id);
     if (!mine) {
       return Response.json({ error: "Task not found." }, { status: 404 });
     }
-    if (!isClientSessionUnlocked(mine.sessionNumber, row.currentStage)) {
+    if (!isClientSessionUnlocked(mine.sessionNumber, row.currentStage, row.workSessionCount)) {
       return Response.json(
         { error: "This session opens after you finish the previous one." },
         { status: 403 },
@@ -124,7 +137,7 @@ export async function POST(request: Request) {
           { status: 400 },
         );
       }
-      const result = await completeCoachingTask(id);
+      const result = await completeCoachingTask(id, convex);
       if (!result.ok) {
         return Response.json(
           { error: result.error || "Could not complete task." },
@@ -132,8 +145,9 @@ export async function POST(request: Request) {
         );
       }
       const next = visibleClientTasks(
-        await listCoachingTasks(row.id),
+        await listCoachingTasks(row.id, convex),
         row.currentStage,
+        row.workSessionCount,
       );
       return Response.json({ ok: true, tasks: next });
     }
@@ -143,18 +157,19 @@ export async function POST(request: Request) {
       driveUrl: driveUrl || undefined,
       durationSec: body.durationSec,
       responseText: body.responseText,
-    });
+    }, convex);
     if (!result.ok) {
       return Response.json(
         { error: result.error || "Could not submit." },
         { status: 400 },
       );
     }
-    const next = visibleClientTasks(
-      await listCoachingTasks(row.id),
-      row.currentStage,
-    );
-    return Response.json({ ok: true, tasks: next });
+      const next = visibleClientTasks(
+        await listCoachingTasks(row.id, convex),
+        row.currentStage,
+        row.workSessionCount,
+      );
+      return Response.json({ ok: true, tasks: next });
   } catch (err) {
     return Response.json({ error: formatConvexError(err) }, { status: 500 });
   }
@@ -167,6 +182,10 @@ export async function PATCH(request: Request) {
 
   const active = await getActiveClientSession();
   if (!active) {
+    return Response.json({ error: "Not signed in." }, { status: 401 });
+  }
+  const convex = await getAuthedConvexClient();
+  if (!convex) {
     return Response.json({ error: "Not signed in." }, { status: 401 });
   }
   const row = active.client;
@@ -190,12 +209,12 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    const tasks = await listCoachingTasks(row.id);
+    const tasks = await listCoachingTasks(row.id, convex);
     const mine = tasks.find((task) => task.id === id);
     if (!mine) {
       return Response.json({ error: "Task not found." }, { status: 404 });
     }
-    if (!isClientSessionUnlocked(mine.sessionNumber, row.currentStage)) {
+    if (!isClientSessionUnlocked(mine.sessionNumber, row.currentStage, row.workSessionCount)) {
       return Response.json(
         { error: "This session opens after you finish the previous one." },
         { status: 403 },
@@ -235,7 +254,7 @@ export async function PATCH(request: Request) {
       driveUrl,
       durationSec: body.durationSec,
       responseText: body.responseText,
-    });
+    }, convex);
     if (!result.ok) {
       return Response.json(
         { error: result.error || "Could not update." },
@@ -243,7 +262,7 @@ export async function PATCH(request: Request) {
       );
     }
     const next = visibleClientTasks(
-      await listCoachingTasks(row.id),
+      await listCoachingTasks(row.id, convex),
       row.currentStage,
     );
     return Response.json({ ok: true, tasks: next });

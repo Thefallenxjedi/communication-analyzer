@@ -245,6 +245,45 @@ export const remove = mutation({
   },
 });
 
+/** Delete many catalog rows (bulk admin cleanup). */
+export const removeMany = mutation({
+  args: {
+    ids: v.optional(v.array(v.id("workoutExercises"))),
+    /** When true, delete every catalog exercise. */
+    all: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
+    let deleted = 0;
+    if (args.all === true) {
+      const rows = await ctx.db.query("workoutExercises").take(500);
+      for (const row of rows) {
+        await ctx.db.delete(row._id);
+        deleted += 1;
+      }
+      // Keep deleting if more than 500
+      let more = await ctx.db.query("workoutExercises").take(500);
+      while (more.length > 0) {
+        for (const row of more) {
+          await ctx.db.delete(row._id);
+          deleted += 1;
+        }
+        more = await ctx.db.query("workoutExercises").take(500);
+      }
+      return { ok: true as const, deleted };
+    }
+
+    const ids = args.ids ?? [];
+    for (const id of ids) {
+      const existing = await ctx.db.get(id);
+      if (!existing) continue;
+      await ctx.db.delete(id);
+      deleted += 1;
+    }
+    return { ok: true as const, deleted };
+  },
+});
+
 const seedExerciseValidator = v.object({
   slug: v.string(),
   name: v.string(),

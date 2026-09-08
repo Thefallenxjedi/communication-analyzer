@@ -1,6 +1,5 @@
 import {
   fetchMyClientFromConvex,
-  getActiveClientSession,
 } from "@/lib/client-auth";
 import type { ClientSession } from "@/lib/client-session";
 import { formatConvexError, isConvexConfigured } from "@/lib/convex-server";
@@ -17,8 +16,10 @@ function toSession(row: {
   meetingLink: string;
   status: ClientSession["status"];
   currentStage?: string;
+  workSessionCount?: number;
   reviewRequired?: boolean;
   onboardingComplete?: boolean;
+  socialProfiles?: string[];
 }): ClientSession {
   return {
     id: row.id,
@@ -30,8 +31,10 @@ function toSession(row: {
     meetingLink: row.meetingLink,
     status: row.status,
     currentStage: row.currentStage || "Intro Call",
+    workSessionCount: row.workSessionCount ?? 9,
     reviewRequired: row.reviewRequired === true,
     onboardingComplete: row.onboardingComplete === true,
+    socialProfiles: row.socialProfiles ?? [],
   };
 }
 
@@ -85,9 +88,4 @@ export async function POST() {
 
 export async function DELETE() {
   return Response.json({ ok: true });
-}
-
-export async function requireActiveClient() {
-  const active = await getActiveClientSession();
-  return active;
 }

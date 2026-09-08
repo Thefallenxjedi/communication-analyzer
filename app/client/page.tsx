@@ -3,10 +3,10 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AboutEliteSpeak } from "@/components/AboutEliteSpeak";
 import { Ember } from "@/components/Ember";
 import { ClientDiagnosisPanel } from "@/components/ClientDiagnosisPanel";
-import { HowItWorksRoadmap } from "@/components/HowItWorksRoadmap";
-import { LinkedInMark, LinkedInUpload } from "@/components/LinkedInUpload";
+import { ProfilesMark, ProfilesUpload } from "@/components/ProfilesUpload";
 import { ClipPlayer } from "@/components/ClipPlayer";
 import { IntroCallView } from "@/components/IntroCallView";
 import { SessionRecapView } from "@/components/SessionRecapView";
@@ -27,9 +27,11 @@ import {
   SessionBookCard,
 } from "@/components/SessionBookCard";
 import {
-  FINAL_SESSION,
   INTRO_SESSION,
+  WORK_SESSION_COUNT,
+  groupedProgramSession,
   isClientSessionUnlocked,
+  isFinalSession,
   parseCurrentStage,
   previousProgramSession,
   sessionLabel,
@@ -50,8 +52,8 @@ type Milestone = "complete" | "current" | "upcoming";
 
 type NavId = number | "how-it-works" | "linkedin" | "ai-diagnosis";
 
-function stageToNav(stage: string | undefined): NavId {
-  return parseCurrentStage(stage);
+function stageToNav(stage: string | undefined, workSessionCount?: number): NavId {
+  return groupedProgramSession(parseCurrentStage(stage, workSessionCount));
 }
 
 function navClass(active: boolean, here: boolean, locked = false): string {
@@ -61,9 +63,12 @@ function navClass(active: boolean, here: boolean, locked = false): string {
   return "es-nav-item";
 }
 
-function sessionNavShort(sessionNumber: number): string {
-  if (sessionNumber === INTRO_SESSION) return "Intro";
-  if (sessionNumber === FINAL_SESSION) return "Final";
+function sessionNavShort(
+  sessionNumber: number,
+  workSessionCount?: number,
+): string {
+  if (sessionNumber === INTRO_SESSION) return "Intro + 1";
+  if (isFinalSession(sessionNumber, workSessionCount)) return "Final";
   return String(sessionNumber);
 }
 
@@ -458,7 +463,7 @@ function TaskScreen({
     );
   }
 
-  if (task.rating == null) {
+  if (task.status === "reviewed" || task.status === "done") {
     return (
       <div className="es-task-well es-task-well--done">
         <p className="es-task-done">
@@ -476,30 +481,7 @@ function TaskScreen({
     );
   }
 
-  return (
-    <div className="es-task-well es-task-well--done">
-      <p className="es-task-done">
-        <span className="es-task-done-mark">✓</span>
-        Completed
-      </p>
-      <p className="es-mono text-5xl tabular-nums leading-none">
-        {task.rating ?? "—"}
-        <span className="text-lg text-muted"> / 10</span>
-      </p>
-      {task.ratingComment ? (
-        <p className="es-review-comment">{task.ratingComment}</p>
-      ) : (
-        <p className="es-task-hint">No written comment.</p>
-      )}
-      {task.driveUrl ? <VideoShareLink href={task.driveUrl} /> : null}
-      {task.recordingUrl && !task.driveUrl ? (
-        <ClipPlayer src={task.recordingUrl} durationSec={task.durationSec} />
-      ) : null}
-      {task.responseText ? (
-        <p className="whitespace-pre-wrap text-sm">{task.responseText}</p>
-      ) : null}
-    </div>
-  );
+  return null;
 }
 
 export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
@@ -541,7 +523,12 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
       }
       setClient(demoData.client);
       setTasks(demoData.tasks || []);
-      setSessions(ensureSessionSlots(demoData.sessions));
+      setSessions(
+        ensureSessionSlots(
+          demoData.sessions,
+          demoData.client.workSessionCount ?? WORK_SESSION_COUNT,
+        ),
+      );
       setIntro(demoData.intro ?? null);
       setCallProgress(demoData.progress ?? emptyLiveCallProgress());
       setError("");
@@ -579,7 +566,12 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
       return;
     }
     setTasks(workoutData.tasks || []);
-    setSessions(ensureSessionSlots(workoutData.sessions));
+    setSessions(
+      ensureSessionSlots(
+        workoutData.sessions,
+        sessionData.client.workSessionCount ?? WORK_SESSION_COUNT,
+      ),
+    );
 
     const introRes = await fetch("/api/client/intro-call");
     const introData = (await introRes.json()) as {
@@ -603,7 +595,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
 
   useEffect(() => {
     void load().then((row) => {
-      if (row) setNav(stageToNav(row.currentStage));
+      if (row) setNav(stageToNav(row.currentStage, row.workSessionCount ?? WORK_SESSION_COUNT));
     });
   }, [load]);
 
@@ -629,11 +621,12 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
       return;
     }
     setSessionView("tasks");
+    const recapSession = nav === INTRO_SESSION ? 1 : nav;
     let cancelled = false;
     void (async () => {
       const recapUrl = demoMode
-        ? `/api/client/demo/session-recap?session=${encodeURIComponent(String(nav))}`
-        : `/api/client/session-recap?session=${encodeURIComponent(String(nav))}`;
+        ? `/api/client/demo/session-recap?session=${encodeURIComponent(String(recapSession))}`
+        : `/api/client/session-recap?session=${encodeURIComponent(String(recapSession))}`;
       const res = await fetch(recapUrl);
       const data = (await res.json()) as { recap?: SessionRecap | null };
       if (!cancelled) setSessionRecap(data.recap ?? null);
@@ -738,15 +731,22 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
   }
 
   const row = client;
-  const here = stageToNav(row.currentStage);
+  const workCount = row.workSessionCount ?? WORK_SESSION_COUNT;
+  const actualHere = parseCurrentStage(row.currentStage, workCount);
+  const here = stageToNav(row.currentStage, workCount);
   const sessionLocked =
     !demoMode &&
     isSessionNav(nav) &&
-    !isClientSessionUnlocked(nav, row.currentStage);
+    !isClientSessionUnlocked(nav, row.currentStage, workCount);
   const selectedTasks = sessionLocked
     ? []
     : isSessionNav(nav)
-      ? tasksForSession(tasks, nav)
+      ? nav === INTRO_SESSION
+        ? [
+            ...tasksForSession(tasks, INTRO_SESSION),
+            ...tasksForSession(tasks, 1),
+          ]
+        : tasksForSession(tasks, nav)
       : [];
   const activeExpandedTaskId = selectedTasks.some((task) => task.id === expandedTaskId)
     ? expandedTaskId
@@ -755,14 +755,17 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
   const emberId = liveTaskId(
     selectedTasks.filter((task) => task.recordingRequired),
   );
-  const introTasks = tasksForSession(tasks, INTRO_SESSION);
+  const introTasks = [
+    ...tasksForSession(tasks, INTRO_SESSION),
+    ...tasksForSession(tasks, 1),
+  ];
   const introDone =
     !isIntroCallEmpty(intro) &&
     (introTasks.length === 0 || isSessionComplete(introTasks));
   const introMilestone: Milestone =
-    introDone && here !== INTRO_SESSION
+    introDone && actualHere > 1
       ? "complete"
-      : here === INTRO_SESSION
+      : actualHere <= 1
         ? "current"
         : "upcoming";
 
@@ -789,22 +792,20 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
   }
 
   function sessionKicker() {
-    const waitingMessage =
-      "This section will be here when your coach assigns it. For now, practice the previous sections.";
     if (sessionLocked && isSessionNav(nav)) {
-      return waitingMessage;
+      return undefined;
     }
     if (sessionComplete) {
       return `${row.name}, this session has been completed.`;
     }
     if (nav === INTRO_SESSION) {
       if (!isIntroCallEmpty(intro)) {
-        return `${row.name}, your Intro Call overview is below. Complete the baseline video task when you are ready.`;
+        return `${row.name}, your Intro Call + Session 1 overview is below. Complete each practice task when you are ready.`;
       }
-      return `${row.name}, paste a Google Drive or YouTube link for your baseline video. Your coach will write the diagnosis after the call.`;
+      return `${row.name}, paste a Google Drive or YouTube link for your baseline video. Your coach will write the SpeechMap report after the call.`;
     }
     if (selectedTasks.length === 0) {
-      return waitingMessage;
+      return undefined;
     }
     return `${row.name}, work through each step below. Record audio when a task asks for it, then wait for your coach review.`;
   }
@@ -915,7 +916,12 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
     <div className="es-client-shell">
       <aside className="es-client-aside">
         <div className="es-client-mobile-header">
-          <p className="es-wordmark es-wordmark--mobile-bar">EliteSpeak</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="es-wordmark-image es-wordmark-image--mobile"
+            src="/client/elitespeak-wordmark.png"
+            alt="EliteSpeak"
+          />
           <div className="es-mobile-menu-entry">
             <button
               type="button"
@@ -973,12 +979,14 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                     setMobileMenuOpen(false);
                   }}
                 >
-                  <span>Intro Call</span>
+                  <span>{sessionLabel(INTRO_SESSION, workCount)}</span>
                   {introMilestone === "current" ? (
                     <span className="es-mobile-menu-item-meta">Current</span>
                   ) : null}
                 </button>
-                {sessions.map((slot) => {
+                {sessions
+                  .filter((slot) => slot.sessionNumber !== 1)
+                  .map((slot) => {
                   const slotTasks = tasksForSession(tasks, slot.sessionNumber);
                   const milestone = sessionMilestone(
                     slot.sessionNumber,
@@ -987,7 +995,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                   );
                   const locked =
                     !demoMode &&
-                    !isClientSessionUnlocked(slot.sessionNumber, row.currentStage);
+                    !isClientSessionUnlocked(slot.sessionNumber, row.currentStage, workCount);
                   return (
                     <button
                       key={`mobile-${slot.sessionNumber}`}
@@ -1006,7 +1014,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                               : "es-mobile-menu-item"
                       }
                     >
-                      <span>{sessionLabel(slot.sessionNumber)}</span>
+                      <span>{sessionLabel(slot.sessionNumber, workCount)}</span>
                       {milestone === "current" ? (
                         <span className="es-mobile-menu-item-meta">
                           {client.reviewRequired ? "In review" : "Current"}
@@ -1014,7 +1022,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                       ) : null}
                     </button>
                   );
-                })}
+                  })}
               </div>
               <button
                 type="button"
@@ -1024,7 +1032,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                   setMobileMenuOpen(false);
                 }}
               >
-                AI Diagnosis
+                SpeechMap Reports
               </button>
               <button
                 type="button"
@@ -1038,7 +1046,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                   setMobileMenuOpen(false);
                 }}
               >
-                LinkedIn
+                Profiles
               </button>
               <button
                 type="button"
@@ -1048,7 +1056,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                   setMobileMenuOpen(false);
                 }}
               >
-                How It Works
+                About EliteSpeak
               </button>
               {demoMode ? (
                 <a
@@ -1081,7 +1089,12 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
         ) : null}
 
         <div className="es-client-identity es-client-desktop-only">
-          <p className="es-wordmark">EliteSpeak</p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className="es-wordmark-image"
+            src="/client/elitespeak-wordmark.png"
+            alt="EliteSpeak"
+          />
           <div className="es-client-who">
             <p className="es-aside-name">{client.name}</p>
             <p className="es-aside-email">{client.email}</p>
@@ -1101,19 +1114,23 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
               {introMilestone === "complete" ? (
                 <span className="es-nav-tick">✓</span>
               ) : null}
-              <span className="md:hidden">{sessionNavShort(INTRO_SESSION)}</span>
-              <span className="hidden md:inline">Intro Call</span>
+              <span className="md:hidden">{sessionNavShort(INTRO_SESSION, workCount)}</span>
+              <span className="hidden md:inline">
+                {sessionLabel(INTRO_SESSION, workCount)}
+              </span>
             </span>
             {introMilestone === "current" ? (
               <span className="es-nav-meta">Current session</span>
             ) : null}
           </button>
-          {sessions.map((slot) => {
+          {sessions
+            .filter((slot) => slot.sessionNumber !== 1)
+            .map((slot) => {
             const slotTasks = tasksForSession(tasks, slot.sessionNumber);
             const milestone = sessionMilestone(slot.sessionNumber, here, slotTasks);
             const locked =
               !demoMode &&
-              !isClientSessionUnlocked(slot.sessionNumber, row.currentStage);
+              !isClientSessionUnlocked(slot.sessionNumber, row.currentStage, workCount);
             return (
               <button
                 key={slot.sessionNumber}
@@ -1130,10 +1147,10 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                     <span className="es-nav-tick">✓</span>
                   ) : null}
                   <span className="md:hidden">
-                    {sessionNavShort(slot.sessionNumber)}
+                    {sessionNavShort(slot.sessionNumber, workCount)}
                   </span>
                   <span className="hidden md:inline">
-                    {sessionLabel(slot.sessionNumber)}
+                    {sessionLabel(slot.sessionNumber, workCount)}
                   </span>
                 </span>
                 {milestone === "current" ? (
@@ -1143,27 +1160,27 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                 ) : null}
               </button>
             );
-          })}
+            })}
         </nav>
         <div className="es-client-bar-end es-client-desktop-only">
           <div className="es-client-extra">
             <button
               type="button"
               onClick={() => setNav("ai-diagnosis")}
-              aria-label="AI Diagnosis"
+              aria-label="SpeechMap Reports"
               className={
                 nav === "ai-diagnosis"
                   ? "es-nav-how es-nav-how--active"
                   : "es-nav-how"
               }
             >
-              <span className="es-nav-how-copy">AI Diagnosis</span>
+              <span className="es-nav-how-copy">SpeechMap Reports</span>
             </button>
             <button
               type="button"
               onClick={() => setNav("linkedin")}
               aria-label={
-                "LinkedIn"
+                "Profiles"
               }
               className={
                 nav === "linkedin"
@@ -1173,8 +1190,8 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                     : "es-nav-how es-nav-how--need"
               }
             >
-              <LinkedInMark className="es-nav-how-icon" />
-              <span className="es-nav-how-copy">LinkedIn</span>
+              <ProfilesMark className="es-nav-how-icon" />
+              <span className="es-nav-how-copy">Profiles</span>
               {client.onboardingComplete ? (
                 <span className="es-nav-tick">✓</span>
               ) : null}
@@ -1182,7 +1199,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
             <button
               type="button"
               onClick={() => setNav("how-it-works")}
-              aria-label="How It Works"
+              aria-label="About EliteSpeak"
               className={
                 nav === "how-it-works"
                   ? "es-nav-how es-nav-how--active"
@@ -1190,7 +1207,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
               }
             >
               <CompassMark />
-              <span className="es-nav-how-copy">How It Works</span>
+              <span className="es-nav-how-copy">About EliteSpeak</span>
             </button>
           </div>
           <div className="es-client-tools">
@@ -1228,11 +1245,11 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
           </div>
         ) : null}
         {nav === "how-it-works" ? (
-          <HowItWorksRoadmap />
+          <AboutEliteSpeak />
         ) : nav === "ai-diagnosis" ? (
           <SessionReport
             className="flex-1 es-report--diagnosis"
-            title="AI Diagnosis"
+            title="SpeechMap Reports"
             kicker="Record your voice and compare your reports over time."
           >
             <ClientDiagnosisPanel readOnly={demoMode} />
@@ -1240,16 +1257,18 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
         ) : nav === "linkedin" ? (
           <SessionReport
             className="flex-1 es-report--linkedin"
-            title="LinkedIn"
+            title="Profiles"
             kicker={
               row.onboardingComplete
                 ? undefined
-                : "Share your LinkedIn profile."
+                : "Share your professional and social profiles."
             }
           >
-            <LinkedInUpload
+            <ProfilesUpload
               name={row.name}
-              done={row.onboardingComplete || demoMode}
+              submitted={row.onboardingComplete}
+              initialProfiles={row.socialProfiles}
+              readOnly={demoMode}
               onSaved={() => {
                 if (!demoMode) void load();
               }}
@@ -1266,7 +1285,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                 ? "flex-1 es-report--empty"
                 : "flex-1"
             }
-            title={sessionLabel(nav)}
+            title={sessionLabel(nav, workCount)}
             kicker={sessionKicker()}
           >
             {isSessionNav(nav) ? (
@@ -1288,10 +1307,12 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                 readOnly={demoMode}
               />
             ) : null}
-            {nav === INTRO_SESSION && !isIntroCallEmpty(intro) ? (
+            {nav === INTRO_SESSION &&
+            sessionView === "tasks" &&
+            !isIntroCallEmpty(intro) ? (
               <IntroCallView clientName={client.name} report={intro} />
             ) : null}
-            {isSessionNav(nav) && nav >= 1 ? (
+            {isSessionNav(nav) ? (
               <div className="es-session-tabs" role="tablist" aria-label="Session view">
                 <button
                   type="button"
@@ -1322,11 +1343,10 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
               </div>
             ) : null}
             {isSessionNav(nav) &&
-            nav >= 1 &&
             sessionView === "summary" ? (
               sessionRecap?.recapSummary ? (
                 <SessionRecapView
-                  sessionLabel={sessionLabel(nav)}
+                  sessionLabel={sessionLabel(nav, workCount)}
                   recap={sessionRecap.recapSummary}
                 />
               ) : (
@@ -1347,7 +1367,12 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                 }
                 lockNote={
                   sessionLocked && isSessionNav(nav)
-                    ? `Opens after ${sessionLabel(previousProgramSession(nav))}.`
+                    ? `Opens after ${sessionLabel(
+                        groupedProgramSession(
+                          previousProgramSession(nav, workCount),
+                        ),
+                        workCount,
+                      )}.`
                     : undefined
                 }
               />

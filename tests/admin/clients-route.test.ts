@@ -161,6 +161,30 @@ describe("/api/admin/clients", () => {
     });
   });
 
+  it("uses the saved client name in the Resend event payload", async () => {
+    getCoachingClientByEmail.mockResolvedValueOnce({
+      id: "client-1",
+      name: "Samuel Saved",
+      email: "sam@example.com",
+    });
+
+    const res = await POST(
+      new Request("https://example.com/api/admin/clients", {
+        method: "POST",
+        body: JSON.stringify({
+          name: "Sam Submitted",
+          email: "sam@example.com",
+        }),
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(enrollAndInviteClient).toHaveBeenCalledWith({
+      name: "Samuel Saved",
+      email: "sam@example.com",
+    });
+  });
+
   it("returns JSON if Resend throws after create", async () => {
     enrollAndInviteClient.mockRejectedValueOnce(new Error("boom"));
 

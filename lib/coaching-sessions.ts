@@ -6,7 +6,9 @@ import {
 } from "@/lib/convex-server";
 import {
   LIVE_CALL_TOTAL,
+  WORK_SESSION_COUNT,
   sessionLabel,
+  workAndFinalSlots,
 } from "@/lib/coaching-program";
 
 type ConvexClientLike = NonNullable<ReturnType<typeof getConvexHttpClient>>;
@@ -15,7 +17,7 @@ function resolveClient(provided?: ConvexClientLike | null) {
   return provided ?? getConvexHttpClient();
 }
 
-export const SESSION_COUNT = 10;
+export const SESSION_COUNT = WORK_SESSION_COUNT + 1;
 
 export type CoachingSessionSlot = {
   sessionNumber: number;
@@ -23,6 +25,8 @@ export type CoachingSessionSlot = {
   taskCount: number;
   callCompleted?: boolean;
   callCompletedAt?: string;
+  /** Admin-only private notes. Never send to client APIs. */
+  adminNotes?: string;
 };
 
 export type LiveCallProgress = {
@@ -53,6 +57,15 @@ export async function listCoachingSessions(
     console.error("[coaching] listSessions failed", formatConvexError(err), err);
     throw err;
   }
+}
+
+/** Strip private admin fields before returning sessions to a client. */
+export function sessionsForClientView(
+  sessions: CoachingSessionSlot[],
+): CoachingSessionSlot[] {
+  return sessions
+    .filter((slot) => slot.sessionNumber >= 1)
+    .map(({ adminNotes: _omit, ...slot }) => slot);
 }
 
 export async function getLiveCallProgress(
@@ -109,9 +122,85 @@ export async function markCoachingSessionReady(input: {
   }
 }
 
-export function emptySessionSlots(): CoachingSessionSlot[] {
-  return Array.from({ length: SESSION_COUNT }, (_, i) => ({
-    sessionNumber: i + 1,
+export async function addCoachingWorkSession(
+  clientId: string,
+  convex?: ConvexClientLike | null,
+): Promise<{ ok: boolean; workSessionCount?: number; error?: string }> {
+  if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
+  const client = resolveClient(convex);
+  if (!client) return { ok: false, error: "Convex is not configured." };
+
+  try {
+    const result = (await client.mutation(coachingApi.addWorkSession, {
+      clientId: clientId as never,
+    })) as { ok?: boolean; workSessionCount?: number };
+    return {
+      ok: Boolean(result?.ok),
+      workSessionCount: result?.workSessionCount,
+    };
+  } catch (err) {
+    const error = formatConvexError(err);
+    console.error("[coaching] addWorkSession failed", error, err);
+    return { ok: false, error };
+  }
+}
+
+export async function removeCoachingWorkSession(input: {
+  clientId: string;
+  sessionNumber: number;
+}, convex?: ConvexClientLike | null): Promise<{
+  ok: boolean;
+  workSessionCount?: number;
+  error?: string;
+}> {
+  if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
+  const client = resolveClient(convex);
+  if (!client) return { ok: false, error: "Convex is not configured." };
+
+  try {
+    const result = (await client.mutation(coachingApi.removeWorkSession, {
+      clientId: input.clientId as never,
+      sessionNumber: input.sessionNumber,
+    })) as { ok?: boolean; workSessionCount?: number };
+    return {
+      ok: Boolean(result?.ok),
+      workSessionCount: result?.workSessionCount,
+    };
+  } catch (err) {
+    const error = formatConvexError(err);
+    console.error("[coaching] removeWorkSession failed", error, err);
+    return { ok: false, error };
+  }
+}
+
+export async function setCoachingAdminNotes(input: {
+  clientId: string;
+  sessionNumber: number;
+  adminNotes: string;
+}, convex?: ConvexClientLike | null): Promise<{ ok: boolean; error?: string }> {
+  if (!isConvexConfigured()) return { ok: false, error: "Convex is not configured." };
+  const client = resolveClient(convex);
+  if (!client) return { ok: false, error: "Convex is not configured." };
+
+  try {
+    const result = (await client.mutation(coachingApi.setAdminNotes, {
+      clientId: input.clientId as never,
+      sessionNumber: input.sessionNumber,
+      adminNotes: input.adminNotes,
+    })) as { ok?: boolean };
+    return { ok: Boolean(result?.ok) };
+  } catch (err) {
+    const error = formatConvexError(err);
+    console.error("[coaching] setAdminNotes failed", error, err);
+    return { ok: false, error };
+  }
+}
+
+export function emptySessionSlots(
+  workSessionCount: number = WORK_SESSION_COUNT,
+): CoachingSessionSlot[] {
+  return workAndFinalSlots(workSessionCount).map((sessionNumber) => ({
+    sessionNumber,
     ready: false,
     taskCount: 0,
     callCompleted: false,
@@ -121,11 +210,21 @@ export function emptySessionSlots(): CoachingSessionSlot[] {
 
 export function ensureSessionSlots(
   incoming?: CoachingSessionSlot[],
+  workSessionCount: number = WORK_SESSION_COUNT,
 ): CoachingSessionSlot[] {
-  const base = emptySessionSlots();
+  const base = emptySessionSlots(workSessionCount);
   if (!incoming?.length) return base;
-  const byNumber = new Map(incoming.map((slot) => [slot.sessionNumber, slot]));
-  return base.map((slot) => byNumber.get(slot.sessionNumber) ?? slot);
+  const byNumber = new Map(
+    incoming
+      .filter((slot) => slot.sessionNumber >= 1)
+      .map((slot) => [slot.sessionNumber, slot]),
+  );
+  return base.map((slot) => {
+    const found = byNumber.get(slot.sessionNumber);
+    if (!found) return slot;
+    const { adminNotes: _omit, ...safe } = found;
+    return { ...slot, ...safe };
+  });
 }
 
 export function callCompletedForSession(
@@ -138,6 +237,9 @@ export function callCompletedForSession(
   );
 }
 
-export function liveCallLabel(sessionNumber: number): string {
-  return sessionLabel(sessionNumber);
+export function liveCallLabel(
+  sessionNumber: number,
+  workSessionCount?: number | null,
+): string {
+  return sessionLabel(sessionNumber, workSessionCount);
 }

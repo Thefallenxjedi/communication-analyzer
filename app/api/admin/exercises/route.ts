@@ -1,6 +1,19 @@
-import { formatConvexError, getConvexHttpClient, workoutCatalogApi } from "@/lib/convex-server";
+import {
+  confirmCatalogImport,
+  parseCatalogImportText,
+  type ImportExerciseDraft,
+} from "@/lib/exercise-catalog-import";
+import {
+  invalidateExerciseRagCache,
+  warmCatalogEmbeddings,
+} from "@/lib/exercise-rag";
+import {
+  formatConvexError,
+  workoutCatalogApi,
+} from "@/lib/convex-server";
 import {
   listAdminCatalogExercises,
+  listCatalogExercises,
   seedProblemBibleCatalog,
 } from "@/lib/workout-exercises";
 import { requireStaffConvex } from "@/lib/staff-auth";
@@ -34,7 +47,14 @@ export async function POST(request: Request) {
   let body: {
     action?: string;
     insertOnlyMissing?: boolean;
+    warmRag?: boolean;
+    text?: string;
+    batchIndex?: number;
+    batchesPerRequest?: number;
+    drafts?: ImportExerciseDraft[];
     id?: string;
+    ids?: string[];
+    all?: boolean;
     slug?: string;
     name?: string;
     purpose?: string;
@@ -66,8 +86,72 @@ export async function POST(request: Request) {
         insertOnlyMissing: body.insertOnlyMissing === true,
         convex,
       });
+      invalidateExerciseRagCache();
       const exercises = await listAdminCatalogExercises(convex);
       return Response.json({ ok: true, ...result, exercises });
+    }
+
+    if (action === "parseImport") {
+      const text = body.text?.trim() || "";
+      if (!text) {
+        return Response.json({ error: "Paste exercise text to import." }, { status: 400 });
+      }
+      const batchIndex =
+        typeof body.batchIndex === "number" ? body.batchIndex : undefined;
+      const parsed = await parseCatalogImportText({
+        text,
+        batchIndex,
+        batchesPerRequest:
+          typeof body.batchesPerRequest === "number"
+            ? body.batchesPerRequest
+            : undefined,
+      });
+      return Response.json({
+        ok: true,
+        drafts: parsed.drafts,
+        chunkCount: parsed.chunkCount,
+        method: parsed.method,
+        count: parsed.drafts.length,
+        batchIndex: parsed.batchIndex,
+        batchCount: parsed.batchCount,
+        done: parsed.done === true,
+        nextBatchIndex: parsed.nextBatchIndex,
+      });
+    }
+
+    if (action === "confirmImport") {
+      const drafts = Array.isArray(body.drafts) ? body.drafts : [];
+      if (!drafts.length) {
+        return Response.json({ error: "No drafts to import." }, { status: 400 });
+      }
+      const result = await confirmCatalogImport({
+        drafts,
+        insertOnlyMissing: body.insertOnlyMissing === true,
+        warmRag: body.warmRag !== false,
+        convex,
+      });
+      const exercises = await listAdminCatalogExercises(convex);
+      return Response.json({ ok: true, ...result, exercises });
+    }
+
+    if (action === "warmRag") {
+      const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY?.trim() || "";
+      if (!apiKey) {
+        return Response.json(
+          { error: "GOOGLE_GENERATIVE_AI_API_KEY is not configured." },
+          { status: 400 },
+        );
+      }
+      const catalog = await listCatalogExercises({
+        enabledOnly: true,
+        convex,
+      });
+      const warmed = await warmCatalogEmbeddings(apiKey, catalog);
+      return Response.json({
+        ok: true,
+        count: warmed.count,
+        fingerprint: warmed.fingerprint,
+      });
     }
 
     if (action === "setEnabled") {
@@ -81,6 +165,7 @@ export async function POST(request: Request) {
         id: body.id as never,
         enabled: body.enabled,
       });
+      invalidateExerciseRagCache();
       return Response.json({ ok: true });
     }
 
@@ -91,7 +176,29 @@ export async function POST(request: Request) {
       await convex.mutation(workoutCatalogApi.remove, {
         id: body.id as never,
       });
+      invalidateExerciseRagCache();
       return Response.json({ ok: true });
+    }
+
+    if (action === "removeMany") {
+      const ids = Array.isArray(body.ids) ? body.ids.filter(Boolean) : [];
+      const all = body.all === true;
+      if (!all && ids.length === 0) {
+        return Response.json(
+          { error: "Select exercises to delete, or use delete all." },
+          { status: 400 },
+        );
+      }
+      const result = (await convex.mutation(workoutCatalogApi.removeMany, {
+        ...(all ? { all: true } : { ids: ids as never[] }),
+      })) as { ok?: boolean; deleted?: number };
+      invalidateExerciseRagCache();
+      const exercises = await listAdminCatalogExercises(convex);
+      return Response.json({
+        ok: true,
+        deleted: result.deleted ?? 0,
+        exercises,
+      });
     }
 
     // upsert
@@ -124,6 +231,7 @@ export async function POST(request: Request) {
       enabled: body.enabled,
       sortOrder: body.sortOrder,
     });
+    invalidateExerciseRagCache();
 
     return Response.json(result);
   } catch (err) {

@@ -4,8 +4,8 @@ import {
   createCoachingTask,
   getCoachingTask,
   listCoachingTasks,
+  markCoachingTaskReviewed,
   needsCoachReview,
-  rateCoachingTask,
   removeCoachingTask,
   updateCoachingTask,
 } from "@/lib/coaching-tasks";
@@ -86,13 +86,12 @@ export async function PATCH(request: Request) {
   let body: {
     id?: string;
     clientId?: string;
-    rating?: number;
-    comment?: string;
     title?: string;
     instructions?: string;
     recordingRequired?: boolean;
     reviewRequired?: boolean;
     complete?: boolean;
+    markReviewed?: boolean;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -107,8 +106,12 @@ export async function PATCH(request: Request) {
   const editingCopy =
     typeof body.title === "string" || typeof body.instructions === "string";
   const completing = body.complete === true;
-  if (!editingCopy && !completing && typeof body.rating !== "number") {
-    return Response.json({ error: "rating or title required." }, { status: 400 });
+  const reviewing = body.markReviewed === true;
+  if (!editingCopy && !completing && !reviewing) {
+    return Response.json(
+      { error: "title, complete, or markReviewed required." },
+      { status: 400 },
+    );
   }
 
   if (completing) {
@@ -123,18 +126,14 @@ export async function PATCH(request: Request) {
 
   const result = completing
     ? await completeCoachingTask(body.id, convex)
-    : editingCopy
-      ? await updateCoachingTask({
+    : reviewing
+      ? await markCoachingTaskReviewed(body.id, convex)
+      : await updateCoachingTask({
           id: body.id,
           title: body.title,
           instructions: body.instructions,
           recordingRequired: body.recordingRequired,
           reviewRequired: body.reviewRequired,
-        }, convex)
-      : await rateCoachingTask({
-          id: body.id,
-          rating: body.rating as number,
-          comment: body.comment,
         }, convex);
   if (!result.ok) {
     return Response.json(

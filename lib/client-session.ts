@@ -36,6 +36,8 @@ export type ClientSession = Pick<
   | "meetingLink"
   | "status"
   | "currentStage"
+  | "workSessionCount"
   | "reviewRequired"
   | "onboardingComplete"
+  | "socialProfiles"
 >;

@@ -162,7 +162,7 @@ export function ClientDiagnosisPanel({
   if (readOnly) {
     return (
       <div className="es-dx-empty">
-        <p className="es-dx-empty-title">Your AI Diagnosis reports live here.</p>
+        <p className="es-dx-empty-title">Your SpeechMap reports live here.</p>
         <p className="es-dx-empty-copy">
           In your real client account, each speaking check will save here with the
           score, focus area, and recording.
@@ -173,7 +173,7 @@ export function ClientDiagnosisPanel({
 
   return (
     <div className="es-dx">
-      <div className="es-dx-switch" role="tablist" aria-label="AI Diagnosis views">
+      <div className="es-dx-switch" role="tablist" aria-label="SpeechMap report views">
         <button
           type="button"
           role="tab"

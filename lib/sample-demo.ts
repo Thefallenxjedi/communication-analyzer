@@ -6,6 +6,7 @@ import {
 import {
   getLiveCallProgress,
   listCoachingSessions,
+  sessionsForClientView,
 } from "@/lib/coaching-sessions";
 import { listCoachingTasks } from "@/lib/coaching-tasks";
 import {
@@ -29,8 +30,10 @@ function toClientSession(row: CoachingClient): ClientSession {
     meetingLink: row.meetingLink,
     status: row.status,
     currentStage: row.currentStage || "Intro Call",
+    workSessionCount: row.workSessionCount ?? 9,
     reviewRequired: row.reviewRequired === true,
     onboardingComplete: row.onboardingComplete === true,
+    socialProfiles: row.socialProfiles,
   };
 }
 
@@ -80,7 +83,7 @@ export async function loadSampleDemoBundle() {
   return {
     client: toClientSession(client),
     tasks,
-    sessions,
+    sessions: sessionsForClientView(sessions),
     intro,
     progress,
   };

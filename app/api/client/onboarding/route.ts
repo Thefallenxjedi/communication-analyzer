@@ -14,6 +14,8 @@ export const runtime = "nodejs";
 export const maxDuration = 120;
 
 const PDF_MAX_BYTES = 8 * 1024 * 1024;
+const SOCIAL_PROFILE_COUNT_MAX = 8;
+const SOCIAL_PROFILE_MAX = 200;
 
 export async function POST(request: Request) {
   if (!isConvexConfigured()) {
@@ -26,7 +28,11 @@ export async function POST(request: Request) {
   }
   const row = active.client;
 
-  let body: { storageId?: string; profileText?: string };
+  let body: {
+    storageId?: string;
+    profileText?: string;
+    socialProfiles?: string[];
+  };
   try {
     body = (await request.json()) as typeof body;
   } catch {
@@ -35,19 +41,43 @@ export async function POST(request: Request) {
 
   const storageId = body.storageId?.trim() || "";
   const profileText = body.profileText?.trim() || "";
-  if (!storageId && !profileText) {
+  const socialProfiles = (Array.isArray(body.socialProfiles)
+    ? body.socialProfiles
+    : []
+  )
+    .map((value) =>
+      typeof value === "string"
+        ? value.replace(/\s+/g, " ").trim().slice(0, SOCIAL_PROFILE_MAX)
+        : "",
+    )
+    .filter(Boolean)
+    .filter((value, index, values) => values.indexOf(value) === index)
+    .slice(0, SOCIAL_PROFILE_COUNT_MAX);
+  if (!storageId && !profileText && socialProfiles.length === 0) {
     return Response.json(
-      { error: "Upload your LinkedIn PDF or paste your LinkedIn profile text." },
+      { error: "Add a social profile, upload a LinkedIn PDF, or paste profile text." },
       { status: 400 },
     );
   }
 
   try {
-    if (row.onboardingComplete) {
-      return Response.json({ error: "LinkedIn is already submitted." }, { status: 400 });
+    if (row.onboardingComplete && !storageId && !profileText) {
+      const saved = await saveClientOnboarding({
+        clientId: row.id,
+        socialProfiles,
+      });
+      if (!saved.ok) {
+        return Response.json(
+          { error: saved.error || "Could not save profiles." },
+          { status: 400 },
+        );
+      }
+      return Response.json({ ok: true });
     }
 
-    let text = profileText;
+    let text =
+      profileText ||
+      `Social profiles:\n${socialProfiles.map((value) => `- ${value}`).join("\n")}`;
     let profile;
 
     if (storageId) {
@@ -94,10 +124,11 @@ export async function POST(request: Request) {
       linkedinStorageId: storageId || undefined,
       linkedinText: text,
       linkedinProfileJson: JSON.stringify(profile),
+      socialProfiles,
     });
     if (!saved.ok) {
       return Response.json(
-        { error: saved.error || "Could not save LinkedIn profile." },
+        { error: saved.error || "Could not save profiles." },
         { status: 400 },
       );
     }

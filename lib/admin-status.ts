@@ -1,3 +1,4 @@
+import type { ConvexHttpClient } from "convex/browser";
 import {
   analysesApi,
   formatConvexError,
@@ -115,7 +116,7 @@ async function checkGemini(): Promise<ServiceCheck> {
   };
 }
 
-async function checkConvex(): Promise<ServiceCheck> {
+async function checkConvex(authed?: ConvexHttpClient | null): Promise<ServiceCheck> {
   const base: Omit<ServiceCheck, "status" | "latencyMs" | "detail"> = {
     id: "convex",
     name: "Convex",
@@ -132,7 +133,7 @@ async function checkConvex(): Promise<ServiceCheck> {
   }
 
   const result = await timed(async () => {
-    const client = getConvexHttpClient();
+    const client = authed ?? getConvexHttpClient();
     if (!client) throw new Error("Convex client unavailable.");
     await client.query(analysesApi.getStats, {});
     return true;
@@ -362,10 +363,12 @@ function summarize(services: ServiceCheck[]): Pick<
   };
 }
 
-export async function runSystemStatusChecks(): Promise<SystemStatusReport> {
+export async function runSystemStatusChecks(
+  convex?: ConvexHttpClient | null,
+): Promise<SystemStatusReport> {
   const services = await Promise.all([
     checkGemini(),
-    checkConvex(),
+    checkConvex(convex),
     checkKartra(),
     checkYoutubeMp3(),
     checkYoutubeTranscript(),

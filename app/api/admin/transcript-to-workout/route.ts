@@ -1,5 +1,8 @@
 import { getCoachingClient } from "@/lib/coaching-clients";
-import { FINAL_SESSION, INTRO_SESSION } from "@/lib/coaching-program";
+import {
+  INTRO_SESSION,
+  isValidSessionNumber,
+} from "@/lib/coaching-program";
 import { getIntroCallReport } from "@/lib/intro-call";
 import { formatConvexError } from "@/lib/convex-server";
 import { requireStaffConvex } from "@/lib/staff-auth";
@@ -36,34 +39,56 @@ export async function POST(request: Request) {
   if (!transcript) {
     return Response.json({ error: "transcript required." }, { status: 400 });
   }
-  if (
-    sourceSessionNumber < 1 ||
-    sourceSessionNumber > FINAL_SESSION ||
-    sourceSessionNumber === INTRO_SESSION
-  ) {
-    return Response.json(
-      { error: "sourceSessionNumber must be Session 1–9 or Final Call." },
-      { status: 400 },
-    );
-  }
-  if (
-    targetSessionNumber < 1 ||
-    targetSessionNumber > FINAL_SESSION ||
-    targetSessionNumber === INTRO_SESSION
-  ) {
-    return Response.json(
-      { error: "targetSessionNumber must be Session 1–9 or Final Call." },
-      { status: 400 },
-    );
-  }
 
   try {
     const client = await getCoachingClient(clientId, convex);
     if (!client) {
       return Response.json({ error: "Client not found." }, { status: 404 });
     }
+    const workCount = client.workSessionCount;
+
+    if (
+      sourceSessionNumber < 1 ||
+      !isValidSessionNumber(sourceSessionNumber, workCount) ||
+      sourceSessionNumber === INTRO_SESSION
+    ) {
+      return Response.json(
+        {
+          error: `sourceSessionNumber must be Session 1–${workCount} or Final Call.`,
+        },
+        { status: 400 },
+      );
+    }
+    if (
+      targetSessionNumber < 1 ||
+      !isValidSessionNumber(targetSessionNumber, workCount) ||
+      targetSessionNumber === INTRO_SESSION
+    ) {
+      return Response.json(
+        {
+          error: `targetSessionNumber must be Session 1–${workCount} or Final Call.`,
+        },
+        { status: 400 },
+      );
+    }
 
     const intro = await getIntroCallReport(clientId, convex);
+    const profileContext = [
+      client.linkedinProfileJson
+        ? `Structured professional profile:\n${client.linkedinProfileJson.slice(0, 3_000)}`
+        : "",
+      client.linkedinText
+        ? `Submitted professional profile text:\n${client.linkedinText.slice(0, 2_000)}`
+        : "",
+      (client.socialProfiles ?? []).length
+        ? `Submitted social profile URLs and handles:\n${(client.socialProfiles ?? [])
+            .map((value) => `- ${value}`)
+            .join("\n")}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n")
+      .slice(0, 6_000);
     const draft = await generateWorkoutFromTranscript({
       transcript,
       sourceSessionNumber,
@@ -74,6 +99,7 @@ export async function POST(request: Request) {
       introChallenges: intro?.challenges
         .map((c) => c.title)
         .filter(Boolean),
+      profileContext,
       mode: body.mode ?? "both",
     });
 

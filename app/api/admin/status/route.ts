@@ -1,5 +1,6 @@
 import { adminApiGuard } from "@/lib/admin-route";
 import { runSystemStatusChecks } from "@/lib/admin-status";
+import { getAuthedConvexClient } from "@/lib/staff-auth";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -9,7 +10,8 @@ export async function GET(request: Request) {
   if (denied) return denied;
 
   try {
-    const report = await runSystemStatusChecks();
+    const convex = await getAuthedConvexClient();
+    const report = await runSystemStatusChecks(convex);
     return Response.json(report);
   } catch (err) {
     return Response.json(

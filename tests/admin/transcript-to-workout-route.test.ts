@@ -44,6 +44,9 @@ describe("/api/admin/transcript-to-workout", () => {
       id: "client-1",
       name: "Sam",
       currentFocus: "Pacing",
+      linkedinProfileJson: '{"headline":"Founder"}',
+      linkedinText: "Founder building a communication platform.",
+      socialProfiles: ["@sam-speaks", "https://example.com/sam"],
     });
     getIntroCallReport.mockResolvedValue({
       summary: "Baseline summary",
@@ -94,6 +97,10 @@ describe("/api/admin/transcript-to-workout", () => {
       currentFocus: "Pacing",
       introSummary: "Baseline summary",
       introChallenges: ["Hedging", "Slow open"],
+      profileContext:
+        'Structured professional profile:\n{"headline":"Founder"}\n\n' +
+        "Submitted professional profile text:\nFounder building a communication platform.\n\n" +
+        "Submitted social profile URLs and handles:\n- @sam-speaks\n- https://example.com/sam",
       mode: "both",
     });
     expect(await res.json()).toEqual({ draft: { summary: "Draft" } });

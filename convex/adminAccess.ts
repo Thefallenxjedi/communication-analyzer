@@ -25,3 +25,17 @@ export async function requireStaffRole(
 
   return { userId, user, role };
 }
+
+export async function requireClientOwnerOrStaff(
+  ctx: QueryCtx | MutationCtx,
+  clientUserId: string,
+  minimum: AdminStaffRole = "editor",
+) {
+  const userId = await getAuthUserId(ctx);
+  if (!userId) throw new Error("Not authenticated.");
+  if (userId === clientUserId) {
+    return { userId, as: "client" as const };
+  }
+  await requireStaffRole(ctx, minimum);
+  return { userId, as: "staff" as const };
+}

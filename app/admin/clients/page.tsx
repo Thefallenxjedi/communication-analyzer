@@ -85,6 +85,8 @@ export default function AdminClientsPage() {
   const [editStartDate, setEditStartDate] = useState(todayInputValue());
   const [editMeetingLink, setEditMeetingLink] = useState("");
   const [rowBusyId, setRowBusyId] = useState<string | null>(null);
+  const [inviteBusyId, setInviteBusyId] = useState<string | null>(null);
+  const [inviteNotice, setInviteNotice] = useState<{ id: string; msg: string; ok: boolean } | null>(null);
 
   const load = useCallback(async () => {
     setBusy(true);
@@ -154,7 +156,7 @@ export default function AdminClientsPage() {
         : "They now have platform access.";
       if (data.invite?.sent) {
         setCreateNotice(
-          `${saved} Welcome email sent. They can sign in at /client/login with that Google account.`,
+          `${saved} Welcome email automation triggered. They can sign in at /client/login with that Google account.`,
         );
       } else if (data.invite?.error) {
         setCreateNotice(
@@ -267,6 +269,34 @@ export default function AdminClientsPage() {
       setError(err instanceof Error ? err.message : "Delete failed.");
     } finally {
       setRowBusyId(null);
+    }
+  }
+
+  async function onResendInvite(id: string) {
+    setInviteBusyId(id);
+    setInviteNotice(null);
+    try {
+      const res = await fetch(`/api/admin/clients/${encodeURIComponent(id)}/invite`, {
+        method: "POST",
+      });
+      const data = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        invite?: { sent?: boolean; error?: string };
+      };
+      if (!res.ok || data.error) {
+        setInviteNotice({ id, msg: data.error || "Could not resend invite.", ok: false });
+      } else if (data.invite?.sent) {
+        setInviteNotice({ id, msg: "Welcome email automation triggered.", ok: true });
+      } else if (data.invite?.error) {
+        setInviteNotice({ id, msg: `Automation failed: ${data.invite.error}`, ok: false });
+      } else {
+        setInviteNotice({ id, msg: "Automation was not triggered.", ok: false });
+      }
+    } catch (err) {
+      setInviteNotice({ id, msg: err instanceof Error ? err.message : "Failed.", ok: false });
+    } finally {
+      setInviteBusyId(null);
     }
   }
 
@@ -426,7 +456,10 @@ export default function AdminClientsPage() {
                 <p className={`text-sm ${adminUi.dangerText}`}>{createError}</p>
               ) : null}
               {createNotice ? (
-                <p className="text-sm text-muted">{createNotice}</p>
+                <p className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
+                  <span className="mt-px shrink-0 text-base leading-none">✓</span>
+                  {createNotice}
+                </p>
               ) : null}
               <button
                 type="submit"
@@ -548,7 +581,7 @@ export default function AdminClientsPage() {
                             ) : null}
                             {!row.onboardingComplete ? (
                               <p className="mt-1.5 text-sm font-semibold text-slate-500">
-                                LinkedIn pending
+                                Profiles pending
                               </p>
                             ) : null}
                           </td>
@@ -593,6 +626,16 @@ export default function AdminClientsPage() {
                                   Edit
                                 </button>
                               )}
+                              {!sampleRow ? (
+                                <button
+                                  type="button"
+                                  disabled={inviteBusyId === row.id}
+                                  onClick={() => void onResendInvite(row.id)}
+                                  className="text-base font-semibold text-sky-600 hover:text-sky-800 disabled:opacity-40"
+                                >
+                                  {inviteBusyId === row.id ? "Sending…" : "Resend invite"}
+                                </button>
+                              ) : null}
                               <button
                                 type="button"
                                 disabled={rowBusy || sampleRow}
@@ -602,6 +645,11 @@ export default function AdminClientsPage() {
                                 Remove
                               </button>
                               </AdminReadOnly>
+                              {inviteNotice?.id === row.id ? (
+                                <p className={`w-full text-xs font-semibold ${inviteNotice.ok ? "text-emerald-700" : adminUi.dangerText}`}>
+                                  {inviteNotice.ok ? "✓ " : "✗ "}{inviteNotice.msg}
+                                </p>
+                              ) : null}
                             </div>
                           </td>
                         </tr>

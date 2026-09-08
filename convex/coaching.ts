@@ -8,11 +8,12 @@ import {
   UNUSED_FINAL_SEEDS,
   attentionSessionNumber,
   isValidSessionNumber,
+  normalizeWorkSessionCount,
   stageLabel,
 } from "./coachingProgram";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { requireStaffRole } from "./adminAccess";
+import { requireClientOwnerOrStaff, requireStaffRole } from "./adminAccess";
 
 const NAME_MAX = 80;
 const EMAIL_MAX = 200;
@@ -183,7 +184,11 @@ async function toClientView(
   const pendingReviews = tasks
     .filter((task) => task.status === "submitted")
     .sort(bySession);
-  const currentStage = stageLabel(attentionSessionNumber(tasks));
+  const workSessionCount = normalizeWorkSessionCount(row.workSessionCount);
+  const currentStage = stageLabel(
+    attentionSessionNumber(tasks, workSessionCount),
+    workSessionCount,
+  );
 
   return {
     id: row._id,
@@ -197,6 +202,7 @@ async function toClientView(
     meetingLink: row.meetingLink ?? "",
     status: row.status,
     currentStage,
+    workSessionCount,
     reviewRequired: pendingReviews.length > 0,
     pendingReviews: pendingReviews.length,
     lastActivityAt: new Date(row.lastActivityAt).toISOString(),
@@ -207,6 +213,7 @@ async function toClientView(
     onboardingGoal: row.onboardingGoal ?? "",
     linkedinProfileJson: row.linkedinProfileJson ?? "",
     linkedinText: detail ? (row.linkedinText ?? "") : "",
+    socialProfiles: row.socialProfiles ?? [],
   };
 }
 
@@ -603,9 +610,9 @@ export const getTask = query({
 export const ensureProgramTasks = mutation({
   args: { clientId: v.id("clients") },
   handler: async (ctx, args) => {
-    await requireStaffRole(ctx, "editor");
     const client = await ctx.db.get(args.clientId);
     if (!client) throw new Error("client not found");
+    await requireClientOwnerOrStaff(ctx, client.userId, "editor");
     await seedProgramTasks(ctx, args.clientId, Date.now());
     return { ok: true as const };
   },
@@ -631,8 +638,9 @@ export const createTask = mutation({
     if (!title) throw new Error("title required");
     if (!instructions) throw new Error("instructions required");
     const sessionNumber = Math.round(args.sessionNumber ?? 1);
-    if (!isValidSessionNumber(sessionNumber)) {
-      throw new Error("sessionNumber must be Intro Call, 1–9, or Final Call");
+    const workCount = normalizeWorkSessionCount(client.workSessionCount);
+    if (!isValidSessionNumber(sessionNumber, workCount)) {
+      throw new Error("sessionNumber must be Intro Call, a work session, or Final Call");
     }
 
     const now = Date.now();
@@ -677,6 +685,8 @@ const COMPANY_MAX = 120;
 const GOAL_MAX = 800;
 const PROFILE_JSON_MAX = 60_000;
 const LINKEDIN_TEXT_MAX = 80_000;
+const SOCIAL_PROFILE_MAX = 200;
+const SOCIAL_PROFILE_COUNT_MAX = 8;
 
 export const saveOnboarding = mutation({
   args: {
@@ -685,19 +695,24 @@ export const saveOnboarding = mutation({
     company: v.optional(v.string()),
     goal: v.optional(v.string()),
     linkedinStorageId: v.optional(v.id("_storage")),
-    linkedinText: v.string(),
-    linkedinProfileJson: v.string(),
+    linkedinText: v.optional(v.string()),
+    linkedinProfileJson: v.optional(v.string()),
+    socialProfiles: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db.get(args.clientId);
     if (!existing) return { ok: false as const, reason: "not_found" as const };
-    if (existing.onboardingComplete === true) {
-      return { ok: false as const, reason: "already_complete" as const };
-    }
 
     const role = (args.role ?? "").replace(/\s+/g, " ").trim().slice(0, ROLE_MAX);
     const company = (args.company ?? "").replace(/\s+/g, " ").trim().slice(0, COMPANY_MAX);
     const goal = (args.goal ?? "").replace(/\s+/g, " ").trim().slice(0, GOAL_MAX);
+    const socialProfiles = (args.socialProfiles ?? existing.socialProfiles ?? [])
+      .map((value) =>
+        value.replace(/\s+/g, " ").trim().slice(0, SOCIAL_PROFILE_MAX),
+      )
+      .filter(Boolean)
+      .filter((value, index, values) => values.indexOf(value) === index)
+      .slice(0, SOCIAL_PROFILE_COUNT_MAX);
 
     const now = Date.now();
     if (
@@ -716,8 +731,18 @@ export const saveOnboarding = mutation({
       ...(args.linkedinStorageId
         ? { linkedinStorageId: args.linkedinStorageId }
         : {}),
-      linkedinText: args.linkedinText.slice(0, LINKEDIN_TEXT_MAX),
-      linkedinProfileJson: args.linkedinProfileJson.slice(0, PROFILE_JSON_MAX),
+      ...(args.linkedinText !== undefined
+        ? { linkedinText: args.linkedinText.slice(0, LINKEDIN_TEXT_MAX) }
+        : {}),
+      ...(args.linkedinProfileJson !== undefined
+        ? {
+            linkedinProfileJson: args.linkedinProfileJson.slice(
+              0,
+              PROFILE_JSON_MAX,
+            ),
+          }
+        : {}),
+      socialProfiles,
       lastActivityAt: now,
       updatedAt: now,
     });
@@ -833,10 +858,36 @@ export const reviseTask = mutation({
   },
 });
 
+export const markTaskReviewed = mutation({
+  args: {
+    id: v.id("tasks"),
+  },
+  handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
+    const existing = await ctx.db.get(args.id);
+    if (!existing) return { ok: false as const, reason: "not_found" as const };
+    if (existing.status === "open") {
+      throw new Error("Client has not submitted this task yet.");
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(args.id, {
+      status: "reviewed",
+      updatedAt: now,
+    });
+    await ctx.db.patch(existing.clientId, {
+      lastActivityAt: now,
+      updatedAt: now,
+    });
+    return { ok: true as const };
+  },
+});
+
+/** @deprecated Prefer markTaskReviewed — kept for older callers. */
 export const rateTask = mutation({
   args: {
     id: v.id("tasks"),
-    rating: v.number(),
+    rating: v.optional(v.number()),
     comment: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -847,17 +898,9 @@ export const rateTask = mutation({
       throw new Error("Client has not submitted this task yet.");
     }
 
-    const rating = Math.round(args.rating);
-    if (!Number.isFinite(rating) || rating < 0 || rating > 10) {
-      throw new Error("rating must be 0–10");
-    }
-    const ratingComment = args.comment?.replace(/\s+/g, " ").trim().slice(0, 2000);
-
     const now = Date.now();
     await ctx.db.patch(args.id, {
       status: "reviewed",
-      rating,
-      ...(ratingComment ? { ratingComment } : { ratingComment: undefined }),
       updatedAt: now,
     });
     await ctx.db.patch(existing.clientId, {
@@ -918,9 +961,11 @@ export const updateTask = mutation({
 export const completeTask = mutation({
   args: { id: v.id("tasks") },
   handler: async (ctx, args) => {
-    await requireStaffRole(ctx, "editor");
     const existing = await ctx.db.get(args.id);
     if (!existing) return { ok: false as const, reason: "not_found" as const };
+    const client = await ctx.db.get(existing.clientId);
+    if (!client) throw new Error("client not found");
+    await requireClientOwnerOrStaff(ctx, client.userId, "editor");
     if (existing.recordingRequired && existing.status === "open") {
       throw new Error("Client must paste a Google Drive link first.");
     }

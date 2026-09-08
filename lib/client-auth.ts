@@ -20,8 +20,10 @@ function toSession(row: CoachingClient): ClientSession {
     meetingLink: row.meetingLink,
     status: row.status,
     currentStage: row.currentStage,
+    workSessionCount: row.workSessionCount ?? 9,
     reviewRequired: row.reviewRequired,
     onboardingComplete: row.onboardingComplete,
+    socialProfiles: row.socialProfiles,
   };
 }
 

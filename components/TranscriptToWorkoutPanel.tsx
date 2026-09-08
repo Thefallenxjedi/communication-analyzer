@@ -2,16 +2,21 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import {
-  FINAL_SESSION,
   INTRO_SESSION,
-  PROGRAM_SLOTS,
+  finalSessionNumber,
+  isFinalSession,
+  programSlots,
   sessionLabel,
-  transcriptWorkoutDefaults} from "@/lib/coaching-program";
+  transcriptWorkoutDefaults,
+} from "@/lib/coaching-program";
 import type { CoachingTask } from "@/lib/coaching-tasks";
 import type { CoachingSessionSlot } from "@/lib/coaching-sessions";
 import type { GeneratedWorkoutTask } from "@/lib/transcript-to-workout";
 import type { SessionRecap } from "@/lib/session-recap";
-import { expectedMinutesForExercise } from "@/lib/workout-exercises";
+import {
+  clampTaskExpectedMinutes,
+  expectedMinutesForExercise,
+} from "@/lib/workout-exercises";
 
 type DraftTask = GeneratedWorkoutTask & { key: string };
 
@@ -22,8 +27,10 @@ function emptyTask(): DraftTask {
     title: "",
     instructions: "",
     example: "",
+    expectedMinutes: 7,
     recordingRequired: false,
-    reviewRequired: false};
+    reviewRequired: false,
+  };
 }
 
 function CheckIcon({ className }: { className?: string }) {
@@ -154,10 +161,12 @@ function RequirementToggles({
 export function TranscriptToWorkoutPanel({
   clientId,
   targetSessionNumber,
+  workSessionCount,
   canEdit,
   onSaved}: {
   clientId: string;
   targetSessionNumber: number;
+  workSessionCount?: number;
   canEdit: boolean;
   sessionLocked?: boolean;
   onSaved: (data: {
@@ -165,7 +174,9 @@ export function TranscriptToWorkoutPanel({
     sessions?: CoachingSessionSlot[];
   }) => void | Promise<void>;
 }) {
-  const defaults = transcriptWorkoutDefaults(targetSessionNumber);
+  const slots = programSlots(workSessionCount);
+  const finalN = finalSessionNumber(workSessionCount);
+  const defaults = transcriptWorkoutDefaults(targetSessionNumber, workSessionCount);
 
   const [transcript, setTranscript] = useState("");
   const [sourceSession, setSourceSession] = useState(defaults.summarySession);
@@ -184,7 +195,10 @@ export function TranscriptToWorkoutPanel({
   const [tasksSavedMsg, setTasksSavedMsg] = useState("");
 
   const loadWorkspaceRecap = useCallback(async () => {
-    const summarySession = transcriptWorkoutDefaults(targetSessionNumber).summarySession;
+    const summarySession = transcriptWorkoutDefaults(
+      targetSessionNumber,
+      workSessionCount,
+    ).summarySession;
     if (!canEdit || summarySession < 1) return;
     try {
       const res = await fetch(
@@ -195,7 +209,7 @@ export function TranscriptToWorkoutPanel({
     } catch {
       setWorkspaceRecap(null);
     }
-  }, [clientId, canEdit, targetSessionNumber]);
+  }, [clientId, canEdit, targetSessionNumber, workSessionCount]);
 
   const loadSourceRecap = useCallback(async () => {
     if (!canEdit || sourceSession < 1) return null;
@@ -211,7 +225,7 @@ export function TranscriptToWorkoutPanel({
   }, [clientId, canEdit, sourceSession]);
 
   useEffect(() => {
-    const next = transcriptWorkoutDefaults(targetSessionNumber);
+    const next = transcriptWorkoutDefaults(targetSessionNumber, workSessionCount);
     setSourceSession(next.summarySession);
     setTargetSession(next.tasksSession);
     setSummarySavedMsg("");
@@ -220,7 +234,7 @@ export function TranscriptToWorkoutPanel({
     setRecapDraft("");
     setDraftTasks([]);
     setExpandedDraftTaskKeys([]);
-  }, [targetSessionNumber]);
+  }, [targetSessionNumber, workSessionCount]);
 
   useEffect(() => {
     void loadWorkspaceRecap();
@@ -277,7 +291,7 @@ export function TranscriptToWorkoutPanel({
     if (
       existing?.recapSummary &&
       !window.confirm(
-        `${sessionLabel(sourceSession)} already has a summary. Replace it?`,
+        `${sessionLabel(sourceSession, workSessionCount)} already has a summary. Replace it?`,
       )
     ) {
       return;
@@ -299,7 +313,7 @@ export function TranscriptToWorkoutPanel({
       setShowRecapEditor(false);
       setRecapDraft("");
       setSummarySavedMsg(
-        `Summary created for ${sessionLabel(sourceSession)}.`,
+        `Summary created for ${sessionLabel(sourceSession, workSessionCount)}.`,
       );
       void loadWorkspaceRecap();
     } catch (err) {
@@ -336,7 +350,9 @@ export function TranscriptToWorkoutPanel({
       setDraftTasks(
         (data.draft?.tasks ?? []).map((task, i) => ({
           ...task,
-          key: `t-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`})),
+          expectedMinutes: clampTaskExpectedMinutes(task.expectedMinutes, 7),
+          key: `t-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
+        })),
       );
       setExpandedDraftTaskKeys([]);
     } catch (err) {
@@ -351,6 +367,13 @@ export function TranscriptToWorkoutPanel({
       setError("Add at least one task.");
       return;
     }
+    const savedRecap = await loadSourceRecap();
+    if (!savedRecap?.recapSummary.trim()) {
+      setError(
+        `Save the ${sessionLabel(sourceSession, workSessionCount)} summary before publishing its tasks.`,
+      );
+      return;
+    }
     setSavingTasks(true);
     setError("");
     try {
@@ -361,7 +384,11 @@ export function TranscriptToWorkoutPanel({
 
       for (const task of draftTasks) {
         if (!task.title.trim() || !task.instructions.trim()) continue;
-        const expectedMinutes = expectedMinutesForExercise(task.exerciseId);
+        const expectedMinutes = clampTaskExpectedMinutes(
+          task.expectedMinutes ??
+            expectedMinutesForExercise(task.exerciseId),
+          7,
+        );
         const res = await fetch("/api/admin/tasks", {
           method: "POST",
           headers: {
@@ -373,7 +400,7 @@ export function TranscriptToWorkoutPanel({
             instructions: task.instructions.trim(),
             recordingRequired: task.recordingRequired,
             reviewRequired: task.reviewRequired,
-            expectedMinutes: expectedMinutes ?? undefined})});
+            expectedMinutes})});
         const data = (await res.json()) as {
           error?: string;
           tasks?: CoachingTask[];
@@ -386,8 +413,28 @@ export function TranscriptToWorkoutPanel({
       await onSaved(lastData);
       setDraftTasks([]);
       setExpandedDraftTaskKeys([]);
+      const eventRes = await fetch(
+        `/api/admin/clients/${encodeURIComponent(clientId)}/session-completed`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ sessionNumber: sourceSession }),
+        },
+      );
+      const eventData = (await eventRes.json()) as { error?: string };
+      if (!eventRes.ok) {
+        setError(
+          `Tasks were saved, but the session email failed: ${
+            eventData.error || "unknown error"
+          }`,
+        );
+      }
       setTasksSavedMsg(
-        `Tasks added to ${sessionLabel(targetSession)}.`,
+        `Tasks added to ${sessionLabel(targetSession, workSessionCount)}.${
+          eventRes.ok ? " Client email triggered." : ""
+        }`,
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed.");
@@ -396,7 +443,7 @@ export function TranscriptToWorkoutPanel({
     }
   }
 
-  if (targetSessionNumber >= FINAL_SESSION) {
+  if (isFinalSession(targetSessionNumber, workSessionCount)) {
     return null;
   }
 
@@ -465,7 +512,7 @@ export function TranscriptToWorkoutPanel({
         <div className="rounded-xl border border-border bg-white p-4">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <p className="text-sm font-extrabold text-slate-900">
-              {sessionLabel(defaults.summarySession)} summary (client-visible)
+              {sessionLabel(defaults.summarySession, workSessionCount)} summary (client-visible)
             </p>
             <button
               type="button"
@@ -518,9 +565,9 @@ export function TranscriptToWorkoutPanel({
             disabled={readOnly}
             className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-3 text-base disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
           >
-            {PROGRAM_SLOTS.filter((n) => n >= 1 && n < FINAL_SESSION).map((n) => (
+            {slots.filter((n) => n >= 1 && n < finalN).map((n) => (
               <option key={n} value={n}>
-                {sessionLabel(n)}
+                {sessionLabel(n, workSessionCount)}
               </option>
             ))}
           </select>
@@ -533,9 +580,9 @@ export function TranscriptToWorkoutPanel({
             disabled={readOnly}
             className="mt-1.5 w-full rounded-xl border border-border bg-white px-3.5 py-3 text-base disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
           >
-            {PROGRAM_SLOTS.filter((n) => n >= 1 && n !== INTRO_SESSION).map((n) => (
+            {slots.filter((n) => n >= 1 && n !== INTRO_SESSION).map((n) => (
               <option key={n} value={n}>
-                {sessionLabel(n)}
+                {sessionLabel(n, workSessionCount)}
               </option>
             ))}
           </select>
@@ -571,7 +618,7 @@ export function TranscriptToWorkoutPanel({
 
       {recapGenerated && !summarySavedMsg ? (
         <StatusBanner tone="info">
-          Summary generated for {sessionLabel(sourceSession)} — review and save
+          Summary generated for {sessionLabel(sourceSession, workSessionCount)} — review and save
           below.
         </StatusBanner>
       ) : null}
@@ -579,7 +626,7 @@ export function TranscriptToWorkoutPanel({
       {showRecapEditor ? (
         <div className="space-y-3 rounded-xl border border-border bg-white p-4">
           <p className="text-sm font-semibold">
-            {sessionLabel(sourceSession)} summary (client-visible)
+            {sessionLabel(sourceSession, workSessionCount)} summary (client-visible)
           </p>
           <textarea
             value={recapDraft}
@@ -618,7 +665,7 @@ export function TranscriptToWorkoutPanel({
       {tasksGenerated && !tasksSavedMsg ? (
         <div className="space-y-3 rounded-xl border border-border bg-white p-4">
           <StatusBanner tone="info">
-            Tasks generated for {sessionLabel(targetSession)}.
+            Tasks generated for {sessionLabel(targetSession, workSessionCount)}.
           </StatusBanner>
           <div className="space-y-4 pt-1">
             {draftTasks.map((task, i) => {
@@ -679,19 +726,45 @@ export function TranscriptToWorkoutPanel({
                   </div>
                   {expanded ? (
                     <>
-                      <input
-                        value={task.title}
-                        onChange={(e) =>
-                          setDraftTasks((prev) => {
-                            const next = [...prev];
-                            next[i] = { ...task, title: e.target.value };
-                            return next;
-                          })
-                        }
-                        disabled={readOnly}
-                        placeholder="Task title"
-                        className="mt-3 w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-base disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-                      />
+                      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_7rem]">
+                        <input
+                          value={task.title}
+                          onChange={(e) =>
+                            setDraftTasks((prev) => {
+                              const next = [...prev];
+                              next[i] = { ...task, title: e.target.value };
+                              return next;
+                            })
+                          }
+                          disabled={readOnly}
+                          placeholder="Task title"
+                          className="w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-base disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                        />
+                        <label className="block text-xs font-semibold text-slate-600">
+                          Minutes
+                          <input
+                            type="number"
+                            min={5}
+                            max={10}
+                            value={task.expectedMinutes ?? 7}
+                            onChange={(e) =>
+                              setDraftTasks((prev) => {
+                                const next = [...prev];
+                                next[i] = {
+                                  ...task,
+                                  expectedMinutes: clampTaskExpectedMinutes(
+                                    Number(e.target.value),
+                                    7,
+                                  ),
+                                };
+                                return next;
+                              })
+                            }
+                            disabled={readOnly}
+                            className="mt-1 w-full rounded-xl border border-border bg-white px-3 py-2.5 text-base disabled:cursor-not-allowed disabled:bg-slate-100"
+                          />
+                        </label>
+                      </div>
                       <textarea
                         value={task.instructions}
                         onChange={(e) =>
@@ -753,7 +826,7 @@ export function TranscriptToWorkoutPanel({
             >
               {savingTasks
                 ? "Adding…"
-                : `Confirm tasks and add to ${sessionLabel(targetSession)}`}
+                : `Confirm tasks and add to ${sessionLabel(targetSession, workSessionCount)}`}
             </button>
             <button
               type="button"

@@ -170,6 +170,10 @@ export default defineSchema({
     linkedinStorageId: v.optional(v.id("_storage")),
     linkedinText: v.optional(v.string()),
     linkedinProfileJson: v.optional(v.string()),
+    /** Client-supplied professional/social profile URLs or handles. */
+    socialProfiles: v.optional(v.array(v.string())),
+    /** Middle work sessions (1..N). Intro + Final stay fixed. Default 9. */
+    workSessionCount: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_status_lastActivityAt", ["status", "lastActivityAt"])
@@ -223,6 +227,8 @@ export default defineSchema({
     recapUpdatedAt: v.optional(v.number()),
     /** Set when the live call is concluded (admin saved transcript/recap). */
     callCompletedAt: v.optional(v.number()),
+    /** Private coaching notes about the client for this session (admin only). */
+    adminNotes: v.optional(v.string()),
   })
     .index("by_clientId", ["clientId"])
     .index("by_clientId_sessionNumber", ["clientId", "sessionNumber"]),

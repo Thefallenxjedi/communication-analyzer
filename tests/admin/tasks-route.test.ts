@@ -7,7 +7,7 @@ const {
   createCoachingTask,
   getCoachingTask,
   listCoachingTasks,
-  rateCoachingTask,
+  markCoachingTaskReviewed,
   removeCoachingTask,
   updateCoachingTask,
 } = vi.hoisted(() => ({
@@ -17,7 +17,7 @@ const {
   createCoachingTask: vi.fn(),
   getCoachingTask: vi.fn(),
   listCoachingTasks: vi.fn(),
-  rateCoachingTask: vi.fn(),
+  markCoachingTaskReviewed: vi.fn(),
   removeCoachingTask: vi.fn(),
   updateCoachingTask: vi.fn(),
 }));
@@ -35,9 +35,9 @@ vi.mock("@/lib/coaching-tasks", () => ({
   createCoachingTask,
   getCoachingTask,
   listCoachingTasks,
+  markCoachingTaskReviewed,
   needsCoachReview: (task: { reviewRequired?: boolean }) =>
     task.reviewRequired !== false,
-  rateCoachingTask,
   removeCoachingTask,
   updateCoachingTask,
 }));
@@ -61,7 +61,7 @@ describe("/api/admin/tasks", () => {
     createCoachingTask.mockResolvedValue({ ok: true, id: "task-1" });
     updateCoachingTask.mockResolvedValue({ ok: true });
     completeCoachingTask.mockResolvedValue({ ok: true });
-    rateCoachingTask.mockResolvedValue({ ok: true });
+    markCoachingTaskReviewed.mockResolvedValue({ ok: true });
     removeCoachingTask.mockResolvedValue({ ok: true });
     listCoachingTasks.mockResolvedValue([{ id: "task-1", title: "Task 1" }]);
     listCoachingSessions.mockResolvedValue([{ sessionNumber: 1, ready: true }]);
@@ -102,24 +102,20 @@ describe("/api/admin/tasks", () => {
     );
   });
 
-  it("rates a submitted task", async () => {
+  it("marks a submitted task reviewed", async () => {
     const res = await PATCH(
       new Request("https://example.com/api/admin/tasks", {
         method: "PATCH",
         body: JSON.stringify({
           id: "task-1",
           clientId: "client-1",
-          rating: 8,
-          comment: "Strong improvement",
+          markReviewed: true,
         }),
       }),
     );
 
     expect(res.status).toBe(200);
-    expect(rateCoachingTask).toHaveBeenCalledWith(
-      { id: "task-1", rating: 8, comment: "Strong improvement" },
-      convex,
-    );
+    expect(markCoachingTaskReviewed).toHaveBeenCalledWith("task-1", convex);
   });
 
   it("completes only coach-review tasks from admin", async () => {

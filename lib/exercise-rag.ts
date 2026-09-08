@@ -145,8 +145,26 @@ function resetCatalogEmbedCache() {
   catalogEmbedCache = null;
 }
 
+/** Drop cached catalog vectors after import/edit so the next retrieve re-embeds. */
+export function invalidateExerciseRagCache() {
+  resetCatalogEmbedCache();
+}
+
 export function _resetExerciseRagCacheForTests() {
   resetCatalogEmbedCache();
+}
+
+/** Force a fresh catalog embed (re-train the in-memory retrieval index). */
+export async function warmCatalogEmbeddings(
+  apiKey: string,
+  catalog: WorkoutExercise[],
+): Promise<{ count: number; fingerprint: string }> {
+  resetCatalogEmbedCache();
+  const items = await embedCatalog(apiKey, catalog);
+  return {
+    count: items.length,
+    fingerprint: catalogFingerprint(catalog),
+  };
 }
 
 async function embedTexts(

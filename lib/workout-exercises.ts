@@ -409,6 +409,18 @@ export function parseTimingMinutes(timing: string): number | null {
   return null;
 }
 
+/** Clamp homework task time into the product band (5–10 min). */
+export function clampTaskExpectedMinutes(
+  value: number | null | undefined,
+  fallback = 7,
+): number {
+  const n =
+    typeof value === "number" && Number.isFinite(value) && value > 0
+      ? Math.round(value)
+      : fallback;
+  return Math.min(10, Math.max(5, n));
+}
+
 export function expectedMinutesForExercise(
   exerciseId: string,
   catalog?: WorkoutExercise[],
@@ -457,4 +469,41 @@ export function formatExpectedTime(minutes: number | null): string {
   if (!minutes || minutes <= 0) return "";
   if (minutes === 1) return "~1 min";
   return `~${minutes} min`;
+}
+
+/** Strip "for Name" personalization and ensure "(N min) Title" when minutes are known. */
+export function formatTaskTitle(
+  rawTitle: string,
+  expectedMinutes?: number | null,
+  clientName?: string,
+): string {
+  let title = rawTitle.replace(/\s+/g, " ").trim();
+  if (!title) return title;
+
+  if (clientName?.trim()) {
+    const name = clientName.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    title = title
+      .replace(new RegExp(`\\s+for\\s+${name}\\s*$`, "i"), "")
+      .trim();
+  }
+  title = title.replace(/\s+for\s+[A-Z][A-Za-z'’-]*(?:\s+[A-Z][A-Za-z'’-]*){0,3}\s*$/u, "").trim();
+
+  const minutes =
+    typeof expectedMinutes === "number" &&
+    Number.isFinite(expectedMinutes) &&
+    expectedMinutes > 0
+      ? Math.max(1, Math.round(expectedMinutes))
+      : null;
+
+  const existing = title.match(/^\((\d+)\s*mins?\)\s*(.+)$/i);
+  if (existing) {
+    const body = existing[2].trim();
+    const n = minutes ?? Number(existing[1]);
+    return `(${n} min) ${body}`;
+  }
+
+  if (minutes) {
+    return `(${minutes} min) ${title}`;
+  }
+  return title;
 }

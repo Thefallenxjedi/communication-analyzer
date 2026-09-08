@@ -28,12 +28,13 @@ Intro challenges: {{introChallenges}}`,
 3. {{requiredTaskCountText}} for {{targetSession}}.
 4. Default recordingRequired: false and reviewRequired: false.
 5. Only set recordingRequired true if the transcript explicitly asks the client to record audio.
-6. Titles should match catalog names with light personalization.
-7. instructions must be client-friendly, short, and easy to scan.
-8. Prefer only these headings inside instructions: "This week", "Why this drill", "What to do", and "Example".
-9. Prefer catalog exercises that match the client's named challenges in the transcript.
-10. Every task must include one short concrete Example section or sample phrase.
-11. If the coach explicitly assigned a number of tasks, drills, or exercises, match that exact count.`,
+6. Titles must be catalog-style only. Never append the client name. Preferred format: "(7 min) Bookends of Thought" — minutes in parentheses, then the drill name.
+7. For every task, set expectedMinutes to an integer between 5 and 10 inclusive. Choose a realistic time for that drill's client practice (typical homework block). Never use 1–4 minutes or more than 10.
+8. instructions must be client-friendly, short, and easy to scan.
+9. Prefer only these headings inside instructions: "This week", "Why this drill", "What to do", and "Example".
+10. Prefer catalog exercises that match the client's named challenges in the transcript.
+11. Every task must include one short concrete Example section or sample phrase.
+12. If the coach explicitly assigned a number of tasks, drills, or exercises, match that exact count.`,
 };
 
 export const TRANSCRIPT_PROMPT_TOKEN_HELP = [

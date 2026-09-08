@@ -61,16 +61,16 @@ export async function POST(request: Request) {
 
     let clientId = result.id;
     let alreadyExisted = Boolean(result.alreadyExisted);
+    let savedClient = await getCoachingClientByEmail(email, convex);
 
     if (!result.ok || !clientId) {
-      const existing = await getCoachingClientByEmail(email, convex);
-      if (!existing) {
+      if (!savedClient) {
         return Response.json(
           { error: result.error || "Could not create client." },
           { status: 400 },
         );
       }
-      clientId = existing.id;
+      clientId = savedClient.id;
       alreadyExisted = true;
     }
 
@@ -80,7 +80,12 @@ export async function POST(request: Request) {
       enrolled: false,
     };
     try {
-      invite = await enrollAndInviteClient({ name, email });
+      // Use the canonical saved client values for the Resend event payload.
+      savedClient ??= await getCoachingClientByEmail(email, convex);
+      invite = await enrollAndInviteClient({
+        name: savedClient?.name || name,
+        email: savedClient?.email || email,
+      });
     } catch (err) {
       invite = {
         configured: true,

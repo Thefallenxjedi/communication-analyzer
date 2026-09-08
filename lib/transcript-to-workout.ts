@@ -10,7 +10,10 @@ import { sessionLabel } from "@/lib/coaching-program";
 import { retrieveExercisesWithRag } from "@/lib/exercise-rag";
 import {
   exerciseById,
+  expectedMinutesForExercise,
+  clampTaskExpectedMinutes,
   formatExerciseCatalogCompact,
+  formatTaskTitle,
   listCatalogExercises,
   type WorkoutExercise,
 } from "@/lib/workout-exercises";
@@ -24,6 +27,8 @@ function buildTaskSchema(exerciseIds: [string, ...string[]]) {
     title: z.string().min(1).max(160),
     instructions: z.string().min(1).max(8000),
     example: z.string().min(1).max(400),
+    /** Client practice time for this task — must be 5–10 minutes. */
+    expectedMinutes: z.number().min(5).max(10).default(7),
     recordingRequired: z.boolean().default(false),
     reviewRequired: z.boolean().default(false),
   });
@@ -38,6 +43,7 @@ export type GeneratedWorkoutTask = {
   title: string;
   instructions: string;
   example: string;
+  expectedMinutes: number;
   recordingRequired: boolean;
   reviewRequired: boolean;
 };
@@ -59,6 +65,8 @@ export type TranscriptWorkoutInput = {
   currentFocus?: string;
   introSummary?: string;
   introChallenges?: string[];
+  /** Client-supplied professional context. Never fetch or infer external content. */
+  profileContext?: string;
   mode?: TranscriptWorkoutMode;
   /** Override retrieval size (default 12). */
   shortlistLimit?: number;
@@ -235,6 +243,8 @@ function buildPrompt(
   const intro = input.introSummary?.trim() || "";
   const challenges =
     input.introChallenges?.filter(Boolean).join("; ") || "None on file";
+  const profileContext =
+    input.profileContext?.trim().slice(0, 6_000) || "No profile context supplied.";
   const requiredTaskCount = parseExplicitTaskCount(input.transcript);
   const variables = {
     sourceSession: source,
@@ -256,7 +266,9 @@ function buildPrompt(
   const taskRules =
     mode === "recap"
       ? ""
-      : renderPromptTemplate(prompts.tasks, variables).trim();
+      : `${renderPromptTemplate(prompts.tasks, variables).trim()}
+
+HARD RULE — TIME: Every task must include expectedMinutes as an integer from 5 to 10 inclusive. Title format "(N min) Drill Name" using that same N. Never use times outside 5–10.`;
 
   const catalogBlock =
     mode === "recap"
@@ -277,6 +289,12 @@ ${formatExerciseCatalogCompact(catalog)}`;
 
 ${catalogBlock}
 
+CLIENT PROFILE CONTEXT
+Use only these supplied facts when personalizing prompts. A URL or handle does
+not reveal the content behind it, so never invent posts, opinions, employers,
+or interests that are not written here.
+${profileContext}
+
 RULES
 ${[recapRules, taskRules].filter(Boolean).join("\n")}
 ${outputHint}
@@ -288,13 +306,27 @@ ${input.transcript.slice(0, 50_000)}`;
 function normalizeTasks(
   tasks: GeneratedWorkoutTask[],
   catalog: WorkoutExercise[],
+  clientName?: string,
 ): GeneratedWorkoutTask[] {
   return tasks.map((task) => {
     const entry = exerciseById(task.exerciseId, catalog);
-    if (!entry) return task;
+    const fromAi =
+      typeof task.expectedMinutes === "number" ? task.expectedMinutes : null;
+    const fromCatalog = entry
+      ? expectedMinutesForExercise(task.exerciseId, catalog)
+      : null;
+    const minutes = clampTaskExpectedMinutes(fromAi ?? fromCatalog, 7);
+    if (!entry) {
+      return {
+        ...task,
+        expectedMinutes: minutes,
+        title: formatTaskTitle(task.title, minutes, clientName),
+      };
+    }
     return {
       ...task,
-      title: task.title.trim() || entry.name,
+      expectedMinutes: minutes,
+      title: formatTaskTitle(task.title.trim() || entry.name, minutes, clientName),
       instructions: formatTaskInstructions(
         task.instructions,
         entry.instructions,
@@ -407,7 +439,7 @@ export async function generateWorkoutFromTranscript(
         }
         return {
           sessionRecap: "",
-          tasks: normalizeTasks(parsed.data.tasks, catalog),
+          tasks: normalizeTasks(parsed.data.tasks, catalog, input.clientName),
           shortlistIds: catalogIds,
           retrievedAsks,
           retrieveMethod,
@@ -428,7 +460,7 @@ export async function generateWorkoutFromTranscript(
       }
       return {
         sessionRecap: parsed.data.sessionRecap.trim(),
-        tasks: normalizeTasks(parsed.data.tasks, catalog),
+        tasks: normalizeTasks(parsed.data.tasks, catalog, input.clientName),
         shortlistIds: catalogIds,
         retrievedAsks,
         retrieveMethod,

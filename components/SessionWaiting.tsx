@@ -1,35 +1,15 @@
-import type { CSSProperties } from "react";
 import {
-  isBarMotion,
-  type WaitMotion,
-} from "@/lib/session-waiting";
+  INTRO_SESSION,
+  groupedProgramSession,
+  sessionLabel,
+} from "@/lib/coaching-program";
 
-function barCount(motion: WaitMotion): number {
-  if (motion === "count") return 3;
-  return 4;
+function waitingMessage(sessionNumber: number): string {
+  // The session you need to complete first is the grouped previous session.
+  const prevGrouped = groupedProgramSession(Math.max(INTRO_SESSION, sessionNumber - 1));
+  const prevLabel = sessionLabel(prevGrouped);
+  return `Your personalized practice will appear here after ${prevLabel}.`;
 }
-
-function VoiceMark({ motion }: { motion: WaitMotion }) {
-  if (isBarMotion(motion)) {
-    return (
-      <div className={`es-wait-voice es-wait-voice--${motion}`} aria-hidden>
-        {Array.from({ length: barCount(motion) }, (_, i) => (
-          <span key={i} style={{ "--i": i } as CSSProperties} />
-        ))}
-      </div>
-    );
-  }
-  return (
-    <div className={`es-wait-voice es-wait-voice--${motion}`} aria-hidden>
-      <span />
-      <span />
-      <span />
-    </div>
-  );
-}
-
-const WAITING_MESSAGE =
-  "This section will be here when your coach assigns it. For now, practice the previous sections.";
 
 export function SessionWaiting({
   sessionNumber,
@@ -40,20 +20,18 @@ export function SessionWaiting({
   lockNote?: string;
   awaitingCoach?: boolean;
 }) {
-  void sessionNumber;
-  void lockNote;
   void awaitingCoach;
-  const theme = undefined;
-  const line = WAITING_MESSAGE;
-  const motion = "still";
 
   return (
     <div className="es-wait">
-      <VoiceMark motion={motion} />
-      {theme ? <p className="es-wait-theme">{theme}</p> : null}
-      <p className="es-wait-line">{line}</p>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        className="es-wait-illustration"
+        src="/client/elitespeak-locked-practice.png"
+        alt="A person practicing a speech with a microphone and phone camera"
+      />
+      <p className="es-wait-line">{waitingMessage(sessionNumber)}</p>
       {lockNote ? <p className="es-wait-lock">{lockNote}</p> : null}
-      <span className="es-wait-rule" aria-hidden />
     </div>
   );
 }
