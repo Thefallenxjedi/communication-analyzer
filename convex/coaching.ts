@@ -562,7 +562,7 @@ async function toTaskView(ctx: QueryCtx, row: Doc<"tasks">) {
     title: row.title,
     instructions: row.instructions,
     recordingRequired: row.recordingRequired,
-    reviewRequired: row.reviewRequired !== false,
+    reviewRequired: row.recordingRequired === true,
     status: row.status,
     recordingUrl,
     driveUrl: row.driveUrl ?? "",
@@ -656,7 +656,7 @@ export const createTask = mutation({
       title,
       instructions,
       recordingRequired: args.recordingRequired === true,
-      reviewRequired: args.reviewRequired !== false,
+      reviewRequired: args.recordingRequired === true,
       ...(expectedMinutes !== undefined ? { expectedMinutes } : {}),
       status: "open",
       createdAt: now,
@@ -778,8 +778,7 @@ export const submitTask = mutation({
       throw new Error("Record audio first.");
     }
     const now = Date.now();
-    const needsReview =
-      existing.reviewRequired !== false || existing.recordingRequired === true;
+    const needsReview = existing.recordingRequired === true;
     const responseText = args.responseText?.trim().slice(0, RESPONSE_TEXT_MAX);
     await ctx.db.patch(args.id, {
       status: needsReview ? "submitted" : "done",
@@ -944,9 +943,7 @@ export const updateTask = mutation({
     }
     if (typeof args.recordingRequired === "boolean") {
       patch.recordingRequired = args.recordingRequired;
-    }
-    if (typeof args.reviewRequired === "boolean") {
-      patch.reviewRequired = args.reviewRequired;
+      patch.reviewRequired = args.recordingRequired;
     }
 
     await ctx.db.patch(args.id, patch);

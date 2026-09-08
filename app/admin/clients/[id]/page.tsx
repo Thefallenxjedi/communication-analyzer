@@ -237,13 +237,9 @@ function AdminLinkedInDrawer({
 function TaskRequirementsField({
   recordingRequired,
   onRecordingRequired,
-  reviewRequired,
-  onReviewRequired,
   video}: {
   recordingRequired: boolean;
   onRecordingRequired: (value: boolean) => void;
-  reviewRequired: boolean;
-  onReviewRequired: (value: boolean) => void;
   video: boolean;
 }) {
   const recordHint = video
@@ -271,24 +267,10 @@ function TaskRequirementsField({
             </span>
           </span>
         </label>
-        <label className="flex items-start gap-3 text-sm">
-          <input
-            type="checkbox"
-            checked={reviewRequired}
-            onChange={(e) => onReviewRequired(e.target.checked)}
-            className="mt-1 h-4 w-4 accent-slate-900"
-          />
-          <span>
-            <span className="block font-extrabold text-slate-900">
-              Coach review required
-            </span>
-            <span className="mt-1 block text-muted">
-              {reviewRequired
-                ? "Admin will review this task after the client submits it."
-                : "Client can complete it without a coach review step."}
-            </span>
-          </span>
-        </label>
+        <p className="text-sm text-muted">
+          Audio submissions automatically move to In review. Written tasks
+          complete immediately.
+        </p>
       </div>
     </fieldset>
   );
@@ -396,14 +378,12 @@ export default function AdminClientDetailPage() {
   const [title, setTitle] = useState("");
   const [instructions, setInstructions] = useState("");
   const [recordingRequired, setRecordingRequired] = useState(false);
-  const [reviewRequired, setReviewRequired] = useState(false);
 
   const [editId, setEditId] = useState<string | null>(null);
   const [expandedTaskId, setExpandedTaskId] = useState<string | null | undefined>();
   const [editTitle, setEditTitle] = useState("");
   const [editInstructions, setEditInstructions] = useState("");
   const [editRecordingRequired, setEditRecordingRequired] = useState(false);
-  const [editReviewRequired, setEditReviewRequired] = useState(false);
 
   const load = useCallback(async () => {
       setBusy(true);
@@ -526,8 +506,7 @@ export default function AdminClientDetailPage() {
           sessionNumber: assignSession ?? 1,
           title: title.trim(),
           instructions: instructions.trim(),
-          recordingRequired,
-          reviewRequired})});
+          recordingRequired})});
       const data = (await res.json()) as {
         error?: string;
         tasks?: CoachingTask[];
@@ -538,7 +517,6 @@ export default function AdminClientDetailPage() {
       setTitle("");
       setInstructions("");
       setRecordingRequired(false);
-      setReviewRequired(false);
       setAssignSession(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Assign failed.");
@@ -588,8 +566,7 @@ export default function AdminClientDetailPage() {
           clientId,
           title: editTitle.trim(),
           instructions: editInstructions.trim(),
-          recordingRequired: editRecordingRequired,
-          reviewRequired: editReviewRequired})});
+          recordingRequired: editRecordingRequired})});
       const data = (await res.json()) as {
         error?: string;
         tasks?: CoachingTask[];
@@ -600,29 +577,6 @@ export default function AdminClientDetailPage() {
       setEditId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Edit failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function onComplete(id: string) {
-    setBusy(true);
-    setError("");
-    try {
-      const res = await fetch("/api/admin/tasks", {
-        method: "PATCH",
-        headers: {
-          "content-type": "application/json"},
-        body: JSON.stringify({ id, clientId, complete: true })});
-      const data = (await res.json()) as {
-        error?: string;
-        tasks?: CoachingTask[];
-        sessions?: CoachingSessionSlot[];
-      };
-      if (!res.ok) throw new Error(data.error || "Could not complete.");
-      await refreshTasks(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Complete failed.");
     } finally {
       setBusy(false);
     }
@@ -862,9 +816,6 @@ export default function AdminClientDetailPage() {
               <span className="rounded-full bg-slate-100 px-2.5 py-0.5 font-semibold text-slate-700">
                 Audio required: {task.recordingRequired ? "Yes" : "No"}
               </span>
-              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 font-semibold text-slate-700">
-                Coach review: {task.reviewRequired ? "Yes" : "No"}
-              </span>
               <span
                 className={
                   finished
@@ -886,22 +837,11 @@ export default function AdminClientDetailPage() {
                   setEditTitle(task.title);
                   setEditInstructions(task.instructions);
                   setEditRecordingRequired(task.recordingRequired);
-                  setEditReviewRequired(task.reviewRequired);
                 }}
                 className={adminUi.btnGhost}
               >
                 Edit
               </button>
-              {task.status === "open" && !task.recordingRequired ? (
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => void onComplete(task.id)}
-                  className={adminUi.btnSolid}
-                >
-                  Mark complete
-                </button>
-              ) : null}
               <button
                 type="button"
                 disabled={busy}
@@ -939,8 +879,6 @@ export default function AdminClientDetailPage() {
             <TaskRequirementsField
               recordingRequired={editRecordingRequired}
               onRecordingRequired={setEditRecordingRequired}
-              reviewRequired={editReviewRequired}
-              onReviewRequired={setEditReviewRequired}
               video={usesVideoLink(task)}
             />
             <div className="flex gap-2">
@@ -1009,7 +947,7 @@ export default function AdminClientDetailPage() {
           <AdminReadOnly canEdit={canEdit}>
             <div className="mt-4 rounded-2xl border-2 border-amber-400 bg-amber-50 px-5 py-5">
               <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-amber-800">
-                Review required
+                Audio in review
               </p>
               <p className="mt-1 text-xl font-extrabold text-slate-900">
                 Mark this submission reviewed
@@ -1094,7 +1032,6 @@ export default function AdminClientDetailPage() {
                 setTitle(`Task ${sessionTasks.length + 1}`);
                 setInstructions("");
                 setRecordingRequired(false);
-                setReviewRequired(false);
               }
             }}
             className={adminUi.btnGhost}
@@ -1127,8 +1064,6 @@ export default function AdminClientDetailPage() {
             <TaskRequirementsField
               recordingRequired={recordingRequired}
               onRecordingRequired={setRecordingRequired}
-              reviewRequired={reviewRequired}
-              onReviewRequired={setReviewRequired}
               video={false}
             />
             <button type="submit" disabled={busy} className={adminUi.primaryBtn}>
@@ -1456,7 +1391,7 @@ export default function AdminClientDetailPage() {
             </p>
             {client.reviewRequired ? (
               <p className="inline-flex rounded-full bg-amber-100 px-3 py-1 text-sm font-extrabold uppercase tracking-wide text-amber-800">
-                Review required
+                Audio in review
               </p>
             ) : null}
             <button
@@ -1539,7 +1474,7 @@ export default function AdminClientDetailPage() {
                     }
                   >
                     {tone === "review"
-                      ? "Review required"
+                      ? "Audio in review"
                       : tone === "complete"
                         ? "Complete"
                         : countLabel}

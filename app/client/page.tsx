@@ -734,20 +734,25 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
   const workCount = row.workSessionCount ?? WORK_SESSION_COUNT;
   const actualHere = parseCurrentStage(row.currentStage, workCount);
   const here = stageToNav(row.currentStage, workCount);
+  const publishedTasks = isSessionNav(nav)
+    ? nav === INTRO_SESSION
+      ? [
+          ...tasksForSession(tasks, INTRO_SESSION),
+          ...tasksForSession(tasks, 1),
+        ]
+      : tasksForSession(tasks, nav)
+    : [];
+  const hasPublishedSessionContent =
+    publishedTasks.length > 0 ||
+    (nav === INTRO_SESSION
+      ? !isIntroCallEmpty(intro)
+      : Boolean(sessionRecap?.recapSummary.trim()));
   const sessionLocked =
     !demoMode &&
     isSessionNav(nav) &&
-    !isClientSessionUnlocked(nav, row.currentStage, workCount);
-  const selectedTasks = sessionLocked
-    ? []
-    : isSessionNav(nav)
-      ? nav === INTRO_SESSION
-        ? [
-            ...tasksForSession(tasks, INTRO_SESSION),
-            ...tasksForSession(tasks, 1),
-          ]
-        : tasksForSession(tasks, nav)
-      : [];
+    !isClientSessionUnlocked(nav, row.currentStage, workCount) &&
+    !hasPublishedSessionContent;
+  const selectedTasks = sessionLocked ? [] : publishedTasks;
   const activeExpandedTaskId = selectedTasks.some((task) => task.id === expandedTaskId)
     ? expandedTaskId
     : null;
@@ -777,7 +782,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
     if (task.status === "submitted") {
       return (
         <span className="es-report-step-status es-report-step-status--review">
-          Coach review pending
+          In review
         </span>
       );
     }
@@ -863,11 +868,6 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
               {task.recordingRequired ? <span className="es-task-pill-dot" /> : null}
               Audio required: {task.recordingRequired ? "Yes" : "No"}
             </span>
-            {task.reviewRequired ? (
-              <span className="es-task-pill es-task-pill--review">
-                Coach review required
-              </span>
-            ) : null}
           </div>
           <TaskInstructionCopy instructions={task.instructions} />
           <TaskScreen
@@ -995,7 +995,12 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                   );
                   const locked =
                     !demoMode &&
-                    !isClientSessionUnlocked(slot.sessionNumber, row.currentStage, workCount);
+                    !isClientSessionUnlocked(
+                      slot.sessionNumber,
+                      row.currentStage,
+                      workCount,
+                    ) &&
+                    slotTasks.length === 0;
                   return (
                     <button
                       key={`mobile-${slot.sessionNumber}`}
@@ -1130,7 +1135,12 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
             const milestone = sessionMilestone(slot.sessionNumber, here, slotTasks);
             const locked =
               !demoMode &&
-              !isClientSessionUnlocked(slot.sessionNumber, row.currentStage, workCount);
+              !isClientSessionUnlocked(
+                slot.sessionNumber,
+                row.currentStage,
+                workCount,
+              ) &&
+              slotTasks.length === 0;
             return (
               <button
                 key={slot.sessionNumber}

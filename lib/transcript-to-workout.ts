@@ -30,7 +30,6 @@ function buildTaskSchema(exerciseIds: [string, ...string[]]) {
     /** Client practice time for this task — must be 5–10 minutes. */
     expectedMinutes: z.number().min(5).max(10).default(7),
     recordingRequired: z.boolean().default(false),
-    reviewRequired: z.boolean().default(false),
   });
 }
 
@@ -45,7 +44,6 @@ export type GeneratedWorkoutTask = {
   example: string;
   expectedMinutes: number;
   recordingRequired: boolean;
-  reviewRequired: boolean;
 };
 
 export type TranscriptWorkoutDraft = {

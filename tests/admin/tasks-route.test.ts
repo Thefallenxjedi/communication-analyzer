@@ -36,8 +36,8 @@ vi.mock("@/lib/coaching-tasks", () => ({
   getCoachingTask,
   listCoachingTasks,
   markCoachingTaskReviewed,
-  needsCoachReview: (task: { reviewRequired?: boolean }) =>
-    task.reviewRequired !== false,
+  needsCoachReview: (task: { recordingRequired?: boolean }) =>
+    task.recordingRequired === true,
   removeCoachingTask,
   updateCoachingTask,
 }));
@@ -67,7 +67,7 @@ describe("/api/admin/tasks", () => {
     listCoachingSessions.mockResolvedValue([{ sessionNumber: 1, ready: true }]);
     getCoachingTask.mockResolvedValue({
       id: "task-1",
-      reviewRequired: true,
+      recordingRequired: true,
     });
   });
 
@@ -81,7 +81,6 @@ describe("/api/admin/tasks", () => {
           title: "Task 1",
           instructions: "Do the work",
           recordingRequired: true,
-          reviewRequired: true,
           expectedMinutes: 10,
         }),
       }),
@@ -95,7 +94,6 @@ describe("/api/admin/tasks", () => {
         title: "Task 1",
         instructions: "Do the work",
         recordingRequired: true,
-        reviewRequired: true,
         expectedMinutes: 10,
       },
       convex,
@@ -118,7 +116,7 @@ describe("/api/admin/tasks", () => {
     expect(markCoachingTaskReviewed).toHaveBeenCalledWith("task-1", convex);
   });
 
-  it("completes only coach-review tasks from admin", async () => {
+  it("allows admin completion only for audio-review tasks", async () => {
     const res = await PATCH(
       new Request("https://example.com/api/admin/tasks", {
         method: "PATCH",

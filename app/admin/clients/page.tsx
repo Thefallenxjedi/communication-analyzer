@@ -576,7 +576,7 @@ export default function AdminClientsPage() {
                             </span>
                             {row.reviewRequired ? (
                               <p className="mt-1.5 text-sm font-extrabold uppercase tracking-wide text-amber-800">
-                                Review required
+                                Audio in review
                               </p>
                             ) : null}
                             {!row.onboardingComplete ? (

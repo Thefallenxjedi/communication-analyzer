@@ -26,8 +26,8 @@ Intro challenges: {{introChallenges}}`,
 1. ALWAYS create every task from the MATCHED EXERCISE CATALOG provided below. Those drills were retrieved from the live catalog.
 2. Never invent drills, names, or ids. If the transcript names a drill, map it to the closest matched catalog exercise.
 3. {{requiredTaskCountText}} for {{targetSession}}.
-4. Default recordingRequired: false and reviewRequired: false.
-5. Only set recordingRequired true if the transcript explicitly asks the client to record audio.
+4. Default recordingRequired: false.
+5. Only set recordingRequired true if the transcript explicitly asks the client to record audio. Audio submissions are automatically reviewed by the coach.
 6. Titles must be catalog-style only. Never append the client name. Preferred format: "(7 min) Bookends of Thought" — minutes in parentheses, then the drill name.
 7. For every task, set expectedMinutes to an integer between 5 and 10 inclusive. Choose a realistic time for that drill's client practice (typical homework block). Never use 1–4 minutes or more than 10.
 8. instructions must be client-friendly, short, and easy to scan.

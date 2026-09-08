@@ -44,7 +44,7 @@ export function taskStatusLabel(
 ): string {
   if (status === "open") return "Open";
   if (status === "submitted") {
-    return viewer === "admin" ? "Review required" : "In review";
+    return viewer === "admin" ? "Audio in review" : "In review";
   }
   if (status === "reviewed") return "Reviewed";
   if (status === "done") return "Done";
@@ -52,9 +52,9 @@ export function taskStatusLabel(
 }
 
 export function needsCoachReview(task: {
-  reviewRequired?: boolean;
+  recordingRequired?: boolean;
 }): boolean {
-  return task.reviewRequired !== false;
+  return task.recordingRequired === true;
 }
 
 export function usesVideoLink(task: {

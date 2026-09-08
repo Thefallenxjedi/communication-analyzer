@@ -29,7 +29,6 @@ function emptyTask(): DraftTask {
     example: "",
     expectedMinutes: 7,
     recordingRequired: false,
-    reviewRequired: false,
   };
 }
 
@@ -93,25 +92,21 @@ function InfoTooltip({ text }: { text: string }) {
 
 function RequirementToggles({
   recordingRequired,
-  reviewRequired,
   video,
   disabled,
   onRecordingRequired,
-  onReviewRequired,
 }: {
   recordingRequired: boolean;
-  reviewRequired: boolean;
   video: boolean;
   disabled?: boolean;
   onRecordingRequired: (value: boolean) => void;
-  onReviewRequired: (value: boolean) => void;
 }) {
   const recordHint = video
     ? "Client pastes a Drive or YouTube link."
     : "Client records audio in the app.";
 
   return (
-    <div className="mt-3 grid gap-3 sm:grid-cols-2">
+    <div className="mt-3">
       <label className="rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm">
         <span className="flex items-start gap-3">
           <input
@@ -133,27 +128,10 @@ function RequirementToggles({
           </span>
         </span>
       </label>
-      <label className="rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm">
-        <span className="flex items-start gap-3">
-          <input
-            type="checkbox"
-            checked={reviewRequired}
-            disabled={disabled}
-            onChange={(e) => onReviewRequired(e.target.checked)}
-            className="mt-1 h-4 w-4 accent-slate-900"
-          />
-          <span>
-            <span className="block font-extrabold text-slate-900">
-              Coach review required
-            </span>
-            <span className="mt-1 block text-muted">
-              {reviewRequired
-                ? "Admin will review after submission."
-                : "Client can complete it without review."}
-            </span>
-          </span>
-        </span>
-      </label>
+      <p className="mt-2 text-xs text-muted">
+        Audio submissions automatically move to In review. Written tasks
+        complete immediately.
+      </p>
     </div>
   );
 }
@@ -399,7 +377,6 @@ export function TranscriptToWorkoutPanel({
             title: task.title.trim(),
             instructions: task.instructions.trim(),
             recordingRequired: task.recordingRequired,
-            reviewRequired: task.reviewRequired,
             expectedMinutes})});
         const data = (await res.json()) as {
           error?: string;
@@ -720,9 +697,6 @@ export function TranscriptToWorkoutPanel({
                     <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-slate-700">
                       Audio required: {task.recordingRequired ? "Yes" : "No"}
                     </span>
-                    <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-slate-700">
-                      Coach review: {task.reviewRequired ? "Yes" : "No"}
-                    </span>
                   </div>
                   {expanded ? (
                     <>
@@ -781,20 +755,12 @@ export function TranscriptToWorkoutPanel({
                       />
                       <RequirementToggles
                         recordingRequired={task.recordingRequired}
-                        reviewRequired={task.reviewRequired}
                         video={targetSession === INTRO_SESSION}
                         disabled={readOnly}
                         onRecordingRequired={(value) =>
                           setDraftTasks((prev) => {
                             const next = [...prev];
                             next[i] = { ...task, recordingRequired: value };
-                            return next;
-                          })
-                        }
-                        onReviewRequired={(value) =>
-                          setDraftTasks((prev) => {
-                            const next = [...prev];
-                            next[i] = { ...task, reviewRequired: value };
                             return next;
                           })
                         }

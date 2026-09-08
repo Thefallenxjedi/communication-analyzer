@@ -44,7 +44,6 @@ export async function POST(request: Request) {
     title?: string;
     instructions?: string;
     recordingRequired?: boolean;
-    reviewRequired?: boolean;
     expectedMinutes?: number;
   };
   try {
@@ -63,7 +62,6 @@ export async function POST(request: Request) {
     title: body.title ?? "",
     instructions: body.instructions ?? "",
     recordingRequired: body.recordingRequired,
-    reviewRequired: body.reviewRequired,
     expectedMinutes: body.expectedMinutes,
   }, convex);
   if (!result.ok) {
@@ -89,7 +87,6 @@ export async function PATCH(request: Request) {
     title?: string;
     instructions?: string;
     recordingRequired?: boolean;
-    reviewRequired?: boolean;
     complete?: boolean;
     markReviewed?: boolean;
   };
@@ -133,7 +130,6 @@ export async function PATCH(request: Request) {
           title: body.title,
           instructions: body.instructions,
           recordingRequired: body.recordingRequired,
-          reviewRequired: body.reviewRequired,
         }, convex);
   if (!result.ok) {
     return Response.json(
