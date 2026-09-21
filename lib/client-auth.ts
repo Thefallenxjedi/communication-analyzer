@@ -39,7 +39,18 @@ export async function fetchMyClientFromConvex(): Promise<MyClientResponse> {
   }
 
   convex.setAuth(token);
-  const data = (await convex.query(coachingApi.getMyClient, {})) as MyClientResponse;
+  let data = (await convex.query(coachingApi.getMyClient, {})) as MyClientResponse;
+
+  // Legacy pending self-signups get access automatically — no admin approval.
+  if (data.authenticated && data.client?.status === "pending") {
+    try {
+      await convex.mutation(coachingApi.ensureMyClientActive, {});
+      data = (await convex.query(coachingApi.getMyClient, {})) as MyClientResponse;
+    } catch {
+      // Fall through with the pending row; caller can still decide.
+    }
+  }
+
   return data;
 }
 

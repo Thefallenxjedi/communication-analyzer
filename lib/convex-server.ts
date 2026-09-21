@@ -76,6 +76,7 @@ export const coachingApi = {
   listPendingClients: makeFunctionReference<"query">("coaching:listPendingClients"),
   getMyClient: makeFunctionReference<"query">("coaching:getMyClient"),
   registerClientSignup: makeFunctionReference<"mutation">("coaching:registerClientSignup"),
+  ensureMyClientActive: makeFunctionReference<"mutation">("coaching:ensureMyClientActive"),
   listClients: makeFunctionReference<"query">("coaching:listClients"),
   getClientByEmail: makeFunctionReference<"query">("coaching:getClientByEmail"),
   createClient: makeFunctionReference<"mutation">("coaching:createClient"),

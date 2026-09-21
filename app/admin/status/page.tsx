@@ -125,8 +125,8 @@ export default function AdminStatusPage() {
               System status
             </h1>
             <p className="mt-2 text-sm text-muted">
-              Live checks for integrations used by analysis, YouTube, and lead
-              sync.
+              Live checks for integrations used by analysis, email,
+              YouTube, and lead sync.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">

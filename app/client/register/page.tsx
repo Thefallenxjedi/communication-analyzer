@@ -26,9 +26,6 @@ export default function ClientRegisterPage() {
         router.replace("/client");
         return;
       }
-      if (!data.needsRegistration && data.client?.status === "pending") {
-        router.replace("/client/waiting");
-      }
     })();
   }, [router]);
 
@@ -44,7 +41,7 @@ export default function ClientRegisterPage() {
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Could not save.");
-      router.replace("/client/waiting");
+      router.replace("/client");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save.");
     } finally {
@@ -77,7 +74,7 @@ export default function ClientRegisterPage() {
           disabled={busy || !name.trim()}
           className="es-btn es-login-google-btn"
         >
-          {busy ? "Saving…" : "Submit for approval"}
+          {busy ? "Opening portal…" : "Continue to portal"}
         </button>
       </form>
     </ClientAuthShell>

@@ -22,18 +22,19 @@ export default function ClientLoginPage() {
 
   return (
     <ClientAuthShell
-      panelLabel="Sign in"
-      footer="Private client portal · ELITESPEAK"
+      panelLabel="Welcome back"
+      footer={
+        <p className="es-login-help">
+          Need help accessing your account?
+          <br />
+          <a href="mailto:info@elitespeak.org">info@elitespeak.org</a>
+        </p>
+      }
     >
-      <h2 className="es-login-panel-title">Client login</h2>
-      <p className="es-login-panel-kicker">Your private coaching space.</p>
+      <h2 className="es-login-panel-title">Welcome back</h2>
       <p className="es-login-panel-sub">
-        Sign in with Google to access your coaching program. Your coach approves
-        new accounts before program access.
+        Sign in to continue your EliteSpeak training.
       </p>
-      <a href="/client/demo" className="es-login-demo-link">
-        View sample client demo (no login)
-      </a>
       <button
         type="button"
         disabled={busy}
@@ -43,6 +44,9 @@ export default function ClientLoginPage() {
         <GoogleMark />
         {busy ? "Redirecting…" : "Continue with Google"}
       </button>
+      <p className="es-login-account-note">
+        Use the Google account associated with your EliteSpeak enrollment.
+      </p>
       {error ? <p className="es-login-error">{error}</p> : null}
     </ClientAuthShell>
   );

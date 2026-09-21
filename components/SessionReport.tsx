@@ -33,6 +33,7 @@ export function SessionReportStep({
   open = true,
   onToggle,
   meta,
+  trailing,
 }: {
   n: number;
   title: string;
@@ -40,29 +41,42 @@ export function SessionReportStep({
   open?: boolean;
   onToggle?: () => void;
   meta?: ReactNode;
+  /** Right-side cluster (e.g. expected time + status) before the chevron. */
+  trailing?: ReactNode;
 }) {
+  const head = (
+    <span className="es-report-step-main">
+      <span className="es-report-num">{n}</span>
+      <span className="es-report-step-head">
+        <h3 className="es-report-step-title">{title}</h3>
+        {meta ? <span className="es-report-step-meta">{meta}</span> : null}
+      </span>
+    </span>
+  );
+
+  const aside =
+    trailing || onToggle ? (
+      <span className="es-report-step-aside">
+        {trailing}
+        {onToggle ? (
+          <span className="es-report-step-chevron" aria-hidden>
+            {open ? "−" : "+"}
+          </span>
+        ) : null}
+      </span>
+    ) : null;
+
   return (
     <section className="es-report-step">
       {onToggle ? (
         <button type="button" onClick={onToggle} className="es-report-step-toggle">
-          <span className="flex items-start gap-3">
-            <span className="es-report-num">{n}</span>
-            <span className="es-report-step-head">
-              <h3 className="es-report-step-title">{title}</h3>
-              {meta ? <span className="es-report-step-meta">{meta}</span> : null}
-            </span>
-          </span>
-          <span className="es-report-step-chevron" aria-hidden>
-            {open ? "−" : "+"}
-          </span>
+          {head}
+          {aside}
         </button>
       ) : (
-        <div className="flex items-start gap-3">
-          <span className="es-report-num">{n}</span>
-          <span className="es-report-step-head">
-            <h3 className="es-report-step-title">{title}</h3>
-            {meta ? <span className="es-report-step-meta">{meta}</span> : null}
-          </span>
+        <div className="es-report-step-toggle es-report-step-toggle--static">
+          {head}
+          {aside}
         </div>
       )}
       {open ? <div className="es-report-step-body">{children}</div> : null}

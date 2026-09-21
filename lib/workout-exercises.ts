@@ -471,6 +471,17 @@ export function formatExpectedTime(minutes: number | null): string {
   return `~${minutes} min`;
 }
 
+/** Title for UI without the "(N min)" prefix — time belongs on the right of the row. */
+export function displayTaskTitle(
+  rawTitle: string,
+  expectedMinutes?: number | null,
+  clientName?: string,
+): string {
+  const formatted = formatTaskTitle(rawTitle, expectedMinutes, clientName);
+  const stripped = formatted.replace(/^\((\d+)\s*mins?\)\s*/i, "").trim();
+  return stripped || formatted;
+}
+
 /** Strip "for Name" personalization and ensure "(N min) Title" when minutes are known. */
 export function formatTaskTitle(
   rawTitle: string,

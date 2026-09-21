@@ -3,16 +3,15 @@ import type { ReactNode } from "react";
 export function ClientAuthBrand() {
   return (
     <section className="es-login-brand es-login-enter" aria-label="EliteSpeak">
-      <p className="es-wordmark es-wordmark--login">EliteSpeak</p>
-      <h1 className="es-login-brand-title">Verbal Workout</h1>
-      <p className="es-login-brand-lead">
-        Private communication coaching — one session at a time, with deliberate
-        practice and coach review after every call.
-      </p>
-      <span className="es-login-brand-rule" aria-hidden />
-      <p className="es-login-brand-note">
-        For enrolled coaching clients only.
-      </p>
+      <div className="es-login-brand-hero" aria-hidden />
+      <div className="es-login-brand-content">
+        <h1 className="es-login-brand-title">Your EliteSpeak Portal</h1>
+        <p className="es-login-brand-lead">
+          Everything you need to train, track your progress, and work with your
+          coach.
+        </p>
+        <p className="es-login-brand-pillars">Practice. Progress. Coaching.</p>
+      </div>
     </section>
   );
 }
@@ -24,7 +23,7 @@ export function ClientAuthShell({
 }: {
   panelLabel: string;
   children: ReactNode;
-  footer?: string;
+  footer?: ReactNode;
 }) {
   return (
     <main className="es-login-split">
@@ -35,9 +34,9 @@ export function ClientAuthShell({
             <div className="es-login-panel-inner">{children}</div>
           </div>
           {footer ? (
-            <p className="es-login-panel-footer es-login-enter es-login-enter--footer">
+            <div className="es-login-panel-footer es-login-enter es-login-enter--footer">
               {footer}
-            </p>
+            </div>
           ) : null}
         </div>
       </section>

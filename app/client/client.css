@@ -208,6 +208,11 @@
   opacity: 0.88;
 }
 
+.es-wordmark-image--login {
+  width: min(100%, 11.5rem);
+  mix-blend-mode: screen;
+}
+
 .es-client-who {
   min-width: 0;
 }
@@ -1597,6 +1602,42 @@
   cursor: pointer;
 }
 
+.es-report-step-toggle--static {
+  cursor: default;
+}
+
+.es-report-step-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.es-report-step-aside {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 0.55rem;
+  padding-top: 0.15rem;
+}
+
+.es-report-step-trailing {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.es-report-step-time {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #7a6848;
+  white-space: nowrap;
+}
+
 .es-report-num {
   display: inline-flex;
   height: 1.9rem;
@@ -1635,6 +1676,7 @@
 .es-report-step-status {
   display: inline-flex;
   align-items: center;
+  gap: 0.28rem;
   border-radius: 9999px;
   background: #f3ede0;
   padding: 0.22rem 0.65rem;
@@ -1649,8 +1691,23 @@
 }
 
 .es-report-step-status--done {
-  background: #ece6d8;
-  color: #3f3527;
+  background: #e4f0e6;
+  color: #1f6b3a;
+}
+
+.es-report-step-tick {
+  display: inline-flex;
+  height: 1rem;
+  width: 1rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #2f9e55;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .es-report-step-body {
@@ -2870,6 +2927,16 @@
     font-size: 1.5rem;
   }
 
+  .es-report-step-aside {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.35rem;
+  }
+
+  .es-report-step-trailing {
+    order: -1;
+  }
+
   .es-report-step-body {
     margin-left: 2.1rem;
   }
@@ -3804,70 +3871,80 @@
 
 .es-login-brand {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 3rem 1.75rem 3.25rem;
-  background:
-    radial-gradient(
-      ellipse 90% 70% at 12% 18%,
-      color-mix(in srgb, var(--es-gold) 7%, transparent),
-      transparent 62%
-    ),
-    radial-gradient(
-      ellipse 55% 45% at 88% 82%,
-      color-mix(in srgb, var(--es-gold) 4%, transparent),
-      transparent 68%
-    ),
-    linear-gradient(
-      168deg,
-      color-mix(in srgb, var(--es-void-2) 92%, var(--es-gold) 8%) 0%,
-      var(--es-void-2) 38%,
-      var(--es-void) 100%
-    );
+  display: block;
+  overflow: hidden;
+  min-height: min(78vh, 36rem);
+  padding: 0;
+  background: var(--es-void);
   border-bottom: 1px solid color-mix(in srgb, var(--es-gold) 10%, transparent);
 }
 
+.es-login-brand-hero {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-color: var(--es-void);
+  background-image: url("/logo.jpg");
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center center;
+}
+
+.es-login-brand::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    transparent 48%,
+    color-mix(in srgb, var(--es-void) 28%, transparent) 62%,
+    color-mix(in srgb, var(--es-void) 78%, transparent) 82%,
+    color-mix(in srgb, var(--es-void) 92%, transparent) 100%
+  );
+}
+
+.es-login-brand-content {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  z-index: 2;
+  width: min(100% - 2.5rem, 34rem);
+  transform: translateX(-50%);
+  padding: 0 1.25rem 2.5rem;
+  text-align: center;
+}
+
 .es-login-brand-title {
-  margin: 2.25rem 0 0;
-  max-width: 22rem;
+  margin: 0 auto;
+  max-width: 14ch;
   font-family: var(--font-playfair), Georgia, "Times New Roman", serif;
-  font-size: clamp(2.65rem, 6.5vw, 4.35rem);
+  font-size: clamp(2.55rem, 5.6vw, 3.65rem);
   font-weight: 400;
-  line-height: 1.04;
+  line-height: 1.06;
   letter-spacing: -0.025em;
   color: var(--es-parchment);
 }
 
 .es-login-brand-lead {
-  margin: 1.35rem 0 0;
-  max-width: 26rem;
-  font-size: 0.98rem;
-  line-height: 1.72;
+  margin: 1.15rem auto 0;
+  max-width: 28rem;
+  font-size: clamp(1.02rem, 1.7vw, 1.18rem);
+  line-height: 1.65;
   letter-spacing: 0.01em;
-  color: color-mix(in srgb, var(--es-parchment-dim) 92%, var(--es-parchment));
+  color: color-mix(in srgb, var(--es-parchment-dim) 94%, var(--es-parchment));
 }
 
-.es-login-brand-rule {
-  display: block;
-  width: 3rem;
-  height: 1px;
-  margin: 2rem 0 1.35rem;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--es-gold) 55%, transparent),
-    color-mix(in srgb, var(--es-gold) 18%, transparent)
-  );
-}
-
-.es-login-brand-note {
-  margin: 0;
-  max-width: 22rem;
-  font-size: 0.75rem;
-  line-height: 1.55;
-  letter-spacing: 0.06em;
+.es-login-brand-pillars {
+  margin: 1.55rem 0 0;
+  font-family: var(--font-ibm-plex-mono), ui-monospace, monospace;
+  font-size: clamp(0.78rem, 1.2vw, 0.88rem);
+  font-weight: 500;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--es-parchment-dim) 78%, transparent);
+  color: color-mix(in srgb, var(--es-gold) 88%, var(--es-parchment));
 }
 
 .es-login-panel {
@@ -3932,11 +4009,18 @@
 }
 
 .es-login-panel-sub {
-  margin: 1.15rem 0 0;
-  font-size: 0.9rem;
+  margin: 0.85rem 0 0;
+  font-size: 0.92rem;
   line-height: 1.65;
   letter-spacing: 0.01em;
   color: var(--es-parchment-dim);
+}
+
+.es-login-account-note {
+  margin: 1rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: color-mix(in srgb, var(--es-parchment-dim) 88%, transparent);
 }
 
 .es-login-panel-footer {
@@ -3944,12 +4028,28 @@
   padding-top: 1.25rem;
   width: 100%;
   border-top: 1px solid color-mix(in srgb, var(--es-gold) 10%, transparent);
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
   text-align: center;
-  color: color-mix(in srgb, var(--es-parchment-dim) 72%, transparent);
+  color: color-mix(in srgb, var(--es-parchment-dim) 78%, transparent);
+}
+
+.es-login-help {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  font-weight: 400;
+}
+
+.es-login-help a {
+  color: color-mix(in srgb, var(--es-gold) 88%, var(--es-parchment));
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--es-gold) 35%, transparent);
+}
+
+.es-login-help a:hover {
+  color: var(--es-gold);
+  border-bottom-color: color-mix(in srgb, var(--es-gold) 70%, transparent);
 }
 
 .es-login-google-btn {
@@ -3957,7 +4057,7 @@
   align-items: center;
   justify-content: center;
   gap: 0.7rem;
-  margin-top: 2.15rem;
+  margin-top: 1.75rem;
   width: 100%;
   min-height: 3.125rem;
   border-radius: 0.45rem;
@@ -4067,13 +4167,20 @@
   }
 
   .es-login-brand {
-    padding: 5rem 4.5rem 5rem 5rem;
+    min-height: 100dvh;
+    padding: 0;
     border-bottom: 0;
     border-right: 1px solid color-mix(in srgb, var(--es-gold) 9%, transparent);
   }
 
+  .es-login-brand-content {
+    top: 58%;
+    width: min(100% - 4rem, 36rem);
+    padding: 0 2rem 3.5rem;
+  }
+
   .es-login-brand-title {
-    max-width: 26rem;
+    max-width: 14ch;
   }
 
   .es-login-panel {
@@ -4090,8 +4197,9 @@
 }
 
 @media (min-width: 1200px) {
-  .es-login-brand {
-    padding: 6rem 5.5rem 6rem 6rem;
+  .es-login-brand-content {
+    top: 60%;
+    padding: 0 2.5rem 4rem;
   }
 
   .es-login-panel {

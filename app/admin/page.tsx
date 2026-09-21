@@ -944,8 +944,8 @@ export default function AdminPage() {
                     System status
                   </h2>
                   <p className="mt-1 text-sm text-muted">
-                    Live health checks for Gemini, Convex, Kartra, and YouTube
-                    integrations.
+                    Live health checks for Gemini, Convex, Resend, Kartra, and
+                    YouTube integrations.
                   </p>
                 </div>
                 <Link

@@ -44,6 +44,7 @@ import { videoShareKind } from "@/lib/google-drive";
 import { isIntroCallEmpty, type IntroCallReport } from "@/lib/intro-call";
 import type { SessionRecap } from "@/lib/session-recap";
 import {
+  displayTaskTitle,
   formatExpectedTime,
   inferTaskExpectedMinutes,
 } from "@/lib/workout-exercises";
@@ -489,8 +490,8 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
       router.replace("/client/register");
       return;
     }
-    if (!sessionData.client || sessionData.client.status === "pending") {
-      router.replace("/client/waiting");
+    if (!sessionData.client || sessionData.client.status !== "active") {
+      router.replace("/client/login");
       return;
     }
     setClient(sessionData.client);
@@ -706,25 +707,44 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
         : "upcoming";
 
   function stepTitle(task: CoachingTask, index: number) {
-    return task.title.trim() || `Task ${index + 1}`;
+    const raw = task.title.trim() || `Task ${index + 1}`;
+    return displayTaskTitle(raw, task.expectedMinutes);
   }
 
   function taskStatusChip(task: CoachingTask) {
-    if (task.status === "submitted") {
+    const done =
+      task.status === "submitted" ||
+      task.status === "reviewed" ||
+      task.status === "done";
+    if (done) {
       return (
         <span className="es-report-step-status es-report-step-status--done">
-          ✓ Completed
-        </span>
-      );
-    }
-    if (task.status === "reviewed" || task.status === "done") {
-      return (
-        <span className="es-report-step-status es-report-step-status--done">
+          <span className="es-report-step-tick" aria-hidden>
+            ✓
+          </span>
           Completed
         </span>
       );
     }
     return <span className="es-report-step-status">Open</span>;
+  }
+
+  function taskTrailing(task: CoachingTask) {
+    const expected = formatExpectedTime(
+      inferTaskExpectedMinutes({
+        title: task.title,
+        instructions: task.instructions,
+        expectedMinutes: task.expectedMinutes,
+      }),
+    );
+    return (
+      <span className="es-report-step-trailing">
+        {expected ? (
+          <span className="es-report-step-time">{expected}</span>
+        ) : null}
+        {taskStatusChip(task)}
+      </span>
+    );
   }
 
   function sessionKicker() {
@@ -754,14 +774,25 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
     open = true,
     onToggle?: () => void,
   ) {
-    const expected = formatExpectedTime(
-      inferTaskExpectedMinutes({
-        title: task.title,
-        instructions: task.instructions,
-        expectedMinutes: task.expectedMinutes,
-      }),
-    );
-  if (locked) {
+    if (locked) {
+      return (
+        <SessionReportStep
+          key={task.id}
+          n={stepN ?? index + 1}
+          title={stepTitle(task, index)}
+          open={open}
+          onToggle={onToggle}
+          trailing={taskTrailing(task)}
+        >
+          <div className="es-task-locked">
+            <p className="es-task-locked-title">Locked</p>
+            <p className="es-task-locked-copy">
+              Complete Task {index} to unlock this step.
+            </p>
+          </div>
+        </SessionReportStep>
+      );
+    }
     return (
       <SessionReportStep
         key={task.id}
@@ -769,30 +800,9 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
         title={stepTitle(task, index)}
         open={open}
         onToggle={onToggle}
-        meta={taskStatusChip(task)}
-      >
-        <div className="es-task-locked">
-          <p className="es-task-locked-title">Locked</p>
-          <p className="es-task-locked-copy">
-            Complete Task {index} to unlock this step.
-          </p>
-        </div>
-      </SessionReportStep>
-    );
-  }
-    return (
-      <SessionReportStep
-        key={task.id}
-        n={stepN ?? index + 1}
-        title={stepTitle(task, index)}
-        open={open}
-        onToggle={onToggle}
-      meta={taskStatusChip(task)}
+        trailing={taskTrailing(task)}
       >
         <div className="es-task-sheet">
-          {expected ? (
-            <p className="es-task-expected">Expected time: {expected}</p>
-          ) : null}
           <div className="es-task-badges">
             <span
               className={`es-task-pill ${task.recordingRequired ? "es-task-pill--audio" : ""}`}

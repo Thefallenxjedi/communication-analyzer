@@ -335,6 +335,19 @@ export const registerClientSignup = mutation({
       .unique();
 
     if (existing) {
+      if (existing.status === "pending") {
+        await ctx.db.patch(existing._id, {
+          status: "active",
+          updatedAt: now,
+          lastActivityAt: now,
+        });
+        await seedProgramTasks(ctx, existing._id, now);
+        return {
+          ok: true as const,
+          status: "active" as const,
+          clientId: existing._id,
+        };
+      }
       return {
         ok: true as const,
         status: existing.status,
@@ -345,13 +358,44 @@ export const registerClientSignup = mutation({
     const clientId = await ctx.db.insert("clients", {
       userId,
       startDate: now,
-      status: "pending",
+      status: "active",
       lastActivityAt: now,
       createdAt: now,
       updatedAt: now,
     });
 
-    return { ok: true as const, status: "pending" as const, clientId };
+    await seedProgramTasks(ctx, clientId, now);
+
+    return { ok: true as const, status: "active" as const, clientId };
+  },
+});
+
+/** Activates a legacy pending self-signup and seeds the program if needed. */
+export const ensureMyClientActive = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Not authenticated.");
+
+    const row = await ctx.db
+      .query("clients")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+    if (!row) {
+      return { ok: false as const, reason: "missing" as const };
+    }
+    if (row.status !== "pending") {
+      return { ok: true as const, status: row.status, activated: false as const };
+    }
+
+    const now = Date.now();
+    await ctx.db.patch(row._id, {
+      status: "active",
+      updatedAt: now,
+      lastActivityAt: now,
+    });
+    await seedProgramTasks(ctx, row._id, now);
+    return { ok: true as const, status: "active" as const, activated: true as const };
   },
 });
 

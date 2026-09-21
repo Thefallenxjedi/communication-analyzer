@@ -69,7 +69,6 @@ export default function AdminClientsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [clients, setClients] = useState<CoachingClient[]>([]);
-  const [pendingClients, setPendingClients] = useState<CoachingClient[]>([]);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -93,19 +92,14 @@ export default function AdminClientsPage() {
     setError("");
     try {
       const res = await fetch("/api/admin/clients");
-      const pendingRes = await fetch("/api/admin/clients/pending");
       const data = await readApiJson<{
         error?: string;
         clients?: CoachingClient[];
       }>(res);
-      const pendingData = await readApiJson<{
-        clients?: CoachingClient[];
-      }>(pendingRes);
       if (!res.ok) {
         throw new Error(data.error || "Could not load clients.");
       }
       setClients(data.clients || []);
-      setPendingClients(pendingData.clients || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load.");
     } finally {
@@ -211,36 +205,6 @@ export default function AdminClientsPage() {
       setEditingId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed.");
-    } finally {
-      setRowBusyId(null);
-    }
-  }
-
-  async function onApprove(id: string, clientName: string) {
-    setRowBusyId(id);
-    setError("");
-    try {
-      const res = await fetch("/api/admin/clients/pending", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json"},
-        body: JSON.stringify({ clientId: id })});
-      const data = (await res.json()) as {
-        error?: string;
-        invite?: { sent?: boolean; error?: string };
-      };
-      if (!res.ok) {
-        throw new Error(data.error || "Could not approve client.");
-      }
-      if (data.invite?.error) {
-        setError(
-          `${clientName} is approved. Welcome email did not send: ${data.invite.error}`,
-        );
-      }
-      setPendingClients((prev) => prev.filter((row) => row.id !== id));
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Approve failed.");
     } finally {
       setRowBusyId(null);
     }
@@ -355,43 +319,6 @@ export default function AdminClientsPage() {
 
             {error ? (
               <p className={`text-sm ${adminUi.dangerText}`}>{error}</p>
-            ) : null}
-
-            {pendingClients.length > 0 ? (
-              <AdminReadOnly canEdit={canEdit}>
-              <section className="card-surface space-y-4 p-5 sm:p-6">
-                <div>
-                  <h2 className="text-lg font-extrabold tracking-tight">
-                    Pending Google sign-ups
-                  </h2>
-                  <p className="mt-1 text-sm text-muted">
-                    Clients who signed in with Google and submitted their name.
-                    Approve to grant program access.
-                  </p>
-                </div>
-                <ul className="divide-y divide-border">
-                  {pendingClients.map((row) => (
-                    <li
-                      key={row.id}
-                      className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0"
-                    >
-                      <div>
-                        <p className="font-extrabold text-slate-900">{row.name}</p>
-                        <p className="text-sm text-muted">{row.email}</p>
-                      </div>
-                      <button
-                        type="button"
-                        disabled={rowBusyId === row.id}
-                        onClick={() => void onApprove(row.id, row.name)}
-                        className={adminUi.primaryBtn}
-                      >
-                        {rowBusyId === row.id ? "Approving…" : "Approve"}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-              </AdminReadOnly>
             ) : null}
 
             <AdminReadOnly canEdit={canEdit}>

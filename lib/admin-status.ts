@@ -223,6 +223,73 @@ async function checkKartra(): Promise<ServiceCheck> {
   };
 }
 
+async function checkResend(): Promise<ServiceCheck> {
+  const base: Omit<ServiceCheck, "status" | "latencyMs" | "detail"> = {
+    id: "resend",
+    name: "Resend API",
+    description: "Client invitations and session-update automations",
+    required: false,
+  };
+  const key = process.env.RESEND_API_KEY?.trim() || "";
+  if (!key) {
+    return {
+      ...base,
+      status: "not_configured",
+      latencyMs: null,
+      detail: "RESEND_API_KEY is missing on Vercel.",
+    };
+  }
+
+  const result = await timed(async () => {
+    const welcomeEvent =
+      process.env.RESEND_EVENT_NAME?.trim() || "user_registered";
+    const eventNames = [...new Set([welcomeEvent, "session_completed"])];
+    const checks = await Promise.all(
+      eventNames.map(async (eventName) => {
+        const res = await fetch(
+          `https://api.resend.com/events/${encodeURIComponent(eventName)}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${key}`,
+              Accept: "application/json",
+            },
+            cache: "no-store",
+          },
+        );
+        const text = await res.text();
+        if (!res.ok) {
+          let message = `HTTP ${res.status}`;
+          try {
+            const json = JSON.parse(text) as { message?: string };
+            if (json.message) message = json.message;
+          } catch {
+            if (text.trim()) message = text.slice(0, 160);
+          }
+          throw new Error(`${eventName}: ${message}`);
+        }
+        return eventName;
+      }),
+    );
+    return checks;
+  });
+
+  if (!result.ok) {
+    return {
+      ...base,
+      status: "error",
+      latencyMs: result.ms,
+      detail: result.error.slice(0, 200),
+    };
+  }
+  return {
+    ...base,
+    status: "operational",
+    latencyMs: result.ms,
+    detail: `API key accepted. Events reachable: ${result.value.join(", ")}.`,
+  };
+}
+
 async function checkYoutubeMp3(): Promise<ServiceCheck> {
   const base: Omit<ServiceCheck, "status" | "latencyMs" | "detail"> = {
     id: "youtube-mp3",
@@ -370,6 +437,7 @@ export async function runSystemStatusChecks(
     checkGemini(),
     checkConvex(convex),
     checkKartra(),
+    checkResend(),
     checkYoutubeMp3(),
     checkYoutubeTranscript(),
   ]);
