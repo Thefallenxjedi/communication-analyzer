@@ -1,11 +1,11 @@
-export const MAX_DURATION_SECONDS = 300; // record / upload audio max: 5 minutes
+export const MAX_DURATION_SECONDS = 600; // record / upload audio max: 10 minutes
 /** YouTube transcript-only (no audio) — longer clips are OK */
 export const MAX_YOUTUBE_DURATION_SECONDS = 20 * 60; // 20 minutes
 /** Suggested length for stronger results — not a hard block */
 export const SUGGESTED_DURATION_SECONDS = 30;
 /** Below this → ask to re-record; at/above → analyze */
 export const MIN_DURATION_SECONDS = 10;
-export const MAX_UPLOAD_DURATION_SECONDS = 320; // slight buffer on upload
+export const MAX_UPLOAD_DURATION_SECONDS = 620; // slight buffer on upload
 export const MAX_FILE_SIZE_BYTES = 80 * 1024 * 1024; // 80 MB phone videos
 
 export const ACCEPTED_AUDIO_TYPES = [

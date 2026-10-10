@@ -19,7 +19,7 @@ const FAQ_ITEMS = [
       <>
         <p>
           You speak for{" "}
-          <strong className="font-bold text-foreground">30 seconds to 5 minutes</strong>
+          <strong className="font-bold text-foreground">30 seconds to 10 minutes</strong>
           . We analyze how you sound — not a quiz, not a personality test.
         </p>
         <p className="mt-3">

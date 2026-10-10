@@ -19,7 +19,7 @@ export function estimateAnalysisDurationMs(row: {
     if (isYoutube) {
       return Math.round(18_000 + Math.min(clipSec, 180) * 220);
     }
-    return Math.round(10_000 + Math.min(clipSec, 300) * 180);
+    return Math.round(10_000 + Math.min(clipSec, 600) * 180);
   }
 
   if (tokens > 0) {
@@ -36,5 +36,5 @@ export function estimateAnalysisDurationMs(row: {
     return Math.round(42_000 + Math.min(clipSec, 600) * 320);
   }
 
-  return Math.round(22_000 + Math.min(clipSec, 300) * 650);
+  return Math.round(22_000 + Math.min(clipSec, 600) * 650);
 }

@@ -472,7 +472,7 @@ export async function POST(request: Request) {
         return Response.json(
           {
             error:
-              "We could not hear clear speech in that clip. Please try again with clearer audio (up to 5 minutes).",
+              "We could not hear clear speech in that clip. Please try again with clearer audio (up to 10 minutes).",
           },
           { status: 422 },
         );

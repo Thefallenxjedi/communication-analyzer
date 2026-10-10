@@ -142,7 +142,7 @@ export function CapturePanel({
           throw new Error(`Recording too short — please record again.`);
         }
         if (duration > MAX_UPLOAD_DURATION_SECONDS) {
-          throw new Error("Audio must be 5 minutes or less.");
+          throw new Error("Audio must be 10 minutes or less.");
         }
         onAudioReady(
           file,
@@ -154,7 +154,7 @@ export function CapturePanel({
       } catch (err) {
         if (
           err instanceof Error &&
-          /(5 minutes|too short|record again)/i.test(err.message)
+          /(10 minutes|too short|record again)/i.test(err.message)
         ) {
           throw err;
         }
@@ -590,7 +590,7 @@ export function CapturePanel({
               </div>
               <h2 className="mt-5 text-lg font-extrabold">Upload audio</h2>
               <p className="mt-2 text-sm text-muted">
-                Select a clip or video from your computer or phone.
+                Select an audio file from your computer or phone.
               </p>
               <button
                 type="button"

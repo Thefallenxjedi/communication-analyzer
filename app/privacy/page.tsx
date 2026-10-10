@@ -22,7 +22,7 @@ const sections: { title: string; body: ReactNode }[] = [
           <li>
             <strong className="font-semibold text-foreground">Audio you record or upload.</strong>{" "}
             Sent to our servers for analysis only when you submit a clip (typically
-            30 seconds to 5 minutes). We do not keep the raw audio file in our
+            30 seconds to 10 minutes). We do not keep the raw audio file in our
             database after processing.
           </li>
           <li>
