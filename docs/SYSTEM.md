@@ -38,7 +38,7 @@ Anyone who communicates for work (interviews, sales, presentations, meetings).
 |----------|---------|
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Server Gemini key (required) |
 | `ANALYZE_DAILY_AUDIO_LIMIT` | Soft per-IP daily record/upload analyses (default `10`) |
-| `ANALYZE_DAILY_YOUTUBE_LIMIT` | Soft per-IP daily YouTube analyses (default `5`) |
+| `ANALYZE_DAILY_YOUTUBE_LIMIT` | Soft per-IP daily YouTube analyses (default `2`) |
 | `GOOGLE_GENERATIVE_AI_MODEL` | Optional model override (default `gemini-3.5-flash-lite`) |
 | `NEXT_PUBLIC_DIAGNOSIS_CALL_URL` | Result page CTAs (default: EliteSpeak diagnosis popup) |
 | `MONGODB_URI` | Atlas connection string (DB name in path, e.g. `.../elitespeak?...`) |

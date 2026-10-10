@@ -9,7 +9,7 @@ const buckets = new Map<string, Bucket>();
 
 export const DEFAULT_DAILY_LIMIT = 20;
 export const DEFAULT_DAILY_AUDIO_LIMIT = 10;
-export const DEFAULT_DAILY_YOUTUBE_LIMIT = 5;
+export const DEFAULT_DAILY_YOUTUBE_LIMIT = 2;
 
 export type AnalyzeRateKind = "audio" | "youtube";
 

@@ -7,6 +7,10 @@ export const SUGGESTED_DURATION_SECONDS = 30;
 export const MIN_DURATION_SECONDS = 10;
 export const MAX_UPLOAD_DURATION_SECONDS = 620; // slight buffer on upload
 export const MAX_FILE_SIZE_BYTES = 80 * 1024 * 1024; // 80 MB phone videos
+/** Browser upload. Vercel rejects the /api/analyze body above 4.5 MB. */
+export const MAX_BROWSER_UPLOAD_BYTES = 4_400_000;
+export const UPLOAD_AUDIO_LIMIT_COPY =
+  "Make sure the uploaded audio file is under 4.5 MB and under 10 minutes.";
 
 export const ACCEPTED_AUDIO_TYPES = [
   "audio/mpeg",

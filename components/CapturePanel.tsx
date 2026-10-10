@@ -7,10 +7,11 @@ import {
   formatDuration,
   getMediaDuration,
   isAcceptedAudioFile,
+  MAX_BROWSER_UPLOAD_BYTES,
   MAX_DURATION_SECONDS,
-  MAX_FILE_SIZE_BYTES,
   MAX_UPLOAD_DURATION_SECONDS,
   MIN_DURATION_SECONDS,
+  UPLOAD_AUDIO_LIMIT_COPY,
 } from "@/lib/validate-media";
 import type { CaptureMethod } from "@/lib/capture-method";
 
@@ -142,8 +143,8 @@ export function CapturePanel({
       if (!isAcceptedAudioFile(file)) {
         throw new Error("Use MP3, WAV, or M4A audio.");
       }
-      if (file.size > MAX_FILE_SIZE_BYTES) {
-        throw new Error("File is too large. Maximum size is 80 MB.");
+      if (file.size >= MAX_BROWSER_UPLOAD_BYTES) {
+        throw new Error(UPLOAD_AUDIO_LIMIT_COPY);
       }
       try {
         const duration = await getMediaDuration(file);
@@ -153,7 +154,7 @@ export function CapturePanel({
           );
         }
         if (duration > MAX_UPLOAD_DURATION_SECONDS) {
-          throw new Error("Audio must be 10 minutes or less.");
+          throw new Error(UPLOAD_AUDIO_LIMIT_COPY);
         }
         onAudioReady(
           file,
@@ -512,7 +513,9 @@ export function CapturePanel({
               <span className="mt-2 text-xs font-extrabold leading-tight">
                 {busy ? "Working…" : "Upload"}
               </span>
-              <span className="mt-0.5 text-[10px] text-muted">MP3, WAV, M4A</span>
+              <span className="mt-0.5 text-[10px] leading-tight text-muted">
+                Under 4.5 MB
+              </span>
               <input
                 type="file"
                 accept={AUDIO_ACCEPT}
@@ -547,6 +550,9 @@ export function CapturePanel({
               <div aria-hidden className="aspect-square" />
             )}
           </div>
+          <p className="px-1 text-center text-[11px] leading-relaxed text-muted">
+            {UPLOAD_AUDIO_LIMIT_COPY}
+          </p>
         </div>
 
         {/* Desktop: full cards with descriptions and buttons */}
@@ -595,7 +601,8 @@ export function CapturePanel({
               </div>
               <h2 className="mt-5 text-lg font-extrabold">Upload audio</h2>
               <p className="mt-2 text-sm text-muted">
-                Select an audio file from your computer or phone.
+                Select an audio file from your computer or phone.{" "}
+                {UPLOAD_AUDIO_LIMIT_COPY}
               </p>
               <label
                 className={`btn-highlight relative mt-6 uppercase tracking-wide ${disabled || busy ? "pointer-events-none opacity-55" : "cursor-pointer"}`}

@@ -33,7 +33,6 @@ import {
   isClientSessionUnlocked,
   isFinalSession,
   parseCurrentStage,
-  previousProgramSession,
   sessionLabel,
 } from "@/lib/coaching-program";
 import {
@@ -1297,16 +1296,6 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
                   !sessionLocked &&
                   isSessionNav(nav) &&
                   selectedTasks.length === 0
-                }
-                lockNote={
-                  sessionLocked && isSessionNav(nav)
-                    ? `Opens after ${sessionLabel(
-                        groupedProgramSession(
-                          previousProgramSession(nav, workCount),
-                        ),
-                        workCount,
-                      )}.`
-                    : undefined
                 }
               />
             ) : sessionView === "tasks" ? (
