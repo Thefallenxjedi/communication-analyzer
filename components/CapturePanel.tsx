@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 import { AudioWaveform } from "@/components/AudioWaveform";
 import { pickPromptQuestions } from "@/lib/prompt-questions";
 import {
   formatDuration,
   getMediaDuration,
-  isAudioMime,
+  isAcceptedAudioFile,
   MAX_DURATION_SECONDS,
   MAX_FILE_SIZE_BYTES,
   MAX_UPLOAD_DURATION_SECONDS,
@@ -34,6 +34,9 @@ function pickMimeType(): string {
 
 /** YouTube link capture (beta). Full analysis when RAPIDAPI_KEY is set; transcript-only fallback otherwise. */
 const SHOW_YOUTUBE_CAPTURE = true;
+
+const AUDIO_ACCEPT =
+  "audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/m4a,audio/x-m4a,audio/aac,.mp3,.wav,.m4a";
 
 function YouTubeLogo({ className = "h-6 w-6" }: { className?: string }) {
   return (
@@ -72,7 +75,6 @@ export function CapturePanel({
   onError,
   disabled = false,
 }: CapturePanelProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
@@ -95,6 +97,7 @@ export function CapturePanel({
   const [selectedQuestion, setSelectedQuestion] = useState("");
   const selectedQuestionRef = useRef("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [notice, setNotice] = useState("");
 
   useEffect(() => {
     selectedQuestionRef.current = selectedQuestion;
@@ -125,21 +128,29 @@ export function CapturePanel({
     setMode("pick-question");
   };
 
+  const onFilePicked = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) void processUpload(file);
+  };
+
   const processUpload = async (file: File) => {
     setBusy(true);
+    setNotice("");
     onError("");
     try {
-      const mime = file.type || "audio/mpeg";
-      if (mime && !isAudioMime(mime) && !mime.startsWith("audio/")) {
+      if (!isAcceptedAudioFile(file)) {
         throw new Error("Use MP3, WAV, or M4A audio.");
       }
       if (file.size > MAX_FILE_SIZE_BYTES) {
-        throw new Error("File is too large.");
+        throw new Error("File is too large. Maximum size is 80 MB.");
       }
       try {
         const duration = await getMediaDuration(file);
         if (duration < MIN_DURATION_SECONDS) {
-          throw new Error(`Recording too short — please record again.`);
+          throw new Error(
+            "This file is too short. Use at least 10 seconds of audio.",
+          );
         }
         if (duration > MAX_UPLOAD_DURATION_SECONDS) {
           throw new Error("Audio must be 10 minutes or less.");
@@ -154,7 +165,7 @@ export function CapturePanel({
       } catch (err) {
         if (
           err instanceof Error &&
-          /(10 minutes|too short|record again)/i.test(err.message)
+          /(10 minutes|too short)/i.test(err.message)
         ) {
           throw err;
         }
@@ -166,7 +177,10 @@ export function CapturePanel({
         "upload",
       );
     } catch (err) {
-      onError(err instanceof Error ? err.message : "Could not use that file.");
+      const message =
+        err instanceof Error ? err.message : "Could not use that file.";
+      setNotice(message);
+      onError(message);
     } finally {
       setBusy(false);
     }
@@ -447,19 +461,6 @@ export function CapturePanel({
         </p>
       </div>
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/m4a,audio/x-m4a,audio/aac,.mp3,.wav,.m4a"
-        className="hidden"
-        disabled={disabled || busy}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void processUpload(file);
-          e.target.value = "";
-        }}
-      />
-
       <div className="card-surface mt-4 overflow-hidden md:mt-6">
         {/* Mobile: Record prominent on top; Upload + YouTube squares below */}
         <div className="space-y-2 p-3 md:hidden">
@@ -493,12 +494,9 @@ export function CapturePanel({
           </div>
 
           <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              disabled={disabled || busy}
-              onClick={() => inputRef.current?.click()}
+            <label
               aria-label="Upload an audio file"
-              className="flex aspect-square flex-col items-center justify-center rounded-xl border border-border bg-card p-2 text-center transition hover:border-accent/40 hover:bg-accent-soft/30 disabled:opacity-55"
+              className={`relative flex aspect-square flex-col items-center justify-center rounded-xl border border-border bg-card p-2 text-center transition hover:border-accent/40 hover:bg-accent-soft/30 ${disabled || busy ? "pointer-events-none opacity-55" : "cursor-pointer"}`}
             >
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-soft text-accent">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -515,7 +513,14 @@ export function CapturePanel({
                 {busy ? "Working…" : "Upload"}
               </span>
               <span className="mt-0.5 text-[10px] text-muted">MP3, WAV, M4A</span>
-            </button>
+              <input
+                type="file"
+                accept={AUDIO_ACCEPT}
+                disabled={disabled || busy}
+                onChange={onFilePicked}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+              />
+            </label>
 
             {SHOW_YOUTUBE_CAPTURE && onYoutubeReady ? (
               <button
@@ -592,14 +597,18 @@ export function CapturePanel({
               <p className="mt-2 text-sm text-muted">
                 Select an audio file from your computer or phone.
               </p>
-              <button
-                type="button"
-                disabled={disabled || busy}
-                onClick={() => inputRef.current?.click()}
-                className="btn-highlight mt-6 uppercase tracking-wide"
+              <label
+                className={`btn-highlight relative mt-6 uppercase tracking-wide ${disabled || busy ? "pointer-events-none opacity-55" : "cursor-pointer"}`}
               >
                 {busy ? "Working…" : "Upload Audio"}
-              </button>
+                <input
+                  type="file"
+                  accept={AUDIO_ACCEPT}
+                  disabled={disabled || busy}
+                  onChange={onFilePicked}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                />
+              </label>
               <p className="mt-3 text-xs text-muted">MP3, WAV, or M4A</p>
             </div>
           </div>
@@ -634,6 +643,11 @@ export function CapturePanel({
           ) : null}
         </div>
       </div>
+      {notice ? (
+        <p className="mx-auto mt-4 max-w-md text-center text-sm font-semibold text-red-600" role="alert">
+          {notice}
+        </p>
+      ) : null}
     </section>
   );
 }
