@@ -68,6 +68,7 @@ export function AnalyzingState({ status, captureMethod }: AnalyzingStateProps) {
     ? "YouTube videos usually take 3–5 minutes. Keep this tab open."
     : "This can take up to about 90 seconds when traffic is high. Keep this tab open.";
 
+  const isLiveRecording = captureMethod === "realtime";
   const almostThereAt = isYoutube ? 180 : 60;
   const stillWorkingAt = isYoutube ? 240 : 120;
 
@@ -112,7 +113,12 @@ export function AnalyzingState({ status, captureMethod }: AnalyzingStateProps) {
             Almost there. Finishing your report…
           </p>
         )}
-        {elapsed >= stillWorkingAt && (
+        {elapsed >= stillWorkingAt && isLiveRecording && (
+          <p className="mt-2 max-w-sm text-sm font-semibold leading-relaxed text-foreground">
+            This is taking a while. Check your email for your detailed report.
+          </p>
+        )}
+        {elapsed >= stillWorkingAt && !isLiveRecording && (
           <p className="mt-2 max-w-sm text-xs leading-relaxed text-muted">
             {isYoutube
               ? "Still working on that video. If this fails, you can retry the same link — no need to record again."
