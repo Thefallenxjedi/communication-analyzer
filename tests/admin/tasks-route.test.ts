@@ -122,7 +122,13 @@ describe("/api/admin/tasks", () => {
     expect(captureClientActivity).toHaveBeenCalledWith({
       distinctId: "client-1",
       event: "coaching_task_assigned",
-      properties: { session_number: 2, recording_required: true },
+      properties: {
+        session_number: 2,
+        session_label: "Session 2",
+        recording_required: true,
+        task_title: "Task 1",
+        task_summary: "Do the work",
+      },
       person: {
         email: "anuradha@example.com",
         name: "Anuradha",
