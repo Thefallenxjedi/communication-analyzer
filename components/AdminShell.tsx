@@ -18,7 +18,7 @@ import {
   type StaffSession,
 } from "@/lib/staff-types";
 import { AdminHeader } from "@/components/AdminHeader";
-import posthog from "posthog-js";
+import { identifyPostHogPerson } from "@/lib/posthog-person";
 
 type StaffContextValue = {
   staff: StaffSession;
@@ -96,13 +96,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!posthogConfigured || !staff || identifiedStaffId.current === staff.id) return;
-    if (
-      posthog.get_property("$user_id") &&
-      posthog.get_property("$user_id") !== staff.id
-    ) {
-      posthog.reset();
-    }
-    posthog.identify(staff.id, {
+    identifyPostHogPerson(staff.id, {
       email: staff.email,
       name: staff.name,
       role: staff.staffRole,

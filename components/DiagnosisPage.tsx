@@ -19,6 +19,8 @@ import {
 import { validateEmail } from "@/lib/email";
 import { getOrCreateAnonymousId } from "@/lib/anonymous-id";
 import { readLead, saveLead } from "@/lib/lead";
+import { identifyVisitorLead } from "@/lib/posthog-person";
+import posthog from "posthog-js";
 import {
   splitTranscriptSentences,
   tagSentence,
@@ -805,6 +807,13 @@ export function DiagnosisPage({
         source: "pdf",
         at: Date.now(),
       });
+      identifyVisitorLead({ email: emailCheck.email, name: first });
+      if (
+        process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN &&
+        process.env.NEXT_PUBLIC_POSTHOG_HOST
+      ) {
+        posthog.capture("lead_capture_submitted", { source: "pdf" });
+      }
       await downloadReportPdf(report, { recipientName: first });
       setPdfNote("Report downloaded with your name.");
       setShowLeadForm(false);

@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { validateEmail } from "@/lib/email";
 import { getOrCreateAnonymousId } from "@/lib/anonymous-id";
 import { saveLead, type LeadPayload } from "@/lib/lead";
+import { identifyVisitorLead } from "@/lib/posthog-person";
 import posthog from "posthog-js";
 
 const posthogConfigured = Boolean(
@@ -60,6 +61,7 @@ export function HomepageOptIn({ onComplete }: HomepageOptInProps) {
         at: Date.now(),
       };
       saveLead(lead);
+      identifyVisitorLead({ email: emailCheck.email, name: first });
       if (posthogConfigured) posthog.capture("lead_capture_submitted", { source: "homepage" });
       onComplete(lead);
     } catch (err) {

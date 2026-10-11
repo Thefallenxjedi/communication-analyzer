@@ -4,6 +4,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import posthog from "posthog-js";
+import { identifyPostHogPerson } from "@/lib/posthog-person";
 import { AboutEliteSpeak } from "@/components/AboutEliteSpeak";
 import { Ember } from "@/components/Ember";
 import { ClientDiagnosisPanel } from "@/components/ClientDiagnosisPanel";
@@ -555,13 +556,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
     ) {
       return;
     }
-    if (
-      posthog.get_property("$user_id") &&
-      posthog.get_property("$user_id") !== client.id
-    ) {
-      posthog.reset();
-    }
-    posthog.identify(client.id, {
+    identifyPostHogPerson(client.id, {
       email: client.email,
       name: client.name,
       role: "client",
