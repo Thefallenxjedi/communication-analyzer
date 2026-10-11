@@ -11,6 +11,7 @@ import {
   enrollAndInviteClient,
   type ClientInviteResult,
 } from "@/lib/resend-invite";
+import { captureClientActivity } from "@/lib/posthog-client-activity";
 import { requireStaffConvex } from "@/lib/staff-auth";
 
 export const runtime = "nodejs";
@@ -93,6 +94,21 @@ export async function POST(request: Request) {
         enrolled: false,
         error: formatConvexError(err) || "Could not send welcome email.",
       };
+    }
+
+    if (invite.sent && clientId) {
+      const clientEmail = (savedClient?.email || email).trim().toLowerCase();
+      const clientName = (savedClient?.name || name).trim();
+      await captureClientActivity({
+        distinctId: clientId,
+        event: "client_platform_access_granted",
+        properties: { welcome_email_sent: true },
+        person: {
+          email: clientEmail,
+          name: clientName,
+          role: "client",
+        },
+      });
     }
 
     const clients = await listCoachingClients(convex);

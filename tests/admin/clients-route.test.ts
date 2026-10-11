@@ -8,6 +8,7 @@ const {
   updateCoachingClient,
   removeCoachingClient,
   enrollAndInviteClient,
+  captureClientActivity,
 } = vi.hoisted(() => ({
   requireStaffConvex: vi.fn(),
   listCoachingClients: vi.fn(),
@@ -16,6 +17,7 @@ const {
   updateCoachingClient: vi.fn(),
   removeCoachingClient: vi.fn(),
   enrollAndInviteClient: vi.fn(),
+  captureClientActivity: vi.fn(),
 }));
 
 vi.mock("@/lib/staff-auth", () => ({
@@ -37,6 +39,10 @@ vi.mock("@/lib/convex-server", () => ({
 
 vi.mock("@/lib/resend-invite", () => ({
   enrollAndInviteClient,
+}));
+
+vi.mock("@/lib/posthog-client-activity", () => ({
+  captureClientActivity,
 }));
 
 import {
@@ -119,6 +125,12 @@ describe("/api/admin/clients", () => {
       name: "Sam",
       email: "sam@example.com",
     });
+    expect(captureClientActivity).toHaveBeenCalledWith({
+      distinctId: "client-1",
+      event: "client_platform_access_granted",
+      properties: { welcome_email_sent: true },
+      person: { email: "sam@example.com", name: "Sam", role: "client" },
+    });
     expect(await res.json()).toEqual({
       ok: true,
       accessGranted: true,
@@ -196,6 +208,7 @@ describe("/api/admin/clients", () => {
     );
 
     expect(res.status).toBe(200);
+    expect(captureClientActivity).not.toHaveBeenCalled();
     expect(await res.json()).toMatchObject({
       ok: true,
       accessGranted: true,

@@ -1,3 +1,4 @@
+import { getCoachingClient } from "@/lib/coaching-clients";
 import { listCoachingSessions } from "@/lib/coaching-sessions";
 import {
   completeCoachingTask,
@@ -11,6 +12,7 @@ import {
   updateCoachingTask,
 } from "@/lib/coaching-tasks";
 import { formatConvexError } from "@/lib/convex-server";
+import { captureClientActivity } from "@/lib/posthog-client-activity";
 import { requireStaffConvex } from "@/lib/staff-auth";
 
 export const runtime = "nodejs";
@@ -71,6 +73,21 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+  const clientId = body.clientId.trim();
+  const client = await getCoachingClient(clientId, convex).catch(() => null);
+  await captureClientActivity({
+    distinctId: clientId,
+    event: "coaching_task_assigned",
+    properties: {
+      session_number: body.sessionNumber ?? 1,
+      recording_required: Boolean(body.recordingRequired),
+    },
+    person: {
+      email: client?.email,
+      name: client?.name,
+      role: "client",
+    },
+  });
   const [tasks, sessions] = await Promise.all([
     listCoachingTasks(body.clientId, convex),
     listCoachingSessions(body.clientId, convex),
