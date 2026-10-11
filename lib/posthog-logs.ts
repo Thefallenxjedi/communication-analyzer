@@ -49,15 +49,15 @@ const posthogLoggerProvider = config
         "service.name": "communication-analyzer",
       }),
       processors: [
-        new BatchLogRecordProcessor(
-          new OTLPLogExporter({
+        new BatchLogRecordProcessor({
+          exporter: new OTLPLogExporter({
             url: new URL("/i/v1/logs", config.host).toString(),
             headers: {
               Authorization: `Bearer ${config.projectToken}`,
               "Content-Type": "application/json",
             },
           }),
-        ),
+        }),
       ],
     })
   : null;
