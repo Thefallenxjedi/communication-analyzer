@@ -4,6 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ClipPlayer } from "@/components/ClipPlayer";
 import { TaskRecorder } from "@/components/TaskRecorder";
 import type { ClientDiagnosis } from "@/lib/client-diagnoses";
+import posthog from "posthog-js";
+
+const posthogConfigured = Boolean(
+  process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN &&
+    process.env.NEXT_PUBLIC_POSTHOG_HOST,
+);
 
 const GENERATING_LINES = [
   "Listening for how clearly the point landed.",
@@ -144,6 +150,11 @@ export function ClientDiagnosisPanel({
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Could not finish this recording.");
+      if (posthogConfigured) {
+        posthog.capture("speechmap_diagnosis_created", {
+          duration_seconds: Math.round(durationSec),
+        });
+      }
       const rows = await fetchDiagnoses();
       setDiagnoses(rows);
       setSelectedId(rows[0]?.id || "");

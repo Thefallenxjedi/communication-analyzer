@@ -4,6 +4,12 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import posthog from "posthog-js";
+
+const posthogConfigured = Boolean(
+  process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN &&
+    process.env.NEXT_PUBLIC_POSTHOG_HOST,
+);
 
 export default function AdminUnauthorizedPage() {
   const router = useRouter();
@@ -33,6 +39,7 @@ export default function AdminUnauthorizedPage() {
 
   async function onSignOut() {
     setBusy(true);
+    if (posthogConfigured) posthog.reset();
     await signOut();
     router.replace("/admin/login");
   }

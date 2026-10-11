@@ -3,6 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import { ClientAuthShell } from "@/components/ClientAuthShell";
+import posthog from "posthog-js";
+
+const posthogConfigured = Boolean(
+  process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN &&
+    process.env.NEXT_PUBLIC_POSTHOG_HOST,
+);
 
 export default function ClientRegisterPage() {
   const router = useRouter();
@@ -41,6 +47,7 @@ export default function ClientRegisterPage() {
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Could not save.");
+      if (posthogConfigured) posthog.capture("client_registration_completed");
       router.replace("/client");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save.");

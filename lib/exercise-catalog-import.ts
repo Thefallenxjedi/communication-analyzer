@@ -9,6 +9,7 @@
 import { generateObject } from "ai";
 import { createGoogle } from "@ai-sdk/google";
 import { z } from "zod";
+import { posthogAiTelemetry } from "@/lib/ai-observability";
 import {
   isRetryableModelError,
   modelFallbackChain,
@@ -354,6 +355,7 @@ ${input.chunk.slice(0, CHUNK_HARD_MAX)}`;
         schemaName: "CatalogImportExercises",
         maxRetries: 0,
         temperature: 0.1,
+        telemetry: posthogAiTelemetry("catalog_import_structure_chunk"),
         messages: [{ role: "user", content: prompt }],
       });
       const parsed = draftSchema.safeParse(result.object);

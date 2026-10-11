@@ -3,6 +3,7 @@
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import posthog from "posthog-js";
 import { AboutEliteSpeak } from "@/components/AboutEliteSpeak";
 import { Ember } from "@/components/Ember";
 import { ClientDiagnosisPanel } from "@/components/ClientDiagnosisPanel";
@@ -12,6 +13,11 @@ import { IntroCallView } from "@/components/IntroCallView";
 import { SessionRecapView } from "@/components/SessionRecapView";
 import { SessionReport, SessionReportStep } from "@/components/SessionReport";
 import { SessionWaiting } from "@/components/SessionWaiting";
+
+const posthogConfigured = Boolean(
+  process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN &&
+    process.env.NEXT_PUBLIC_POSTHOG_HOST,
+);
 import { TaskRecorder } from "@/components/TaskRecorder";
 import type { ClientSession } from "@/lib/client-session";
 import {
@@ -445,6 +451,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [callProgress, setCallProgress] = useState<LiveCallProgress | null>(null);
   const sessionNavRef = useRef<HTMLElement>(null);
+  const identifiedClientId = useRef<string | null>(null);
 
   const load = useCallback(async () => {
     if (demoMode) {
@@ -540,6 +547,29 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
   }, [load]);
 
   useEffect(() => {
+    if (
+      !posthogConfigured ||
+      !client ||
+      demoMode ||
+      identifiedClientId.current === client.id
+    ) {
+      return;
+    }
+    if (
+      posthog.get_property("$user_id") &&
+      posthog.get_property("$user_id") !== client.id
+    ) {
+      posthog.reset();
+    }
+    posthog.identify(client.id, {
+      email: client.email,
+      name: client.name,
+      role: "client",
+    });
+    identifiedClientId.current = client.id;
+  }, [client, demoMode]);
+
+  useEffect(() => {
     if (!mobileMenuOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setMobileMenuOpen(false);
@@ -577,6 +607,7 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
   }, [demoMode, nav]);
 
   async function logout() {
+    if (posthogConfigured) posthog.reset();
     await signOut();
     router.replace("/client/login");
   }
@@ -635,6 +666,13 @@ export function ClientPortalHome({ demoMode = false }: { demoMode?: boolean }) {
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Could not submit.");
+      if (posthogConfigured) {
+        posthog.capture("coaching_task_submitted", {
+          session_number: task?.sessionNumber ?? null,
+          recording_required: task?.recordingRequired ?? false,
+          submission_method: videoLink ? "video_link" : draft ? "audio_recording" : "completion",
+        });
+      }
       setDriveLinks((prev) => {
         const next = { ...prev };
         delete next[taskId];

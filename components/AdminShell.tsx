@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -17,6 +18,7 @@ import {
   type StaffSession,
 } from "@/lib/staff-types";
 import { AdminHeader } from "@/components/AdminHeader";
+import posthog from "posthog-js";
 
 type StaffContextValue = {
   staff: StaffSession;
@@ -26,6 +28,10 @@ type StaffContextValue = {
 };
 
 const StaffContext = createContext<StaffContextValue | null>(null);
+const posthogConfigured = Boolean(
+  process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN &&
+    process.env.NEXT_PUBLIC_POSTHOG_HOST,
+);
 
 export function useAdminStaff(): StaffContextValue {
   const ctx = useContext(StaffContext);
@@ -45,6 +51,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
     isPublic ? "ready" : "loading",
   );
   const [staff, setStaff] = useState<StaffSession | null>(null);
+  const identifiedStaffId = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -52,6 +59,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       const data = (await res.json()) as {
         authenticated?: boolean;
         staffRole?: StaffRole | null;
+        userId?: string;
         email?: string;
         name?: string;
       };
@@ -62,13 +70,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (!data.staffRole) {
+      if (!data.staffRole || !data.userId) {
         setStatus("forbidden");
         setStaff(null);
         return;
       }
 
       setStaff({
+        id: data.userId,
         email: data.email ?? "",
         name: data.name,
         staffRole: data.staffRole,
@@ -84,6 +93,22 @@ export function AdminShell({ children }: { children: ReactNode }) {
     if (isPublic) return;
     void refresh();
   }, [isPublic, refresh]);
+
+  useEffect(() => {
+    if (!posthogConfigured || !staff || identifiedStaffId.current === staff.id) return;
+    if (
+      posthog.get_property("$user_id") &&
+      posthog.get_property("$user_id") !== staff.id
+    ) {
+      posthog.reset();
+    }
+    posthog.identify(staff.id, {
+      email: staff.email,
+      name: staff.name,
+      role: staff.staffRole,
+    });
+    identifiedStaffId.current = staff.id;
+  }, [staff]);
 
   useEffect(() => {
     if (isPublic) return;

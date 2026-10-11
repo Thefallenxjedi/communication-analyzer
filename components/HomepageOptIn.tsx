@@ -4,6 +4,12 @@ import { useState, type FormEvent } from "react";
 import { validateEmail } from "@/lib/email";
 import { getOrCreateAnonymousId } from "@/lib/anonymous-id";
 import { saveLead, type LeadPayload } from "@/lib/lead";
+import posthog from "posthog-js";
+
+const posthogConfigured = Boolean(
+  process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN &&
+    process.env.NEXT_PUBLIC_POSTHOG_HOST,
+);
 
 type HomepageOptInProps = {
   onComplete: (lead: LeadPayload) => void;
@@ -54,6 +60,7 @@ export function HomepageOptIn({ onComplete }: HomepageOptInProps) {
         at: Date.now(),
       };
       saveLead(lead);
+      if (posthogConfigured) posthog.capture("lead_capture_submitted", { source: "homepage" });
       onComplete(lead);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong.");

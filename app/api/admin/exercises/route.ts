@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import {
   confirmCatalogImport,
   parseCatalogImportText,
@@ -17,6 +18,7 @@ import {
   seedProblemBibleCatalog,
 } from "@/lib/workout-exercises";
 import { requireStaffConvex } from "@/lib/staff-auth";
+import { flushAiObservability } from "@/lib/posthog-logs";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -41,6 +43,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  after(flushAiObservability);
   const convex = await requireStaffConvex(request, "editor");
   if (convex instanceof Response) return convex;
 

@@ -6,6 +6,12 @@ import { AdminReadOnly, ViewerReadOnlyBanner } from "@/components/AdminReadOnly"
 import { useAdminStaff } from "@/components/AdminShell";
 import type { CoachingClient, CoachingClientStatus } from "@/lib/coaching-clients";
 import { isSampleClientEmail } from "@/lib/sample-client";
+import posthog from "posthog-js";
+
+const posthogConfigured = Boolean(
+  process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN &&
+    process.env.NEXT_PUBLIC_POSTHOG_HOST,
+);
 
 const adminUi = {
   brand: "text-teal-700",
@@ -141,6 +147,9 @@ export default function AdminClientsPage() {
         throw new Error(data.error || "Could not create client.");
       }
       setClients(data.clients || []);
+      if (posthogConfigured && !data.alreadyExisted) {
+        posthog.capture("admin_client_created");
+      }
       setName("");
       setEmail("");
       setStartDate(todayInputValue());

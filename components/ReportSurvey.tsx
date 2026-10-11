@@ -4,6 +4,12 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { getOrCreateAnonymousId } from "@/lib/anonymous-id";
+import posthog from "posthog-js";
+
+const posthogConfigured = Boolean(
+  process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN &&
+    process.env.NEXT_PUBLIC_POSTHOG_HOST,
+);
 
 type ReportSurveyProps = {
   reportSlug?: string;
@@ -124,6 +130,7 @@ export function ReportSurvey({ reportSlug: reportSlugProp }: ReportSurveyProps) 
         } catch {
           // ignore
         }
+        if (posthogConfigured) posthog.capture("report_feedback_submitted", { rating });
         setDone(true);
         window.setTimeout(() => setHidden(true), 1500);
       } catch (err) {

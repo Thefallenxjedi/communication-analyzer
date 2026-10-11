@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { getActiveClientSession } from "@/lib/client-auth";
 import {
   getCoachingStorageUrl,
@@ -9,6 +10,7 @@ import {
   profileFromLinkedInText,
 } from "@/lib/linkedin-profile";
 import { pdfToText } from "@/lib/pdf-text";
+import { flushAiObservability } from "@/lib/posthog-logs";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -18,6 +20,7 @@ const SOCIAL_PROFILE_COUNT_MAX = 8;
 const SOCIAL_PROFILE_MAX = 200;
 
 export async function POST(request: Request) {
+  after(flushAiObservability);
   if (!isConvexConfigured()) {
     return Response.json({ error: "Not configured." }, { status: 503 });
   }

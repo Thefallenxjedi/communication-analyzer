@@ -6,6 +6,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "next/navigation";
 import { useAdminStaff } from "@/components/AdminShell";
 import type { StaffRole } from "@/lib/staff-types";
+import posthog from "posthog-js";
 
 type NavItem = {
   href: string;
@@ -14,6 +15,11 @@ type NavItem = {
   adminOnly?: boolean;
   editorOnly?: boolean;
 };
+
+const posthogConfigured = Boolean(
+  process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN &&
+    process.env.NEXT_PUBLIC_POSTHOG_HOST,
+);
 
 const NAV_ITEMS: NavItem[] = [
   {
@@ -68,6 +74,7 @@ export function AdminHeader() {
   });
 
   async function onSignOut() {
+    if (posthogConfigured) posthog.reset();
     await signOut();
     router.replace("/admin/login");
   }

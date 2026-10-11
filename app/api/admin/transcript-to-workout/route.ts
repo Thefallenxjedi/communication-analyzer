@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { getCoachingClient } from "@/lib/coaching-clients";
 import {
   INTRO_SESSION,
@@ -7,11 +8,22 @@ import { getIntroCallReport } from "@/lib/intro-call";
 import { formatConvexError } from "@/lib/convex-server";
 import { requireStaffConvex } from "@/lib/staff-auth";
 import { generateWorkoutFromTranscript } from "@/lib/transcript-to-workout";
+import {
+  logWorkoutGenerationCompleted,
+  logWorkoutGenerationFailed,
+  logWorkoutGenerationStarted,
+} from "@/lib/posthog-logs";
+import {
+  flushAiObservability,
+  flushPostHogLogs,
+} from "@/lib/posthog-logs";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
 export async function POST(request: Request) {
+  after(flushAiObservability);
+  after(flushPostHogLogs);
   const convex = await requireStaffConvex(request, "editor");
   if (convex instanceof Response) return convex;
 
@@ -39,6 +51,12 @@ export async function POST(request: Request) {
   if (!transcript) {
     return Response.json({ error: "transcript required." }, { status: 400 });
   }
+
+  let logContext: {
+    sourceSessionNumber: number;
+    targetSessionNumber: number;
+    workSessionCount: number;
+  } | null = null;
 
   try {
     const client = await getCoachingClient(clientId, convex);
@@ -72,6 +90,13 @@ export async function POST(request: Request) {
       );
     }
 
+    logContext = {
+      sourceSessionNumber,
+      targetSessionNumber,
+      workSessionCount: workCount,
+    };
+    logWorkoutGenerationStarted(logContext);
+
     const intro = await getIntroCallReport(clientId, convex);
     const profileContext = [
       client.linkedinProfileJson
@@ -103,8 +128,12 @@ export async function POST(request: Request) {
       mode: body.mode ?? "both",
     });
 
+    logWorkoutGenerationCompleted(logContext);
     return Response.json({ draft });
   } catch (err) {
+    if (logContext) {
+      logWorkoutGenerationFailed(logContext);
+    }
     return Response.json(
       { error: formatConvexError(err) },
       { status: 500 },

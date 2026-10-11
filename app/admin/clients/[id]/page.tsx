@@ -34,6 +34,12 @@ import {
   emptyIntroCall,
   isIntroCallEmpty,
   type IntroCallReport} from "@/lib/intro-call";
+import posthog from "posthog-js";
+
+const posthogConfigured = Boolean(
+  process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN &&
+    process.env.NEXT_PUBLIC_POSTHOG_HOST,
+);
 
 function AdminLinkedInDrawer({
   client,
@@ -503,6 +509,12 @@ export default function AdminClientDetailPage() {
         sessions?: CoachingSessionSlot[];
       };
       if (!res.ok) throw new Error(data.error || "Could not assign.");
+      if (posthogConfigured) {
+        posthog.capture("admin_task_created", {
+          session_number: assignSession ?? 1,
+          recording_required: recordingRequired,
+        });
+      }
       await refreshTasks(data);
       setTitle("");
       setInstructions("");

@@ -8,6 +8,7 @@
 import { generateObject } from "ai";
 import { createGoogle } from "@ai-sdk/google";
 import { z } from "zod";
+import { posthogAiTelemetry } from "@/lib/ai-observability";
 import {
   isRetryableModelError,
   modelFallbackChain,
@@ -296,6 +297,7 @@ ${input.transcript.slice(0, 20_000)}`;
         schemaName: "TranscriptAsks",
         maxRetries: 0,
         temperature: 0.1,
+        telemetry: posthogAiTelemetry("exercise_rag_extract_asks"),
         messages: [{ role: "user", content: prompt }],
       });
       const parsed = asksSchema.safeParse(result.object);

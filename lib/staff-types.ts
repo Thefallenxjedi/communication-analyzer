@@ -7,6 +7,7 @@ export const STAFF_RANK: Record<StaffRole, number> = {
 };
 
 export type StaffSession = {
+  id: string;
   email: string;
   name?: string;
   staffRole: StaffRole;

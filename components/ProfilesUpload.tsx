@@ -1,6 +1,12 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
+import posthog from "posthog-js";
+
+const posthogConfigured = Boolean(
+  process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN &&
+    process.env.NEXT_PUBLIC_POSTHOG_HOST,
+);
 
 type ProfileMode = "social" | "pdf" | "text";
 
@@ -106,6 +112,12 @@ export function ProfilesUpload({
       });
       const data = (await res.json()) as { error?: string };
       if (!res.ok) throw new Error(data.error || "Could not save profiles.");
+      if (posthogConfigured) {
+        posthog.capture("client_profiles_submitted", {
+          profile_mode: mode,
+          social_profile_count: socialProfiles.length,
+        });
+      }
       setFile(null);
       setProfileText("");
       await onSaved();

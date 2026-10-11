@@ -18,6 +18,12 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { AnalyzingState } from "@/components/AnalyzingState";
 import { AnalyzeFailed } from "@/components/AnalyzeFailed";
 import { DiagnosisPage } from "@/components/DiagnosisPage";
+import posthog from "posthog-js";
+
+const posthogConfigured = Boolean(
+  process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN &&
+    process.env.NEXT_PUBLIC_POSTHOG_HOST,
+);
 
 const REPORT_STORAGE_KEY = "ca_report";
 
@@ -315,6 +321,11 @@ export function FunnelApp() {
 
         const { shareSlug, sharePath, ...reportFields } = data;
         const nextReport = reportFields as DiagnosisReport;
+        if (posthogConfigured) {
+          posthog.capture("analysis_report_generated", {
+            capture_method: captureMethod,
+          });
+        }
         setReport(nextReport);
         storeReport(nextReport);
         clearFailure();
@@ -532,6 +543,11 @@ export function FunnelApp() {
 
         const { shareSlug, sharePath, ...reportFields } = data;
         const nextReport = reportFields as DiagnosisReport;
+        if (posthogConfigured) {
+          posthog.capture("analysis_report_generated", {
+            capture_method: "youtube",
+          });
+        }
         setReport(nextReport);
         storeReport(nextReport);
         clearFailure();

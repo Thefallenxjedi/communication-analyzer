@@ -268,6 +268,7 @@ export const getMyStaff = query({
 
     return {
       authenticated: true as const,
+      userId,
       email: user.email ?? "",
       name: user.name,
       staffRole: user.staffRole ?? null,

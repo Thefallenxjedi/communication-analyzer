@@ -45,6 +45,8 @@ import {
   listEnabledPromptAddOns,
 } from "@/lib/prompt-addons";
 import { resolveDiagnosisCorePrompt } from "@/lib/diagnosis-core-prompt";
+import { posthogAiTelemetry } from "@/lib/ai-observability";
+import { flushAiObservability } from "@/lib/posthog-logs";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -186,6 +188,7 @@ async function transcribeMedia(
         schemaName: "Transcript",
         maxRetries: 0,
         temperature: 0.2,
+        telemetry: posthogAiTelemetry("communication_analysis_transcription"),
         messages: [
           {
             role: "user",
@@ -252,6 +255,7 @@ async function runDiagnosis(
           maxRetries: 0,
           temperature: opts.temperature,
           maxOutputTokens: opts.maxOutputTokens,
+          telemetry: posthogAiTelemetry("communication_analysis_diagnosis"),
           messages: [
             {
               role: "user",
@@ -313,6 +317,7 @@ async function runDiagnosis(
 }
 
 export async function POST(request: Request) {
+  after(flushAiObservability);
   const requestStartedAt = Date.now();
   const track = {
     anonymousId: "",

@@ -5,6 +5,7 @@ import { staffMeetsMinimum } from "@/lib/staff-types";
 
 export type MyStaffResponse = {
   authenticated: boolean;
+  userId?: string;
   email?: string;
   name?: string;
   staffRole?: StaffRole | null;
@@ -41,8 +42,9 @@ export async function resolveStaffAccess(
   _request: Request,
 ): Promise<StaffSession | null> {
   const data = await fetchMyStaffFromConvex();
-  if (data.authenticated && data.staffRole) {
+  if (data.authenticated && data.staffRole && data.userId) {
     return {
+      id: data.userId,
       email: data.email ?? "",
       name: data.name,
       staffRole: data.staffRole,

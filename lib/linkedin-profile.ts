@@ -1,6 +1,7 @@
 import { generateObject } from "ai";
 import { createGoogle } from "@ai-sdk/google";
 import { z } from "zod";
+import { posthogAiTelemetry } from "@/lib/ai-observability";
 import {
   isRetryableModelError,
   modelFallbackChain,
@@ -129,6 +130,7 @@ export async function profileFromLinkedInPdf(input: {
         schemaName: "LinkedInProfile",
         maxRetries: 0,
         temperature: 0.1,
+        telemetry: posthogAiTelemetry("linkedin_profile_pdf_extraction"),
         messages: [
           {
             role: "user",
@@ -175,6 +177,7 @@ ${input.text.slice(0, 24_000) || "(little or no extractable text)"}`,
         schemaName: "LinkedInProfile",
         maxRetries: 0,
         temperature: 0.1,
+        telemetry: posthogAiTelemetry("linkedin_profile_pdf_text_fallback"),
         messages: [
           {
             role: "user",
@@ -229,6 +232,7 @@ export async function profileFromLinkedInText(input: {
         schemaName: "LinkedInProfile",
         maxRetries: 0,
         temperature: 0.1,
+        telemetry: posthogAiTelemetry("linkedin_profile_text_extraction"),
         messages: [
           {
             role: "user",

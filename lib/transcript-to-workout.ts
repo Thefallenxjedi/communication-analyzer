@@ -1,6 +1,7 @@
 import { generateObject } from "ai";
 import { createGoogle } from "@ai-sdk/google";
 import { z } from "zod";
+import { posthogAiTelemetry } from "@/lib/ai-observability";
 import {
   isRetryableModelError,
   modelFallbackChain,
@@ -407,6 +408,7 @@ export async function generateWorkoutFromTranscript(
           schemaName: "SessionRecap",
           maxRetries: 0,
           temperature: 0.25,
+          telemetry: posthogAiTelemetry("transcript_workout_recap"),
           messages: [{ role: "user", content: prompt }],
         });
         const parsed = recapSchema.safeParse(result.object);
@@ -429,6 +431,7 @@ export async function generateWorkoutFromTranscript(
           schemaName: "SessionTasks",
           maxRetries: 0,
           temperature: 0.25,
+          telemetry: posthogAiTelemetry("transcript_workout_tasks"),
           messages: [{ role: "user", content: prompt }],
         });
         const parsed = tasksOnlySchema.safeParse(result.object);
@@ -450,6 +453,7 @@ export async function generateWorkoutFromTranscript(
         schemaName: "TranscriptWorkout",
         maxRetries: 0,
         temperature: 0.25,
+        telemetry: posthogAiTelemetry("transcript_workout_generation"),
         messages: [{ role: "user", content: prompt }],
       });
       const parsed = transcriptWorkoutSchema.safeParse(result.object);
