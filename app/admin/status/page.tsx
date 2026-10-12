@@ -255,6 +255,36 @@ export default function AdminStatusPage() {
                             <p className="mt-1.5 text-sm text-foreground/80">
                               {service.detail}
                             </p>
+                            {service.quota ? (
+                              <dl className="mt-3 grid max-w-xl grid-cols-2 gap-x-4 gap-y-2 border-t border-border pt-3 sm:grid-cols-3">
+                                <div>
+                                  <dt className="text-[10px] font-bold uppercase tracking-wide text-muted">
+                                    Plan
+                                  </dt>
+                                  <dd className="mt-0.5 text-sm font-semibold tabular-nums">
+                                    {service.quota.plan}
+                                  </dd>
+                                </div>
+                                <div>
+                                  <dt className="text-[10px] font-bold uppercase tracking-wide text-muted">
+                                    Price
+                                  </dt>
+                                  <dd className="mt-0.5 text-sm font-semibold tabular-nums">
+                                    {service.quota.price}
+                                  </dd>
+                                </div>
+                                {service.quota.items.map((item) => (
+                                  <div key={item.label}>
+                                    <dt className="text-[10px] font-bold uppercase tracking-wide text-muted">
+                                      {item.label}
+                                    </dt>
+                                    <dd className="mt-0.5 text-sm font-semibold tabular-nums">
+                                      {item.value}
+                                    </dd>
+                                  </div>
+                                ))}
+                              </dl>
+                            ) : null}
                           </div>
                           <div className="shrink-0 text-left sm:text-right">
                             <span
