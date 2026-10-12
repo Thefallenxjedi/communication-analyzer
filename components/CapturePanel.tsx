@@ -33,7 +33,7 @@ function pickMimeType(): string {
   return "";
 }
 
-/** YouTube link capture (beta). Full analysis when RAPIDAPI_KEY is set; transcript-only fallback otherwise. */
+/** YouTube link capture (beta). Downloads audio, then Gemini transcribes it. */
 const SHOW_YOUTUBE_CAPTURE = true;
 
 const AUDIO_ACCEPT =
@@ -272,9 +272,8 @@ export function CapturePanel({
           </h1>
         </div>
         <p className="mt-2 text-sm text-muted">
-          Public video up to 20 minutes — Shorts included. We pull captions and
-          audio when possible; Shorts without captions use audio + AI
-          transcription instead.
+          Public video up to 20 minutes — Shorts included. We download the
+          audio and transcribe it the same way as a recording.
         </p>
         <p className="mt-2 text-sm text-muted">
           Analysis usually takes{" "}
@@ -631,8 +630,8 @@ export function CapturePanel({
                 </span>
               </h2>
               <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-                Public videos and Shorts up to 20 minutes. Full analysis with
-                captions + audio, or audio-only for Shorts without captions.
+                Public videos and Shorts up to 20 minutes. We download the
+                audio and transcribe it.
               </p>
               <button
                 type="button"

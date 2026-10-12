@@ -14,8 +14,8 @@ const UPLOAD_MESSAGES = [
 ] as const;
 
 const YOUTUBE_MESSAGES = [
-  "Pulling captions from YouTube…",
   "Downloading audio from the video…",
+  "Turning that audio into a transcript…",
   "Counting the ums, likes, and “you knows”…",
   "Checking how much leftover meeting-anxiety is in your voice…",
   "Seeing if you said the point, then said it two more times…",
@@ -98,7 +98,7 @@ export function AnalyzingState({ status, captureMethod }: AnalyzingStateProps) {
         </h1>
         {isYoutube && (
           <p className="mt-3 text-xs font-medium text-muted">
-            Downloading audio and captions — this is the slow part.
+            Downloading the audio — this is the slow part.
           </p>
         )}
         <p className="mt-3 text-sm text-muted">

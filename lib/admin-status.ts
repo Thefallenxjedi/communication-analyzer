@@ -351,51 +351,6 @@ async function checkYoutubeMp3(): Promise<ServiceCheck> {
   };
 }
 
-async function checkYoutubeTranscript(): Promise<ServiceCheck> {
-  const base: Omit<ServiceCheck, "status" | "latencyMs" | "detail"> = {
-    id: "youtube-transcript",
-    name: "YouTube Transcript",
-    description: "Captions via youtube-transcript.ai",
-    required: false,
-  };
-  const transcriptBase =
-    process.env.YOUTUBE_TRANSCRIPT_AI_BASE?.trim() ||
-    "https://youtube-transcript.ai/transcript";
-
-  const result = await timed(async () => {
-    // Short public clip with captions (Rick Astley) — cheap reachability probe.
-    const endpoint = `${transcriptBase.replace(/\/$/, "")}/dQw4w9WgXcQ.txt`;
-    const res = await fetch(endpoint, {
-      method: "GET",
-      headers: { Accept: "text/plain, text/markdown, */*" },
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
-    }
-    const text = await res.text();
-    if (text.trim().length < 40) {
-      throw new Error("Empty transcript response.");
-    }
-    return text.length;
-  });
-
-  if (!result.ok) {
-    return {
-      ...base,
-      status: "error",
-      latencyMs: result.ms,
-      detail: result.error.slice(0, 200),
-    };
-  }
-  return {
-    ...base,
-    status: "operational",
-    latencyMs: result.ms,
-    detail: "Transcript host responding.",
-  };
-}
-
 function summarize(services: ServiceCheck[]): Pick<
   SystemStatusReport,
   "overall" | "headline"
@@ -439,7 +394,6 @@ export async function runSystemStatusChecks(
     checkKartra(),
     checkResend(),
     checkYoutubeMp3(),
-    checkYoutubeTranscript(),
   ]);
   const { overall, headline } = summarize(services);
   return {

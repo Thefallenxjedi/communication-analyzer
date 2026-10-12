@@ -27,13 +27,13 @@ const sections: { title: string; body: ReactNode }[] = [
           </li>
           <li>
             <strong className="font-semibold text-foreground">YouTube links (optional).</strong>{" "}
-            If you paste a public YouTube URL, we fetch captions and/or audio through
-            third-party services to run the same diagnosis. We do not scan pages you
-            have not explicitly submitted.
+            If you paste a public YouTube URL, we download the audio through a
+            third-party service and transcribe it for the same diagnosis. We do
+            not scan pages you have not explicitly submitted.
           </li>
           <li>
             <strong className="font-semibold text-foreground">Transcript and diagnosis.</strong>{" "}
-            Generated from your audio or captions — scores, coaching text, and
+            Generated from your audio — scores, coaching text, and
             supporting notes that make up your report.
           </li>
           <li>
@@ -94,10 +94,6 @@ const sections: { title: string; body: ReactNode }[] = [
           <li>
             <strong className="font-semibold text-foreground">RapidAPI (YouTube MP3)</strong> —{" "}
             audio extraction for YouTube-based analyses.
-          </li>
-          <li>
-            <strong className="font-semibold text-foreground">youtube-transcript.ai</strong> —{" "}
-            public caption fetch for YouTube links.
           </li>
           <li>
             <strong className="font-semibold text-foreground">Vercel</strong> — application

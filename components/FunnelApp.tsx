@@ -427,7 +427,7 @@ export function FunnelApp() {
 
       try {
         const leadNow = lead || readLead();
-        setStatus("Fetching YouTube transcript and audio…");
+        setStatus("Downloading YouTube audio…");
 
         diagnosisStatusId = window.setTimeout(() => {
           setStatus("Building your personalized diagnosis…");
@@ -462,72 +462,7 @@ export function FunnelApp() {
           );
         }
 
-        if (res.status === 503) {
-          setStatus("Pulling the YouTube transcript…");
-          const trRes = await fetch("/api/youtube-transcript", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              url,
-              anonymousId: getOrCreateAnonymousId(),
-              email: leadNow?.email || undefined,
-              firstName: leadNow?.name
-                ? leadNow.name.split(/\s+/)[0] || leadNow.name
-                : undefined,
-            }),
-            signal: controller.signal,
-          });
-          const trData = (await trRes.json()) as {
-            error?: string;
-            transcript?: string;
-            durationSec?: number | null;
-          };
-          if (!trRes.ok || !trData.transcript) {
-            throw new Error(
-              trData.error || "Could not read that YouTube video.",
-            );
-          }
-
-          setStatus("Building your personalized diagnosis…");
-          const formData = new FormData();
-          formData.append("transcript", trData.transcript);
-          formData.append("anonymousId", getOrCreateAnonymousId());
-          formData.append("captureMethod", "youtube");
-          formData.append("source", "youtube");
-          if (trData.durationSec != null) {
-            formData.append(
-              "durationSec",
-              String(Math.round(trData.durationSec)),
-            );
-            setLastDurationSec(Math.round(trData.durationSec));
-          }
-          if (leadNow?.email) formData.append("email", leadNow.email);
-          if (leadNow?.name) {
-            formData.append(
-              "firstName",
-              leadNow.name.split(/\s+/)[0] || leadNow.name,
-            );
-          }
-          if (lastPromptQuestion) {
-            formData.append("promptQuestion", lastPromptQuestion);
-          }
-
-          const fallbackRes = await fetch("/api/analyze", {
-            method: "POST",
-            body: formData,
-            signal: controller.signal,
-          });
-          data = (await fallbackRes.json()) as typeof data;
-          if (!fallbackRes.ok) {
-            const busy = fallbackRes.status === 429;
-            throw new Error(
-              data.error ||
-                (busy
-                  ? "Our analysis service is busy right now. Please wait a moment and try again."
-                  : "Analysis failed."),
-            );
-          }
-        } else if (!res.ok) {
+        if (!res.ok) {
           const busy = res.status === 429;
           const err = new Error(
             data.error ||

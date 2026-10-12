@@ -3,8 +3,7 @@ import { NextResponse } from "next/server";
 import { POST as analyzePost } from "@/app/api/analyze/route";
 import { insertFailedAnalysis } from "@/lib/analyses";
 import { isValidLeadEmail } from "@/lib/email";
-import { isYouTubeShortsUrl, parseYouTubeVideoId } from "@/lib/youtube";
-import { fetchYoutubeTranscript } from "@/lib/youtube-transcript-ai";
+import { parseYouTubeVideoId } from "@/lib/youtube";
 import {
   estimateMp3DurationSec,
   fetchYoutubeMp3,
@@ -93,7 +92,6 @@ export async function POST(request: Request) {
 
     const videoId = parseYouTubeVideoId(url);
     videoHint = videoId ? ` (${videoId})` : "";
-    const isShorts = isYouTubeShortsUrl(url);
 
     if (!videoId) {
       logYoutubeFailure({
@@ -118,43 +116,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const [transcriptResult, mp3Result] = await Promise.all([
-      fetchYoutubeTranscript(url).catch((err) => {
-        console.warn(
-          "[youtube-analyze] Transcript unavailable:",
-          err instanceof Error ? err.message : err,
-        );
-        return null;
-      }),
-      fetchYoutubeMp3(url).catch((err) => {
-        console.warn(
-          "[youtube-analyze] MP3 download failed:",
-          err instanceof Error ? err.message : err,
-        );
-        return null;
-      }),
-    ]);
+    const mp3Result = await fetchYoutubeMp3(url).catch((err) => {
+      console.warn(
+        "[youtube-analyze] MP3 download failed:",
+        err instanceof Error ? err.message : err,
+      );
+      return null;
+    });
 
-    if (!transcriptResult && !mp3Result) {
+    if (!mp3Result) {
       throw new Error(
-        isShorts
-          ? "That Short has no captions and we couldn't download its audio. Try record or upload instead."
-          : "We couldn't get captions or audio from that video. It may be private or blocked. Try record or upload instead.",
+        "We couldn't download audio from that video. It may be private or blocked. Try record or upload instead.",
       );
     }
 
-    if (!transcriptResult && mp3Result) {
-      console.info("[youtube-analyze] Audio-only path (Gemini transcribe)", {
-        videoId,
-        isShorts,
-      });
-    } else if (transcriptResult && !mp3Result) {
-      console.info("[youtube-analyze] Transcript-only fallback", { videoId });
-    }
+    console.info("[youtube-analyze] Audio path (Gemini transcribe)", {
+      videoId,
+      sizeBytes: mp3Result.sizeBytes,
+    });
 
-    const duration =
-      transcriptResult?.durationSec ??
-      (mp3Result ? estimateMp3DurationSec(mp3Result.sizeBytes) : null);
+    const duration = estimateMp3DurationSec(mp3Result.sizeBytes);
 
     if (duration != null && duration < MIN_DURATION_SECONDS) {
       const reason = `YouTube: too short (${formatDurationLabel(duration)})${videoHint}`;
@@ -190,18 +171,13 @@ export async function POST(request: Request) {
     }
 
     const formData = new FormData();
-    if (transcriptResult?.transcript) {
-      formData.append("transcript", transcriptResult.transcript);
-    }
-    if (mp3Result) {
-      formData.append(
-        "audio",
-        new Blob([Buffer.from(mp3Result.bytes)], {
-          type: mp3Result.mediaType,
-        }),
-        "youtube-audio.mp3",
-      );
-    }
+    formData.append(
+      "audio",
+      new Blob([Buffer.from(mp3Result.bytes)], {
+        type: mp3Result.mediaType,
+      }),
+      "youtube-audio.mp3",
+    );
     formData.append("anonymousId", anonymousId || `anon_yt_${Date.now().toString(36)}`);
     formData.append("captureMethod", "youtube");
     formData.append("source", "youtube");
