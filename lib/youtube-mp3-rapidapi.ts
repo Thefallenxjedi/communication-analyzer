@@ -9,6 +9,11 @@ export type YoutubeMp3Result = {
 
 /** RapidAPI "YouTube MP3" — GET /download/mp3?url=… → { downloadUrl } */
 const DEFAULT_HOST = "youtube-mp310.p.rapidapi.com";
+/**
+ * Each downloadUrl is single-use. A second GET burns the session (HTTP 400).
+ * Ask for a new URL instead of polling the same one.
+ */
+const MAX_FRESH_DOWNLOADS = 3;
 
 function rapidApiKey(): string {
   return (
@@ -34,7 +39,9 @@ function rapidHeaders(host: string): HeadersInit {
 function extractDownloadUrl(payload: unknown): string | null {
   if (typeof payload === "string") {
     const trimmed = payload.trim();
-    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (/^https?:\/\//i.test(trimmed)) {
+      return isYoutubePageUrl(trimmed) ? null : trimmed;
+    }
     try {
       return extractDownloadUrl(JSON.parse(trimmed) as unknown);
     } catch {
@@ -54,7 +61,8 @@ function extractDownloadUrl(payload: unknown): string | null {
   ]) {
     const v = o[key];
     if (typeof v === "string" && /^https?:\/\//i.test(v.trim())) {
-      return v.trim();
+      const url = v.trim();
+      if (!isYoutubePageUrl(url)) return url;
     }
   }
   if (o.data && typeof o.data === "object") {
@@ -89,34 +97,33 @@ async function rapidGetDownloadUrl(
   return extractDownloadUrl(parsed);
 }
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function isYoutubePageUrl(raw: string): boolean {
+  try {
+    const host = new URL(raw).hostname.replace(/^www\./, "").toLowerCase();
+    return (
+      host === "youtube.com" ||
+      host === "youtu.be" ||
+      host === "m.youtube.com" ||
+      host === "music.youtube.com"
+    );
+  } catch {
+    return false;
+  }
 }
 
-async function downloadAudioBytes(
+/** One GET. The link cannot be reused if this fails. */
+async function downloadAudioOnce(
   downloadUrl: string,
-  maxAttempts = 14,
-  delayMs = 5000,
-): Promise<Uint8Array> {
-  let lastStatus = 0;
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const res = await fetch(downloadUrl, {
-      method: "GET",
-      redirect: "follow",
-      cache: "no-store",
-    });
-    lastStatus = res.status;
-    if (res.ok) {
-      const buf = new Uint8Array(await res.arrayBuffer());
-      if (buf.byteLength > 2048) return buf;
-    }
-    if (attempt < maxAttempts - 1) {
-      await sleep(delayMs);
-    }
-  }
-  throw new Error(
-    `YouTube audio file was not ready (HTTP ${lastStatus}). Try again in a minute.`,
-  );
+): Promise<{ bytes: Uint8Array | null; status: number }> {
+  const res = await fetch(downloadUrl, {
+    method: "GET",
+    redirect: "follow",
+    cache: "no-store",
+  });
+  if (!res.ok) return { bytes: null, status: res.status };
+  const buf = new Uint8Array(await res.arrayBuffer());
+  if (buf.byteLength <= 2048) return { bytes: null, status: res.status };
+  return { bytes: buf, status: res.status };
 }
 
 /** Rough MP3 duration from byte size (~128 kbps). Used when captions omit duration. */
@@ -140,23 +147,43 @@ export async function fetchYoutubeMp3(rawUrl: string): Promise<YoutubeMp3Result>
   const host = process.env.RAPIDAPI_YOUTUBE_HOST?.trim() || DEFAULT_HOST;
   const watchUrl = youtubeWatchUrl(videoId);
 
-  const downloadUrl = await rapidGetDownloadUrl(host, watchUrl);
-  if (!downloadUrl) {
+  let lastStatus = 0;
+  let sawLink = false;
+
+  for (let attempt = 0; attempt < MAX_FRESH_DOWNLOADS; attempt++) {
+    const downloadUrl = await rapidGetDownloadUrl(host, watchUrl);
+    if (!downloadUrl) continue;
+    sawLink = true;
+
+    const downloaded = await downloadAudioOnce(downloadUrl);
+    lastStatus = downloaded.status;
+    if (!downloaded.bytes) {
+      console.warn(
+        `[youtube-mp3] Fresh download link failed once (HTTP ${downloaded.status}). Requesting a new link.`,
+      );
+      continue;
+    }
+
+    if (downloaded.bytes.byteLength > MAX_FILE_SIZE_BYTES) {
+      throw new Error(
+        "That YouTube audio file is too large. Please use a shorter clip (under 20 minutes).",
+      );
+    }
+
+    return {
+      bytes: downloaded.bytes,
+      mediaType: "audio/mpeg",
+      sizeBytes: downloaded.bytes.byteLength,
+    };
+  }
+
+  if (!sawLink) {
     throw new Error(
       "Could not get a download link for that YouTube video. The clip may be restricted or unavailable.",
     );
   }
 
-  const bytes = await downloadAudioBytes(downloadUrl);
-  if (bytes.byteLength > MAX_FILE_SIZE_BYTES) {
-    throw new Error(
-      "That YouTube audio file is too large. Please use a shorter clip (under 20 minutes).",
-    );
-  }
-
-  return {
-    bytes,
-    mediaType: "audio/mpeg",
-    sizeBytes: bytes.byteLength,
-  };
+  throw new Error(
+    `YouTube audio file was not ready (HTTP ${lastStatus}). Try again in a minute.`,
+  );
 }
