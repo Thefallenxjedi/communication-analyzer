@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { insertFailedAnalysis } from "@/lib/analyses";
 import { isValidLeadEmail } from "@/lib/email";
 import { parseYouTubeVideoId } from "@/lib/youtube";
-import { fetchYoutubeTranscript } from "@/lib/youtube-transcript-ai";
+import { fetchYoutubeTranscript } from "@/lib/youtube-transcript-api";
 import {
   MAX_YOUTUBE_DURATION_SECONDS,
   MIN_DURATION_SECONDS,

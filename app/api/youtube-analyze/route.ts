@@ -4,6 +4,7 @@ import { POST as analyzePost } from "@/app/api/analyze/route";
 import { insertFailedAnalysis } from "@/lib/analyses";
 import { isValidLeadEmail } from "@/lib/email";
 import { parseYouTubeVideoId } from "@/lib/youtube";
+import { fetchYoutubeTranscript } from "@/lib/youtube-transcript-api";
 import {
   estimateMp3DurationSec,
   fetchYoutubeMp3,
@@ -106,36 +107,45 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!isYoutubeMp3Configured()) {
-      return NextResponse.json(
-        {
-          error:
-            "YouTube full analysis is not configured yet. Add RAPIDAPI_KEY on Vercel.",
-        },
-        { status: 503 },
-      );
-    }
-
-    const mp3Result = await fetchYoutubeMp3(url).catch((err) => {
+    const transcriptResult = await fetchYoutubeTranscript(url).catch((err) => {
       console.warn(
-        "[youtube-analyze] MP3 download failed:",
+        "[youtube-analyze] Transcript unavailable:",
         err instanceof Error ? err.message : err,
       );
       return null;
     });
 
-    if (!mp3Result) {
+    let mp3Result: Awaited<ReturnType<typeof fetchYoutubeMp3>> | null = null;
+    if (!transcriptResult && isYoutubeMp3Configured()) {
+      mp3Result = await fetchYoutubeMp3(url).catch((err) => {
+        console.warn(
+          "[youtube-analyze] MP3 download failed:",
+          err instanceof Error ? err.message : err,
+        );
+        return null;
+      });
+    }
+
+    if (!transcriptResult && !mp3Result) {
       throw new Error(
-        "We couldn't download audio from that video. It may be private or blocked. Try record or upload instead.",
+        "We couldn't pull a transcript or audio from that video. It may have no captions, or the link may be private.",
       );
     }
 
-    console.info("[youtube-analyze] Audio path (Gemini transcribe)", {
-      videoId,
-      sizeBytes: mp3Result.sizeBytes,
-    });
+    console.info(
+      transcriptResult
+        ? "[youtube-analyze] Transcript path"
+        : "[youtube-analyze] Audio path (Gemini transcribe)",
+      {
+        videoId,
+        chars: transcriptResult?.transcript.length ?? 0,
+        sizeBytes: mp3Result?.sizeBytes ?? 0,
+      },
+    );
 
-    const duration = estimateMp3DurationSec(mp3Result.sizeBytes);
+    const duration = mp3Result
+      ? estimateMp3DurationSec(mp3Result.sizeBytes)
+      : null;
 
     if (duration != null && duration < MIN_DURATION_SECONDS) {
       const reason = `YouTube: too short (${formatDurationLabel(duration)})${videoHint}`;
@@ -171,13 +181,18 @@ export async function POST(request: Request) {
     }
 
     const formData = new FormData();
-    formData.append(
-      "audio",
-      new Blob([Buffer.from(mp3Result.bytes)], {
-        type: mp3Result.mediaType,
-      }),
-      "youtube-audio.mp3",
-    );
+    if (transcriptResult?.transcript) {
+      formData.append("transcript", transcriptResult.transcript);
+    }
+    if (mp3Result) {
+      formData.append(
+        "audio",
+        new Blob([Buffer.from(mp3Result.bytes)], {
+          type: mp3Result.mediaType,
+        }),
+        "youtube-audio.mp3",
+      );
+    }
     formData.append("anonymousId", anonymousId || `anon_yt_${Date.now().toString(36)}`);
     formData.append("captureMethod", "youtube");
     formData.append("source", "youtube");

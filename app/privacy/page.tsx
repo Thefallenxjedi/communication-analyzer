@@ -27,9 +27,10 @@ const sections: { title: string; body: ReactNode }[] = [
           </li>
           <li>
             <strong className="font-semibold text-foreground">YouTube links (optional).</strong>{" "}
-            If you paste a public YouTube URL, we download the audio through a
-            third-party service and transcribe it for the same diagnosis. We do
-            not scan pages you have not explicitly submitted.
+            If you paste a public YouTube URL, we fetch the public transcript
+            through a third-party service. If captions are missing, we download
+            the audio and transcribe it. We do not scan pages you have not
+            explicitly submitted.
           </li>
           <li>
             <strong className="font-semibold text-foreground">Transcript and diagnosis.</strong>{" "}
@@ -92,8 +93,12 @@ const sections: { title: string; body: ReactNode }[] = [
             lead follow-up (name, email, score summary, report link) when enabled.
           </li>
           <li>
+            <strong className="font-semibold text-foreground">SerpAPI</strong> — public
+            caption fetch for YouTube links.
+          </li>
+          <li>
             <strong className="font-semibold text-foreground">RapidAPI (YouTube MP3)</strong> —{" "}
-            audio extraction for YouTube-based analyses.
+            audio extraction when a video has no usable captions.
           </li>
           <li>
             <strong className="font-semibold text-foreground">Vercel</strong> — application

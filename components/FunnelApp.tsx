@@ -429,7 +429,7 @@ export function FunnelApp() {
 
       try {
         const leadNow = lead || readLead();
-        setStatus("Downloading YouTube audio…");
+        setStatus("Pulling the YouTube transcript…");
 
         diagnosisStatusId = window.setTimeout(() => {
           setStatus("Building your personalized diagnosis…");
