@@ -18,7 +18,12 @@ import {
   isUnusableSpeechTranscript,
 } from "@/lib/validate-media";
 import { API_KEY_HEADER, MODEL_HEADER } from "@/lib/api-key";
-import { checkAnalyzeRateLimit, analyzeLimitErrorMessage, clientIp } from "@/lib/rate-limit";
+import {
+  checkAnalyzeRateLimit,
+  analyzeLimitErrorMessage,
+  clientIp,
+  isYoutubeLimitExempt,
+} from "@/lib/rate-limit";
 import {
   isKartraConfigured,
   syncReportToKartra,
@@ -425,12 +430,15 @@ export async function POST(request: Request) {
       (!hasFile && pastedTranscript.length >= 40);
     const rateKind = isYoutube ? "youtube" : "audio";
     const ip = clientIp(request);
-    const rate = checkAnalyzeRateLimit(ip, rateKind);
-    if (!rate.ok) {
-      return Response.json(
-        { error: analyzeLimitErrorMessage(rateKind, rate.retryAfterSec) },
-        { status: 429 },
-      );
+    const skipYoutubeLimit = isYoutube && isYoutubeLimitExempt(track.email);
+    if (!skipYoutubeLimit) {
+      const rate = checkAnalyzeRateLimit(ip, rateKind);
+      if (!rate.ok) {
+        return Response.json(
+          { error: analyzeLimitErrorMessage(rateKind, rate.retryAfterSec) },
+          { status: 429 },
+        );
+      }
     }
 
     let parts: FilePart[] = [];

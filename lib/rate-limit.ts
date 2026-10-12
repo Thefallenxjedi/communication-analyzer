@@ -13,6 +13,14 @@ export const DEFAULT_DAILY_YOUTUBE_LIMIT = 2;
 
 export type AnalyzeRateKind = "audio" | "youtube";
 
+/** YouTube daily cap does not apply to these addresses. */
+const YOUTUBE_LIMIT_EXEMPT_EMAILS = new Set(["sks314285@gmail.com"]);
+
+export function isYoutubeLimitExempt(email: string | undefined | null): boolean {
+  const normalized = String(email || "").trim().toLowerCase();
+  return normalized.length > 0 && YOUTUBE_LIMIT_EXEMPT_EMAILS.has(normalized);
+}
+
 export function parseEnvDailyLimit(
   raw: string | undefined,
   fallback: number,
