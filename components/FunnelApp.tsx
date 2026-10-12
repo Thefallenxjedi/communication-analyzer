@@ -52,6 +52,7 @@ export function FunnelApp() {
   const phase = pathToPhase(pathname);
   const bootstrapped = useRef(false);
   const analyzingRef = useRef(false);
+  const youtubeWaitTries = useRef(0);
 
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -411,8 +412,9 @@ export function FunnelApp() {
   );
 
   const analyzeYoutube = useCallback(
-    async (url: string) => {
+    async (url: string, opts?: { continued?: boolean }) => {
       if (analyzingRef.current) return;
+      if (!opts?.continued) youtubeWaitTries.current = 0;
       analyzingRef.current = true;
       setLastYoutubeUrl(url);
       setLastCaptureMethod("youtube");
@@ -486,6 +488,7 @@ export function FunnelApp() {
         setReport(nextReport);
         storeReport(nextReport);
         clearFailure();
+        youtubeWaitTries.current = 0;
         analyzingRef.current = false;
 
         if (shareSlug) {
@@ -531,21 +534,44 @@ export function FunnelApp() {
         }
       } catch (err) {
         analyzingRef.current = false;
-        const aborted =
-          err instanceof DOMException && err.name === "AbortError";
-        const message = aborted
-          ? "This video took longer than 5 minutes. Try a shorter public clip, or wait a minute and retry the same link."
-          : err instanceof Error
+        const raw =
+          err instanceof Error
             ? err.message
             : "Something went wrong on our end. Please wait about a minute and try again.";
-        const busy =
-          aborted ||
-          /busy|wait about a minute|try again later|quota|rate limit/i.test(
-            message,
+        const stillWorking =
+          (err instanceof DOMException && err.name === "AbortError") ||
+          err instanceof TypeError ||
+          /failed to fetch|network|timed out|invalid response|taking longer|longer than 5 minutes|load failed/i.test(
+            raw,
           );
-        const waitSec = busy ? 60 : 8;
-        showFailure(message, {
-          retryWaitSec: waitSec,
+        if (stillWorking) {
+          youtubeWaitTries.current += 1;
+          setStatus(
+            "YouTube takes a few minutes. Downloading the audio is the slow part.",
+          );
+          if (youtubeWaitTries.current <= 2) {
+            window.setTimeout(() => {
+              void analyzeYoutube(url, { continued: true });
+            }, 2000);
+            return;
+          }
+          showFailure(
+            "YouTube takes a few minutes. Downloading the audio is the slow part.",
+            {
+              retryWaitSec: 0,
+              lastYoutubeUrl: url,
+              lastDurationSec: lastDurationSec,
+              lastCaptureMethod: "youtube",
+            },
+          );
+          return;
+        }
+        const busy =
+          /busy|wait about a minute|try again later|quota|rate limit/i.test(
+            raw,
+          );
+        showFailure(raw, {
+          retryWaitSec: busy ? 60 : 8,
           lastYoutubeUrl: url,
           lastDurationSec: lastDurationSec,
           lastCaptureMethod: "youtube",

@@ -65,7 +65,7 @@ export function AnalyzingState({ status, captureMethod }: AnalyzingStateProps) {
   }, [elapsed, index, isYoutube, messages.length, onLast]);
 
   const waitHint = isYoutube
-    ? "YouTube videos usually take 3–5 minutes. Keep this tab open."
+    ? "YouTube takes a few minutes. Downloading the audio is the slow part. Keep this tab open."
     : "This can take up to about 90 seconds when traffic is high. Keep this tab open.";
 
   const isLiveRecording = captureMethod === "realtime";
@@ -108,7 +108,7 @@ export function AnalyzingState({ status, captureMethod }: AnalyzingStateProps) {
         {(isYoutube || elapsed >= 30) && (
           <p className="mt-2 text-xs text-muted">{waitHint}</p>
         )}
-        {elapsed >= almostThereAt && (
+        {elapsed >= almostThereAt && !isYoutube && (
           <p className="mt-1 text-xs font-semibold text-foreground/80">
             Almost there. Finishing your report…
           </p>
@@ -121,7 +121,7 @@ export function AnalyzingState({ status, captureMethod }: AnalyzingStateProps) {
         {elapsed >= stillWorkingAt && !isLiveRecording && (
           <p className="mt-2 max-w-sm text-xs leading-relaxed text-muted">
             {isYoutube
-              ? "Still working on that video. If this fails, you can retry the same link — no need to record again."
+              ? "Still downloading. YouTube takes longer because the audio has to come down before the transcript starts."
               : "Still working. If this fails, you'll keep this recording and can retry it — no need to speak again."}
           </p>
         )}

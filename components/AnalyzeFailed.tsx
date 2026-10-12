@@ -46,6 +46,40 @@ export function AnalyzeFailed({
     durationSec != null && Number.isFinite(durationSec)
       ? formatDuration(Math.round(durationSec))
       : null;
+  const youtubeStillWorking =
+    !audio &&
+    /failed to fetch|youtube takes a few minutes|downloading the audio|timed out|invalid response|taking longer|longer than 5 minutes|load failed|network/i.test(
+      message,
+    );
+
+  if (youtubeStillWorking) {
+    return (
+      <section className="mx-auto flex min-h-[75dvh] w-full max-w-md flex-col justify-center px-4 py-16 animate-fade-up">
+        <p className="text-xs font-extrabold uppercase tracking-[0.14em] text-muted">
+          Still working
+        </p>
+        <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">
+          YouTube takes a few{" "}
+          <span className="bg-highlight px-1.5 box-decoration-clone">
+            minutes
+          </span>
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-foreground/90">
+          Downloading the audio is the slow part. This clip is still going.
+        </p>
+        <p className="mt-2 text-sm text-muted">
+          Keep this tab open. You don&apos;t need to paste the link again.
+        </p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="btn-highlight mt-6"
+        >
+          Keep waiting
+        </button>
+      </section>
+    );
+  }
 
   return (
     <section className="mx-auto flex min-h-[75dvh] w-full max-w-md flex-col justify-center px-4 py-16 animate-fade-up">
