@@ -58,6 +58,8 @@ export default defineSchema({
     analysisDurationEstimated: v.optional(v.boolean()),
     /** Prompt add-on ids active when this analysis was scored. */
     promptAddOnIds: v.optional(v.array(v.string())),
+    /** When admin pushed this incomplete lead to the Kartra not-attempted list. */
+    kartraIncompleteSyncedAt: v.optional(v.number()),
     createdAt: v.number(), // ms epoch
   })
     .index("by_createdAt", ["createdAt"])

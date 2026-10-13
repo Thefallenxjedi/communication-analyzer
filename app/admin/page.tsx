@@ -621,6 +621,14 @@ export default function AdminPage() {
   const [insightsRange, setInsightsRange] = useState<InsightsRange>("all");
   const [insightsFrom, setInsightsFrom] = useState("");
   const [insightsTo, setInsightsTo] = useState("");
+  const [kartraQueue, setKartraQueue] = useState<{
+    listName: string;
+    pending: number;
+    alreadySent: number;
+  } | null>(null);
+  const [kartraSending, setKartraSending] = useState(false);
+  const [kartraProgress, setKartraProgress] = useState("");
+  const [kartraResult, setKartraResult] = useState("");
 
   const insightsCompleted = useMemo(() => {
     const { from, to } = insightsBounds(
@@ -707,9 +715,93 @@ export default function AdminPage() {
     }
   }, []);
 
+  const loadKartraQueue = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/kartra-incomplete");
+      const data = (await res.json()) as {
+        listName?: string;
+        pending?: number;
+        alreadySent?: number;
+      };
+      if (!res.ok) {
+        setKartraQueue(null);
+        return;
+      }
+      setKartraQueue({
+        listName: data.listName || "",
+        pending: data.pending ?? 0,
+        alreadySent: data.alreadySent ?? 0,
+      });
+    } catch {
+      setKartraQueue(null);
+    }
+  }, []);
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadKartraQueue();
+  }, [load, loadKartraQueue]);
+
+  const onSendIncompleteToKartra = async () => {
+    const pending = kartraQueue?.pending ?? 0;
+    const listName = kartraQueue?.listName || "Free_tool_not-attempted";
+    if (pending === 0) return;
+    if (
+      !window.confirm(
+        `Send ${pending} incomplete ${pending === 1 ? "lead" : "leads"} to the Kartra list "${listName}"?\n\nOnly people who left an email and never finished are sent. Each person is sent once.`,
+      )
+    ) {
+      return;
+    }
+
+    setKartraSending(true);
+    setKartraResult("");
+    setError("");
+    const exclude: string[] = [];
+    const failures: { email: string; message: string }[] = [];
+    let sent = 0;
+    try {
+      for (;;) {
+        setKartraProgress(`Sending… ${sent} sent`);
+        const res = await fetch("/api/admin/kartra-incomplete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ exclude })});
+        const data = (await res.json()) as {
+          error?: string;
+          sent?: number;
+          failed?: { email: string; message: string }[];
+          remaining?: number;
+        };
+        if (!res.ok) throw new Error(data.error || "Kartra sync failed.");
+        sent += data.sent ?? 0;
+        for (const f of data.failed ?? []) {
+          failures.push(f);
+          exclude.push(f.email);
+        }
+        const processed = (data.sent ?? 0) + (data.failed?.length ?? 0);
+        if (!data.remaining || processed === 0) break;
+      }
+      setKartraResult(
+        failures.length
+          ? `Sent ${sent} to ${listName}. ${failures.length} failed: ${failures
+              .slice(0, 3)
+              .map((f) => `${f.email} (${f.message})`)
+              .join("; ")}${failures.length > 3 ? "…" : ""}`
+          : `Sent ${sent} to ${listName}.`,
+      );
+    } catch (err) {
+      setError(
+        `${err instanceof Error ? err.message : "Kartra sync failed."}${
+          sent ? ` (${sent} were sent before the error.)` : ""
+        }`,
+      );
+    } finally {
+      setKartraSending(false);
+      setKartraProgress("");
+      void loadKartraQueue();
+    }
+  };
 
   useEffect(() => {
     void loadSurveys(feedbackRange, feedbackFrom, feedbackTo);
@@ -856,10 +948,26 @@ export default function AdminPage() {
                 >
                   Free diagnosis prompt
                 </Link>
+                {canEdit && kartraQueue ? (
+                  <button
+                    type="button"
+                    disabled={kartraSending || kartraQueue.pending === 0}
+                    onClick={() => void onSendIncompleteToKartra()}
+                    className="btn-secondary !w-auto px-4 text-amber-800 hover:text-amber-900"
+                    title={`Subscribe incomplete leads to the Kartra list "${kartraQueue.listName}". ${kartraQueue.alreadySent} already sent.`}
+                  >
+                    {kartraSending
+                      ? kartraProgress || "Sending…"
+                      : `Send incomplete to Kartra (${kartraQueue.pending})`}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   disabled={busy}
-                  onClick={() => void load()}
+                  onClick={() => {
+                    void load();
+                    void loadKartraQueue();
+                  }}
                   className="btn-secondary !w-auto px-4"
                 >
                   {busy ? "Refreshing…" : "Refresh"}
@@ -869,6 +977,9 @@ export default function AdminPage() {
 
             {error ? (
               <p className={`text-sm ${adminUi.dangerText}`}>{error}</p>
+            ) : null}
+            {kartraResult ? (
+              <p className="text-sm text-amber-800">{kartraResult}</p>
             ) : null}
 
             {stats ? (

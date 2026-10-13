@@ -34,6 +34,12 @@ export const analysesApi = {
   backfillAnalysisDuration: makeFunctionReference<"mutation">(
     "analyses:backfillAnalysisDuration",
   ),
+  listIncompleteForKartra: makeFunctionReference<"query">(
+    "analyses:listIncompleteForKartra",
+  ),
+  markKartraIncompleteSynced: makeFunctionReference<"mutation">(
+    "analyses:markKartraIncompleteSynced",
+  ),
 };
 
 export const reportsApi = {

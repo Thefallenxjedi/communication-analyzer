@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import type { Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { requireStaffRole } from "./adminAccess";
 import { estimateAnalysisDurationMs } from "./estimateAnalysisDuration";
@@ -486,6 +487,91 @@ export const backfillAnalysisDuration = mutation({
       patched += 1;
     }
 
+    return { ok: true as const, patched };
+  },
+});
+
+function isCompletedRow(row: { status?: string; overallScore: number }): boolean {
+  return row.status !== "failed" && (row.status === "success" || row.overallScore > 0);
+}
+
+/**
+ * Admin: incomplete leads (email, no report) not yet pushed to the Kartra
+ * not-attempted list. One entry per email; skips emails that completed elsewhere.
+ */
+export const listIncompleteForKartra = query({
+  args: {},
+  handler: async (ctx) => {
+    await requireStaffRole(ctx, "viewer");
+    const rows = await ctx.db
+      .query("analyses")
+      .withIndex("by_createdAt")
+      .order("desc")
+      .take(5000);
+
+    const byEmail = new Map<
+      string,
+      { email: string; firstName: string; ids: Id<"analyses">[]; createdAt: number }
+    >();
+    let alreadySent = 0;
+
+    for (const row of rows) {
+      const email = (row.email || "").trim().toLowerCase();
+      if (!email || !isIncompleteLead(row)) continue;
+      if (row.kartraIncompleteSyncedAt) {
+        alreadySent += 1;
+        continue;
+      }
+      const cur = byEmail.get(email);
+      if (cur) {
+        cur.ids.push(row._id);
+        if (!cur.firstName && row.firstName) cur.firstName = row.firstName;
+        continue;
+      }
+      byEmail.set(email, {
+        email,
+        firstName: (row.firstName || "").trim(),
+        ids: [row._id],
+        createdAt: row.createdAt,
+      });
+    }
+
+    const pending: {
+      email: string;
+      firstName: string;
+      ids: Id<"analyses">[];
+      createdAt: number;
+    }[] = [];
+    let skippedCompleted = 0;
+    for (const lead of byEmail.values()) {
+      const sameEmail = await ctx.db
+        .query("analyses")
+        .withIndex("by_email", (q) => q.eq("email", lead.email))
+        .collect();
+      if (sameEmail.some(isCompletedRow)) {
+        skippedCompleted += 1;
+        continue;
+      }
+      pending.push(lead);
+    }
+
+    return { pending, alreadySent, skippedCompleted };
+  },
+});
+
+/** Admin: stamp incomplete lead rows as sent to the Kartra not-attempted list. */
+export const markKartraIncompleteSynced = mutation({
+  args: { ids: v.array(v.id("analyses")) },
+  handler: async (ctx, args) => {
+    await requireStaffRole(ctx, "editor");
+    const now = Date.now();
+    let patched = 0;
+    for (const id of [...new Set(args.ids)].slice(0, 1000)) {
+      const row = await ctx.db.get(id);
+      if (!row) continue;
+      await ctx.db.patch(id, { kartraIncompleteSyncedAt: now });
+      patched += 1;
+    }
     return { ok: true as const, patched };
   },
 });

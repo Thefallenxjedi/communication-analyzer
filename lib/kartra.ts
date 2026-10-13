@@ -140,8 +140,15 @@ async function kartraRequest(
   }
 }
 
-async function subscribeToList(email: string): Promise<KartraResult> {
-  const list = listName();
+/** List for leads who opted in but never finished an assessment. */
+export function incompleteListName(): string {
+  return env("KARTRA_INCOMPLETE_LIST_NAME") || "Free_tool_not-attempted";
+}
+
+async function subscribeToList(
+  email: string,
+  list = listName(),
+): Promise<KartraResult> {
   if (!list) {
     return { ok: true, message: "No KARTRA_LIST_NAME — skip subscribe" };
   }
@@ -344,6 +351,35 @@ export async function syncReportToKartra(input: {
 
   console.info("[kartra] syncReportToKartra ok", { email, overall });
   return { ok: true, message: "Lead + fields + list synced" };
+}
+
+/** Upsert an incomplete lead (name + email only) and subscribe to the not-attempted list. */
+export async function syncIncompleteLeadToKartra(input: {
+  email: string;
+  firstName: string;
+}): Promise<KartraResult> {
+  const email = input.email.trim().toLowerCase();
+  const firstName = input.firstName.trim().slice(0, 80) || "Friend";
+  if (!email) return { ok: false, message: "email required" };
+
+  const upsert = await createKartraLead({ firstName, email, subscribe: false });
+  if (!upsert.ok) return upsert;
+
+  const list = incompleteListName();
+  const subscribed = await subscribeToList(email, list);
+  if (!subscribed.ok) {
+    console.error(
+      "[kartra] subscribe incomplete lead failed",
+      subscribed.message,
+      subscribed.raw,
+    );
+    return {
+      ok: false,
+      message: `List subscribe failed: ${subscribed.message || "unknown"}`,
+      raw: subscribed.raw,
+    };
+  }
+  return { ok: true, alreadyExists: upsert.alreadyExists, message: `Subscribed to ${list}` };
 }
 
 /** @deprecated Prefer syncReportToKartra after diagnosis. */

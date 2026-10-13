@@ -298,6 +298,47 @@ export async function backfillAnalysisDuration(
   }
 }
 
+export type IncompleteKartraLead = {
+  email: string;
+  firstName: string;
+  ids: string[];
+  createdAt: number;
+};
+
+export type IncompleteKartraQueue = {
+  pending: IncompleteKartraLead[];
+  alreadySent: number;
+  skippedCompleted: number;
+};
+
+export async function listIncompleteForKartra(
+  convex?: ConvexClientLike | null,
+): Promise<IncompleteKartraQueue> {
+  const client = resolveClient(convex);
+  if (!isConvexConfigured() || !client) {
+    throw new Error("Convex is not configured.");
+  }
+  return (await client.query(
+    analysesApi.listIncompleteForKartra,
+    {},
+  )) as IncompleteKartraQueue;
+}
+
+export async function markKartraIncompleteSynced(
+  ids: string[],
+  convex?: ConvexClientLike | null,
+): Promise<number> {
+  const client = resolveClient(convex);
+  if (!isConvexConfigured() || !client) {
+    throw new Error("Convex is not configured.");
+  }
+  if (ids.length === 0) return 0;
+  const result = (await client.mutation(analysesApi.markKartraIncompleteSynced, {
+    ids: ids as never,
+  })) as { patched?: number };
+  return result?.patched ?? 0;
+}
+
 /** Top X% vs historical scores. Null if Convex missing or too few samples. */
 export async function getScoreTopPercent(
   score: number,
