@@ -627,6 +627,7 @@ export default function AdminPage() {
     alreadySent: number;
     lastSyncedAt: string | null;
   } | null>(null);
+  const [kartraQueueError, setKartraQueueError] = useState("");
   const [kartraSending, setKartraSending] = useState(false);
   const [kartraProgress, setKartraProgress] = useState("");
   const [kartraResult, setKartraResult] = useState("");
@@ -719,16 +720,26 @@ export default function AdminPage() {
   const loadKartraQueue = useCallback(async () => {
     try {
       const res = await fetch("/api/admin/kartra-incomplete");
-      const data = (await res.json()) as {
+      let data: {
+        error?: string;
         listName?: string;
         pending?: number;
         alreadySent?: number;
         lastSyncedAt?: string | null;
-      };
+      } = {};
+      try {
+        data = (await res.json()) as typeof data;
+      } catch {
+        // non-JSON error page
+      }
       if (!res.ok) {
         setKartraQueue(null);
+        setKartraQueueError(
+          data.error || `Could not load incomplete leads (HTTP ${res.status}).`,
+        );
         return;
       }
+      setKartraQueueError("");
       setKartraQueue({
         listName: data.listName || "",
         pending: data.pending ?? 0,
@@ -737,6 +748,7 @@ export default function AdminPage() {
       });
     } catch {
       setKartraQueue(null);
+      setKartraQueueError("Could not reach the server to load incomplete leads.");
     }
   }, []);
 
@@ -951,19 +963,6 @@ export default function AdminPage() {
                 >
                   Free diagnosis prompt
                 </Link>
-                {canEdit && kartraQueue ? (
-                  <button
-                    type="button"
-                    disabled={kartraSending || kartraQueue.pending === 0}
-                    onClick={() => void onSendIncompleteToKartra()}
-                    className="btn-secondary !w-auto px-4 text-amber-800 hover:text-amber-900"
-                    title={`Subscribe incomplete leads to the Kartra list "${kartraQueue.listName}". ${kartraQueue.alreadySent} already sent.`}
-                  >
-                    {kartraSending
-                      ? kartraProgress || "Sending…"
-                      : `Send incomplete to Kartra (${kartraQueue.pending})`}
-                  </button>
-                ) : null}
                 <button
                   type="button"
                   disabled={busy}
@@ -981,27 +980,84 @@ export default function AdminPage() {
             {error ? (
               <p className={`text-sm ${adminUi.dangerText}`}>{error}</p>
             ) : null}
-            {kartraQueue ? (
-              <p className="text-xs text-muted">
-                Kartra list{" "}
-                <span className="font-semibold text-foreground">
-                  {kartraQueue.listName}
-                </span>
-                {" · "}
-                Last synced:{" "}
-                <span className="font-semibold text-foreground">
-                  {kartraQueue.lastSyncedAt
-                    ? formatWhen(kartraQueue.lastSyncedAt)
-                    : "Never"}
-                </span>
-                {" · "}
-                {kartraQueue.alreadySent} already sent ·{" "}
-                {kartraQueue.pending} waiting
-              </p>
-            ) : null}
-            {kartraResult ? (
-              <p className="text-sm text-amber-800">{kartraResult}</p>
-            ) : null}
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 sm:p-5">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="min-w-0">
+                  <h2 className="text-sm font-extrabold uppercase tracking-wide text-amber-900">
+                    Send incomplete leads to Kartra
+                  </h2>
+                  <p className="mt-1 text-sm text-amber-900/80">
+                    People who left their email but never finished an
+                    assessment go to the Kartra list{" "}
+                    <span className="font-semibold">
+                      {kartraQueue?.listName || "Free_tool_not-attempted"}
+                    </span>
+                    . Each person is sent once.
+                  </p>
+                  <p className="mt-2 text-xs text-amber-900/80">
+                    Last synced:{" "}
+                    <span className="font-semibold">
+                      {kartraQueue
+                        ? kartraQueue.lastSyncedAt
+                          ? formatWhen(kartraQueue.lastSyncedAt)
+                          : "Never"
+                        : "—"}
+                    </span>
+                    {kartraQueue ? (
+                      <>
+                        {" · "}
+                        {kartraQueue.pending} waiting ·{" "}
+                        {kartraQueue.alreadySent} already sent
+                      </>
+                    ) : null}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={
+                    !canEdit ||
+                    kartraSending ||
+                    !kartraQueue ||
+                    kartraQueue.pending === 0
+                  }
+                  onClick={() => void onSendIncompleteToKartra()}
+                  className="inline-flex min-h-12 items-center justify-center rounded-full bg-amber-600 px-6 font-bold text-white shadow-sm transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-55"
+                >
+                  {kartraSending
+                    ? kartraProgress || "Sending…"
+                    : !kartraQueue
+                      ? kartraQueueError
+                        ? "Unavailable"
+                        : "Loading…"
+                      : kartraQueue.pending === 0
+                        ? "Nothing to send"
+                        : `Send ${kartraQueue.pending} to Kartra`}
+                </button>
+              </div>
+              {!canEdit ? (
+                <p className="mt-3 text-sm text-amber-900">
+                  Only editors and admins can send leads. Ask an admin to change
+                  your role on the Team page.
+                </p>
+              ) : null}
+              {kartraQueueError ? (
+                <p className={`mt-3 text-sm ${adminUi.dangerText}`}>
+                  {kartraQueueError}{" "}
+                  <button
+                    type="button"
+                    onClick={() => void loadKartraQueue()}
+                    className="font-bold underline"
+                  >
+                    Retry
+                  </button>
+                </p>
+              ) : null}
+              {kartraResult ? (
+                <p className="mt-3 text-sm font-semibold text-amber-900">
+                  {kartraResult}
+                </p>
+              ) : null}
+            </div>
 
             {stats ? (
               <div className="grid grid-cols-3 gap-2 xl:grid-cols-8 xl:gap-3">
