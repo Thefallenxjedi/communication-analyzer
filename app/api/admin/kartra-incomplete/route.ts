@@ -31,6 +31,9 @@ export async function GET(request: Request) {
       pending: queue.pending.length,
       alreadySent: queue.alreadySent,
       skippedCompleted: queue.skippedCompleted,
+      lastSyncedAt: queue.lastSyncedAt
+        ? new Date(queue.lastSyncedAt).toISOString()
+        : null,
     });
   } catch (err) {
     console.error("[admin/kartra-incomplete] GET", err);

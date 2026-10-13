@@ -309,6 +309,8 @@ export type IncompleteKartraQueue = {
   pending: IncompleteKartraLead[];
   alreadySent: number;
   skippedCompleted: number;
+  /** ms epoch of the most recent send to the not-attempted list. */
+  lastSyncedAt: number | null;
 };
 
 export async function listIncompleteForKartra(

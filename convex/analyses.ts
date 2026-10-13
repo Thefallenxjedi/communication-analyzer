@@ -514,8 +514,15 @@ export const listIncompleteForKartra = query({
       { email: string; firstName: string; ids: Id<"analyses">[]; createdAt: number }
     >();
     let alreadySent = 0;
+    let lastSyncedAt: number | null = null;
 
     for (const row of rows) {
+      if (
+        row.kartraIncompleteSyncedAt &&
+        (lastSyncedAt == null || row.kartraIncompleteSyncedAt > lastSyncedAt)
+      ) {
+        lastSyncedAt = row.kartraIncompleteSyncedAt;
+      }
       const email = (row.email || "").trim().toLowerCase();
       if (!email || !isIncompleteLead(row)) continue;
       if (row.kartraIncompleteSyncedAt) {
@@ -555,7 +562,7 @@ export const listIncompleteForKartra = query({
       pending.push(lead);
     }
 
-    return { pending, alreadySent, skippedCompleted };
+    return { pending, alreadySent, skippedCompleted, lastSyncedAt };
   },
 });
 

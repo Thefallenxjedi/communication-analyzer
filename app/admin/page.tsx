@@ -625,6 +625,7 @@ export default function AdminPage() {
     listName: string;
     pending: number;
     alreadySent: number;
+    lastSyncedAt: string | null;
   } | null>(null);
   const [kartraSending, setKartraSending] = useState(false);
   const [kartraProgress, setKartraProgress] = useState("");
@@ -722,6 +723,7 @@ export default function AdminPage() {
         listName?: string;
         pending?: number;
         alreadySent?: number;
+        lastSyncedAt?: string | null;
       };
       if (!res.ok) {
         setKartraQueue(null);
@@ -731,6 +733,7 @@ export default function AdminPage() {
         listName: data.listName || "",
         pending: data.pending ?? 0,
         alreadySent: data.alreadySent ?? 0,
+        lastSyncedAt: data.lastSyncedAt ?? null,
       });
     } catch {
       setKartraQueue(null);
@@ -977,6 +980,24 @@ export default function AdminPage() {
 
             {error ? (
               <p className={`text-sm ${adminUi.dangerText}`}>{error}</p>
+            ) : null}
+            {kartraQueue ? (
+              <p className="text-xs text-muted">
+                Kartra list{" "}
+                <span className="font-semibold text-foreground">
+                  {kartraQueue.listName}
+                </span>
+                {" · "}
+                Last synced:{" "}
+                <span className="font-semibold text-foreground">
+                  {kartraQueue.lastSyncedAt
+                    ? formatWhen(kartraQueue.lastSyncedAt)
+                    : "Never"}
+                </span>
+                {" · "}
+                {kartraQueue.alreadySent} already sent ·{" "}
+                {kartraQueue.pending} waiting
+              </p>
             ) : null}
             {kartraResult ? (
               <p className="text-sm text-amber-800">{kartraResult}</p>

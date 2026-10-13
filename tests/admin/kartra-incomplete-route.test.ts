@@ -44,6 +44,7 @@ const queue = {
   ],
   alreadySent: 4,
   skippedCompleted: 1,
+  lastSyncedAt: Date.UTC(2026, 9, 13, 15, 0, 0),
 };
 
 describe("/api/admin/kartra-incomplete", () => {
@@ -70,6 +71,7 @@ describe("/api/admin/kartra-incomplete", () => {
       pending: 2,
       alreadySent: 4,
       skippedCompleted: 1,
+      lastSyncedAt: "2026-10-13T15:00:00.000Z",
     });
   });
 
