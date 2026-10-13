@@ -38,8 +38,29 @@ type KartraResult = {
   message?: string;
   type?: string;
   alreadyExists?: boolean;
+  /** First failed action. Kartra still reports top-level Success when the lead exists. */
+  actionError?: { cmd: string; message: string; type?: string };
   raw?: unknown;
 };
+
+function firstActionError(json: unknown): KartraResult["actionError"] {
+  const actions = (json as { actions?: unknown })?.actions;
+  if (!Array.isArray(actions)) return undefined;
+  for (const entry of actions) {
+    if (!entry || typeof entry !== "object") continue;
+    for (const [cmd, value] of Object.entries(entry as Record<string, unknown>)) {
+      const v = value as { status?: unknown; message?: unknown; type?: unknown };
+      if (String(v?.status || "").toLowerCase() === "error") {
+        return {
+          cmd,
+          message: String(v.message || "Kartra action failed"),
+          type: v.type != null ? String(v.type) : undefined,
+        };
+      }
+    }
+  }
+  return undefined;
+}
 
 function flattenKartraBody(
   lead: Record<string, unknown>,
@@ -130,6 +151,7 @@ async function kartraRequest(
       status: json.status,
       message: json.message,
       type: json.type != null ? String(json.type) : undefined,
+      actionError: firstActionError(json),
       raw: json,
     };
   } catch (err) {
@@ -152,9 +174,18 @@ async function subscribeToList(
   if (!list) {
     return { ok: true, message: "No KARTRA_LIST_NAME — skip subscribe" };
   }
-  return kartraRequest({ email }, [
+  const result = await kartraRequest({ email }, [
     { cmd: "subscribe_lead_to_list", list_name: list },
   ]);
+  if (result.ok && result.actionError) {
+    return {
+      ...result,
+      ok: false,
+      message: `${result.actionError.message} (list "${list}")`,
+      type: result.actionError.type,
+    };
+  }
+  return result;
 }
 
 /**
@@ -379,6 +410,11 @@ export async function syncIncompleteLeadToKartra(input: {
       raw: subscribed.raw,
     };
   }
+  console.info("[kartra] incomplete lead subscribed", {
+    email,
+    list,
+    message: subscribed.message,
+  });
   return { ok: true, alreadyExists: upsert.alreadyExists, message: `Subscribed to ${list}` };
 }
 

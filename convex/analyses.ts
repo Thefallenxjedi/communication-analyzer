@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { requireStaffRole } from "./adminAccess";
 import { estimateAnalysisDurationMs } from "./estimateAnalysisDuration";
 
@@ -563,6 +563,25 @@ export const listIncompleteForKartra = query({
     }
 
     return { pending, alreadySent, skippedCompleted, lastSyncedAt };
+  },
+});
+
+/** CLI-only: clear send stamps so leads can be re-sent to the not-attempted list. */
+export const clearKartraIncompleteSynced = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db
+      .query("analyses")
+      .withIndex("by_createdAt")
+      .order("desc")
+      .take(5000);
+    let cleared = 0;
+    for (const row of rows) {
+      if (row.kartraIncompleteSyncedAt == null) continue;
+      await ctx.db.patch(row._id, { kartraIncompleteSyncedAt: undefined });
+      cleared += 1;
+    }
+    return { cleared };
   },
 });
 
