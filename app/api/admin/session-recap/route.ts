@@ -1,6 +1,9 @@
-import { getSessionRecap, saveSessionRecap } from "@/lib/session-recap";
+import { getCoachingClient } from "@/lib/coaching-clients";
+import { sessionLabel } from "@/lib/coaching-program";
 import { formatConvexError } from "@/lib/convex-server";
-import { requireStaffConvex } from "@/lib/staff-auth";
+import { captureClientActivity } from "@/lib/posthog-client-activity";
+import { getSessionRecap, saveSessionRecap } from "@/lib/session-recap";
+import { requireStaffConvex, resolveStaffAccess } from "@/lib/staff-auth";
 
 export const runtime = "nodejs";
 
@@ -49,9 +52,15 @@ export async function POST(request: Request) {
     return Response.json({ error: "recapSummary required." }, { status: 400 });
   }
 
+  const clientId = body.clientId.trim();
+  const sessionNumber = Math.round(body.sessionNumber ?? 0);
+  const existing = await getSessionRecap({ clientId, sessionNumber }, convex).catch(
+    () => undefined,
+  );
+
   const result = await saveSessionRecap({
-    clientId: body.clientId.trim(),
-    sessionNumber: Math.round(body.sessionNumber ?? 0),
+    clientId,
+    sessionNumber,
     recapSummary: body.recapSummary,
     sourceTranscript: body.sourceTranscript,
   }, convex);
@@ -61,6 +70,39 @@ export async function POST(request: Request) {
       { error: result.error || "Could not save recap." },
       { status: 400 },
     );
+  }
+
+  if (existing === null) {
+    const [client, staff] = await Promise.all([
+      getCoachingClient(clientId, convex).catch(() => null),
+      resolveStaffAccess(request),
+    ]);
+    const properties = {
+      summary_number: sessionNumber,
+      session_label: sessionLabel(sessionNumber, client?.workSessionCount),
+    };
+    await captureClientActivity({
+      distinctId: clientId,
+      event: "summary_added",
+      properties,
+      person: {
+        email: client?.email,
+        name: client?.name,
+        role: "client",
+      },
+    });
+    if (staff?.id) {
+      await captureClientActivity({
+        distinctId: staff.id,
+        event: "summary_added",
+        properties,
+        person: {
+          email: staff.email,
+          name: staff.name,
+          role: staff.staffRole,
+        },
+      });
+    }
   }
 
   return Response.json({ ok: true });

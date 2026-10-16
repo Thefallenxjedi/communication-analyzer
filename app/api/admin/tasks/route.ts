@@ -1,7 +1,4 @@
-import { getCoachingClient } from "@/lib/coaching-clients";
-import { sessionLabel } from "@/lib/coaching-program";
 import { listCoachingSessions } from "@/lib/coaching-sessions";
-import { getSessionRecap } from "@/lib/session-recap";
 import {
   completeCoachingTask,
   createCoachingTask,
@@ -14,7 +11,6 @@ import {
   updateCoachingTask,
 } from "@/lib/coaching-tasks";
 import { formatConvexError } from "@/lib/convex-server";
-import { captureClientActivity } from "@/lib/posthog-client-activity";
 import { requireStaffConvex } from "@/lib/staff-auth";
 
 export const runtime = "nodejs";
@@ -75,33 +71,6 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  const clientId = body.clientId.trim();
-  const sessionNumber = body.sessionNumber ?? 1;
-  const client = await getCoachingClient(clientId, convex).catch(() => null);
-  const recap = await getSessionRecap(
-    { clientId, sessionNumber },
-    convex,
-  ).catch(() => null);
-  const taskTitle = (body.title ?? "").replace(/\s+/g, " ").trim();
-  const taskSummary = (body.instructions ?? "").replace(/\s+/g, " ").trim();
-  const sessionSummary = (recap?.recapSummary ?? "").replace(/\s+/g, " ").trim();
-  await captureClientActivity({
-    distinctId: clientId,
-    event: "coaching_task_assigned",
-    properties: {
-      session_number: sessionNumber,
-      session_label: sessionLabel(sessionNumber, client?.workSessionCount),
-      recording_required: Boolean(body.recordingRequired),
-      ...(taskTitle ? { task_title: taskTitle.slice(0, 160) } : {}),
-      ...(taskSummary ? { task_summary: taskSummary.slice(0, 280) } : {}),
-      ...(sessionSummary ? { session_summary: sessionSummary.slice(0, 500) } : {}),
-    },
-    person: {
-      email: client?.email,
-      name: client?.name,
-      role: "client",
-    },
-  });
   const [tasks, sessions] = await Promise.all([
     listCoachingTasks(body.clientId, convex),
     listCoachingSessions(body.clientId, convex),

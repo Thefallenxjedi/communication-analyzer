@@ -11,8 +11,6 @@ const {
   removeCoachingTask,
   setCoachingTaskCoachComment,
   updateCoachingTask,
-  captureClientActivity,
-  getCoachingClient,
 } = vi.hoisted(() => ({
   requireStaffConvex: vi.fn(),
   listCoachingSessions: vi.fn(),
@@ -24,8 +22,6 @@ const {
   removeCoachingTask: vi.fn(),
   setCoachingTaskCoachComment: vi.fn(),
   updateCoachingTask: vi.fn(),
-  captureClientActivity: vi.fn(),
-  getCoachingClient: vi.fn(),
 }));
 
 vi.mock("@/lib/staff-auth", () => ({
@@ -47,14 +43,6 @@ vi.mock("@/lib/coaching-tasks", () => ({
   removeCoachingTask,
   setCoachingTaskCoachComment,
   updateCoachingTask,
-}));
-
-vi.mock("@/lib/coaching-clients", () => ({
-  getCoachingClient,
-}));
-
-vi.mock("@/lib/posthog-client-activity", () => ({
-  captureClientActivity,
 }));
 
 vi.mock("@/lib/convex-server", () => ({
@@ -81,11 +69,6 @@ describe("/api/admin/tasks", () => {
     removeCoachingTask.mockResolvedValue({ ok: true });
     listCoachingTasks.mockResolvedValue([{ id: "task-1", title: "Task 1" }]);
     listCoachingSessions.mockResolvedValue([{ sessionNumber: 1, ready: true }]);
-    getCoachingClient.mockResolvedValue({
-      id: "client-1",
-      name: "Anuradha",
-      email: "anuradha@example.com",
-    });
     getCoachingTask.mockResolvedValue({
       id: "task-1",
       recordingRequired: true,
@@ -119,22 +102,6 @@ describe("/api/admin/tasks", () => {
       },
       convex,
     );
-    expect(captureClientActivity).toHaveBeenCalledWith({
-      distinctId: "client-1",
-      event: "coaching_task_assigned",
-      properties: {
-        session_number: 2,
-        session_label: "Session 2",
-        recording_required: true,
-        task_title: "Task 1",
-        task_summary: "Do the work",
-      },
-      person: {
-        email: "anuradha@example.com",
-        name: "Anuradha",
-        role: "client",
-      },
-    });
   });
 
   it("marks a submitted task reviewed", async () => {
