@@ -83,7 +83,7 @@ export async function POST(request: Request) {
     };
     await captureClientActivity({
       distinctId: clientId,
-      event: "summary_added",
+      event: "client_summary_added",
       properties,
       person: {
         email: client?.email,
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     if (staff?.id) {
       await captureClientActivity({
         distinctId: staff.id,
-        event: "summary_added",
+        event: "admin_summary_added",
         properties,
         person: {
           email: staff.email,

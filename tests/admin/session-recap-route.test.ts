@@ -74,14 +74,14 @@ describe("POST /api/admin/session-recap", () => {
     captureClientActivity.mockResolvedValue(undefined);
   });
 
-  it("records summary_added for the client and the admin on the first save", async () => {
+  it("records separate summary events for the client and the admin on the first save", async () => {
     const res = await POST(saveRequest());
 
     expect(res.status).toBe(200);
     expect(captureClientActivity).toHaveBeenCalledTimes(2);
     expect(captureClientActivity).toHaveBeenNthCalledWith(1, {
       distinctId: "client-1",
-      event: "summary_added",
+      event: "client_summary_added",
       properties: {
         summary_number: 3,
         session_label: "Session 3",
@@ -94,7 +94,7 @@ describe("POST /api/admin/session-recap", () => {
     });
     expect(captureClientActivity).toHaveBeenNthCalledWith(2, {
       distinctId: "staff-1",
-      event: "summary_added",
+      event: "admin_summary_added",
       properties: {
         summary_number: 3,
         session_label: "Session 3",
@@ -107,7 +107,7 @@ describe("POST /api/admin/session-recap", () => {
     });
   });
 
-  it("does not record summary_added when the summary is replaced", async () => {
+  it("does not record a summary event when the summary is replaced", async () => {
     getSessionRecap.mockResolvedValue({
       sessionNumber: 3,
       recapSummary: "Existing summary",
