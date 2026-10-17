@@ -64,6 +64,10 @@ async function main() {
         break;
       }
     }
+    const done = sent + failed.length;
+    if (done % 25 === 0) {
+      console.error(`progress ${done}/${leads.length}`);
+    }
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
 
