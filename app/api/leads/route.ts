@@ -1,14 +1,18 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { validateEmail } from "@/lib/email";
 import { attachLeadToAnalysis } from "@/lib/analyses";
 import { isConvexConfigured } from "@/lib/convex-server";
+import { isGoHighLevelConfigured, syncFreeToolContact } from "@/lib/gohighlevel";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
 /**
  * Lead capture — homepage opt-in or PDF gate.
- * Saves to Convex/admin only. Kartra is synced once after the report
- * (score + fields + list subscribe) from /api/analyze and /api/kartra-sync.
+ * The lead is always saved. GoHighLevel receives name, email, and the
+ * Communication_tool tag only when GHL_ACCESS_TOKEN and GHL_LOCATION_ID
+ * are set. Kartra is synced once after the report from /api/analyze
+ * and /api/kartra-sync.
  */
 export async function POST(request: Request) {
   try {
@@ -67,6 +71,34 @@ export async function POST(request: Request) {
       }
     } else {
       console.warn("[leads] Convex not configured — client session only");
+    }
+
+    if (isGoHighLevelConfigured()) {
+      const ip = clientIp(request);
+      const leadName = first;
+      const leadEmail = emailCheck.email;
+      after(async () => {
+        const limit = checkRateLimit(`ghl-lead:${ip}`, 20);
+        if (!limit.ok) {
+          console.error("[ghl] free-tool sync rate limited");
+          return;
+        }
+        try {
+          const synced = await syncFreeToolContact({
+            name: leadName,
+            email: leadEmail,
+          });
+          if (!synced.ok) {
+            console.error("[ghl] free-tool sync did not succeed", {
+              reason: synced.reason,
+            });
+          }
+        } catch (err) {
+          console.error("[ghl] free-tool sync crashed", {
+            message: err instanceof Error ? err.message : "error",
+          });
+        }
+      });
     }
 
     return NextResponse.json({
