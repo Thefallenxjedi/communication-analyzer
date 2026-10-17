@@ -102,6 +102,31 @@ async function ghlRequest(
   return { ok: false, reason: lastReason };
 }
 
+function tagName(tag: unknown): string {
+  if (typeof tag === "string") return tag.trim();
+  if (!tag || typeof tag !== "object") return "";
+  const name = (tag as { name?: unknown; tag?: unknown }).name;
+  const alt = (tag as { tag?: unknown }).tag;
+  if (typeof name === "string") return name.trim();
+  if (typeof alt === "string") return alt.trim();
+  return "";
+}
+
+/** A 2xx add-tags call confirms success. A returned tag list must include ours. */
+function tagWasAdded(json: unknown): boolean {
+  const tags = (json as { tags?: unknown })?.tags;
+  if (!Array.isArray(tags)) return true;
+  return tags.some(
+    (tag) => tagName(tag).toLowerCase() === GHL_FREE_TOOL_TAG.toLowerCase(),
+  );
+}
+
+function responseShape(json: unknown): string {
+  if (Array.isArray(json)) return `array(${json.length})`;
+  if (!json || typeof json !== "object") return typeof json;
+  return Object.keys(json as object).slice(0, 8).join(",") || "empty";
+}
+
 function contactIdFrom(json: unknown): string | null {
   const id = (json as { contact?: { id?: unknown } })?.contact?.id;
   if (typeof id !== "string" || !/^[A-Za-z0-9]{8,64}$/.test(id)) return null;
@@ -164,15 +189,11 @@ export async function syncFreeToolContact(
     return { ok: false, configured: true, reason: tagged.reason };
   }
 
-  const tags = (tagged.json as { tags?: unknown }).tags;
-  const hasTag =
-    Array.isArray(tags) &&
-    tags.some((tag) => tag === GHL_FREE_TOOL_TAG);
-  if (!hasTag) {
+  if (!tagWasAdded(tagged.json)) {
     return {
       ok: false,
       configured: true,
-      reason: "GoHighLevel did not confirm the tag",
+      reason: `GoHighLevel did not confirm the tag (${responseShape(tagged.json)})`,
     };
   }
 

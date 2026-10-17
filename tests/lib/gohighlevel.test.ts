@@ -94,6 +94,24 @@ describe("syncFreeToolContact", () => {
     });
   });
 
+  it("accepts a tag response that lists tag objects", async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        jsonResponse({ new: true, contact: { id: "abc12345contact" } }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({ tags: [{ name: "Communication_tool" }] }, 201),
+      );
+
+    await expect(
+      syncFreeToolContact(
+        { name: "Jane Doe", email: "jane@gmail.com" },
+        { fetchImpl, sleep },
+      ),
+    ).resolves.toMatchObject({ ok: true });
+  });
+
   it("updates an existing contact and still adds the tag", async () => {
     const fetchImpl = vi
       .fn()
