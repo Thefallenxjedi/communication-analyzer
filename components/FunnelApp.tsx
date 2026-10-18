@@ -46,6 +46,33 @@ function storeReport(report: DiagnosisReport | null) {
   }
 }
 
+function reportCardLink(shareSlug?: string, sharePath?: string): string {
+  const path = sharePath || (shareSlug ? `/r/${shareSlug}` : "");
+  if (!path) return "";
+  const origin =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : "https://app.elitespeakprogram.com";
+  return `${origin}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+function captureAnalysisReportGenerated(
+  report: DiagnosisReport,
+  share: { shareSlug?: string; sharePath?: string },
+  extra?: Record<string, string>,
+) {
+  if (!posthogConfigured) return;
+  posthog.capture("analysis_report_generated", {
+    overall_score: report.overallScore,
+    Level: report.level,
+    main_focus: report.mainChallenge?.title ?? "",
+    what_went_well: report.mainChallenge?.strengths ?? "",
+    what_to_improve: report.mainChallenge?.improvements ?? "",
+    report_card_link: reportCardLink(share.shareSlug, share.sharePath),
+    ...extra,
+  });
+}
+
 export function FunnelApp() {
   const pathname = usePathname();
   const router = useRouter();
@@ -322,11 +349,9 @@ export function FunnelApp() {
 
         const { shareSlug, sharePath, ...reportFields } = data;
         const nextReport = reportFields as DiagnosisReport;
-        if (posthogConfigured) {
-          posthog.capture("analysis_report_generated", {
-            capture_method: captureMethod,
-          });
-        }
+        captureAnalysisReportGenerated(nextReport, { shareSlug, sharePath }, {
+          capture_method: captureMethod,
+        });
         setReport(nextReport);
         storeReport(nextReport);
         clearFailure();
@@ -480,11 +505,11 @@ export function FunnelApp() {
 
         const { shareSlug, sharePath, ...reportFields } = data;
         const nextReport = reportFields as DiagnosisReport;
-        if (posthogConfigured) {
-          posthog.capture("analysis_report_generated", {
-            capture_method: "youtube",
-          });
-        }
+        captureAnalysisReportGenerated(
+          nextReport,
+          { shareSlug, sharePath },
+          { capture_method: "youtube" },
+        );
         setReport(nextReport);
         storeReport(nextReport);
         clearFailure();
