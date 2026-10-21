@@ -457,7 +457,7 @@ export function CapturePanel({
           Step 2 — capture
         </p>
         <p className="mx-auto mt-3 max-w-md text-sm font-semibold text-emerald-700 md:mt-4">
-          A minimum of 30 seconds of audio will help us analyze you better.
+          Record 30 seconds or more and get yours.
         </p>
       </div>
 

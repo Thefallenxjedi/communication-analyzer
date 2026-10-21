@@ -670,11 +670,9 @@ export function FunnelApp() {
           )}
           {lead?.name && (
             <p className="mx-auto max-w-3xl px-4 pt-4 text-center text-sm font-medium text-foreground">
-              Hi {lead.name.split(" ")[0]} — let&apos;s diagnose your{" "}
-              <span className="bg-highlight px-1 font-extrabold">
-                communication
-              </span>
-              .
+              Hi {lead.name.split(" ")[0]} —{" "}
+              <span className="bg-highlight px-1 font-extrabold">1,000+</span>{" "}
+              people already have a score.
             </p>
           )}
           <CapturePanel
